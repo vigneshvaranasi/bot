@@ -85,6 +85,9 @@ support-bot-train = "support_bot.main:train"
 support-bot-replay = "support_bot.main:replay"
 support-bot-test = "support_bot.main:test"
 
+# Alias for CrewAI CLI compatibility
+run_crew = "support_bot.main:run"
+
 # Utility scripts for database management
 populate-qdrant = "support_bot.scripts.populate_qdrant:main"
 cleanup-qdrant = "support_bot.scripts.cleanup_qdrant:main"
