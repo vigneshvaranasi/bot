@@ -2,7 +2,7 @@ import os
 from crewai import Agent, LLM
 
 # Import your custom tools
-from .tools.custom_tool import CustomerSupportDataTool
+from .tools.qdrant_tool import QdrantIncidentDataTool
 from .tools.analysis_tool import IncidentAnalysisTool
 
 # Use Gemini 2.0 Flash Lite
@@ -13,7 +13,7 @@ gemini_llm = LLM(
 )
 
 # Instantiate your custom tools
-support_data_tool = CustomerSupportDataTool()
+qdrant_data_tool = QdrantIncidentDataTool()
 analysis_tool = IncidentAnalysisTool()
 
 # Agent 1: Researcher Agent
@@ -27,7 +27,7 @@ researcher_agent = Agent(
     ),
     verbose=True,
     allow_delegation=False,
-    tools=[support_data_tool],
+    tools=[qdrant_data_tool],
     llm=gemini_llm
 )
 
