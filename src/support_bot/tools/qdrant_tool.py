@@ -24,7 +24,7 @@ class QdrantIncidentDataTool(BaseTool):
         "issue types (latency, outage, carding), or any natural language query. "
         "Returns the most relevant incident information including root cause and mitigation steps.")
 
-    def __init__(self):
+    def __init__(self, use_gemini=False):
         super().__init__()
         load_dotenv()
         
@@ -35,9 +35,10 @@ class QdrantIncidentDataTool(BaseTool):
         if QDRANT_AVAILABLE and EMBEDDINGS_AVAILABLE and qdrant_url and qdrant_api_key:
             try:
                 self._client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
-                self._embedding_generator = EmbeddingGenerator()
+                self._embedding_generator = EmbeddingGenerator(prefer_gemini=use_gemini)
                 self._use_qdrant = True
-                print("Qdrant client initialized successfully")
+                embedding_type = "Gemini" if self._embedding_generator.use_gemini else "Sentence Transformers" if self._embedding_generator.use_sentence_transformers else "Simple Hash"
+                print(f"Qdrant client initialized successfully with {embedding_type} embeddings")
             except Exception as e:
                 print(f"Failed to initialize Qdrant client: {e}")
                 self._client = None
@@ -63,8 +64,11 @@ class QdrantIncidentDataTool(BaseTool):
     def _search_qdrant(self, argument: str) -> str:
         """Search using Qdrant vector database"""
         try:
-            # Generate embedding for the search query
-            query_embedding = self._embedding_generator.generate_embedding(argument)
+            # Generate embedding for the search query using RETRIEVAL_QUERY task type
+            query_embedding = self._embedding_generator.generate_embedding(
+                argument, 
+                task_type="RETRIEVAL_QUERY"
+            )
             
             if not query_embedding:
                 return f"Error: Could not generate embedding for query: '{argument}'"

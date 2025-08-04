@@ -13,7 +13,9 @@ gemini_llm = LLM(
 )
 
 # Instantiate your custom tools
-qdrant_data_tool = QdrantIncidentDataTool()
+# Check if Gemini embeddings should be used
+use_gemini_embeddings = os.getenv('USE_GEMINI_EMBEDDINGS', 'false').lower() == 'true'
+qdrant_data_tool = QdrantIncidentDataTool(use_gemini=use_gemini_embeddings)
 analysis_tool = IncidentAnalysisTool()
 
 # Agent 1: Researcher Agent
