@@ -13,8 +13,8 @@ gemini_llm = LLM(
 )
 
 # Instantiate your custom tools
-# Check if Gemini embeddings should be used
-use_gemini_embeddings = os.getenv('USE_GEMINI_EMBEDDINGS', 'false').lower() == 'true'
+# Check if Gemini embeddings should be used - default to true since we use Gemini
+use_gemini_embeddings = os.getenv('USE_GEMINI_EMBEDDINGS', 'true').lower() == 'true'
 qdrant_data_tool = QdrantIncidentDataTool(use_gemini=use_gemini_embeddings)
 analysis_tool = IncidentAnalysisTool()
 
