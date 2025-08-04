@@ -1,0 +1,512 @@
+==================================================
+Incident ID: PAYU-INC-2025-05-21-512
+==================================================
+
+Executive Summary: On 21-May-2025, a major e-commerce client reported a high volume of HTTP 499 (Client Closed Request) errors on our Create Transaction API. Our investigation confirmed that PayU's systems were operating within normal latency SLOs. The errors were traced back to the client's load balancer having a fixed timeout of 3 seconds, which was insufficient during peak processing times when third-party bank responses occasionally exceeded this threshold.
+
+Impact:
+- Summary:
+  - Approximately 152 payment initiation requests failed due to premature client-side disconnections.
+  - The client experienced a drop in successful transactions during their flash sale event.
+  - No PayU infrastructure or services were impacted.
+- Impacted Transactions:
+  - Count: 152
+  - Details: All failed requests were for the 'Create Transaction' endpoint from the client's primary integration.
+
+PSDII Reportable:
+- Status: false
+- Reason: The issue was client-side; no PayU service unavailability or data compromise occurred.
+
+Impacted Application: Client's E-commerce Backend
+
+Accountable Party:
+- Entity: Client-side Integration
+- Details: Client's internal timeout configuration was not robust enough to handle standard payment processing latency variations.
+
+Repeat Incident:
+- Status: false
+- Details: First reported instance of this issue from this client.
+
+Root Cause:
+- Client application prematurely closed HTTP connections.
+- Root cause was identified as a client-side load balancer timeout set to 3 seconds, which is below the recommended threshold for payment processing.
+
+Mitigation:
+- PayU Actions: No changes were required on the PayU platform.
+- Client Recommendations:
+  - Advised client to increase their API call timeout to a minimum of 10 seconds.
+  - Recommended implementing an exponential backoff retry mechanism for 499 errors and network-level timeouts.
+
+Timeline:
+- [14:30] - Alert triggered for a spike in non-2xx responses for a specific merchant.
+- [14:32] - Client raised a critical incident ticket reporting payment failures.
+- [14:35 - 14:55] - L2 Engineering initiated investigation, analyzing API gateway logs and Kibana dashboards.
+- [15:00] - Confirmed all 499s correlated with healthy 200s being logged milliseconds later in our application logs. Pinpointed cause as client disconnect.
+- [15:15] - Communicated findings and recommendations to the client's technical team.
+
+Problem Records:
+- Created: false
+- Reason: External/client-side issue resolved via operational guidance.
+
+==================================================
+Incident ID: PAYU-INC-2025-06-11-598
+==================================================
+
+Executive Summary: On 11-Jun-2025, a client in the travel sector reported that their refund automation system was failing. Analysis showed all their API calls to the Refund API endpoint were receiving HTTP 499 errors. Similar to a previous incident with another client, this was caused by an aggressive, newly implemented 2-second timeout in the client's cron job script, which was insufficient for the refund processing chain.
+
+Impact:
+- Summary:
+  - 48 refund requests failed to process.
+  - Client's finance team had to process refunds manually, causing operational overhead.
+  - PayU's refund service was not impacted and operated normally.
+- Impacted Transactions:
+  - Count: 48
+  - Details: All requests were for the 'Process Refund' endpoint.
+
+PSDII Reportable:
+- Status: false
+- Reason: Client-side configuration error. No PayU service was unavailable.
+
+Impacted Application: Client's Refund Automation Service
+
+Accountable Party:
+- Entity: Client-side Integration
+- Details: A recent change in the client's refund script introduced an overly aggressive timeout.
+
+Repeat Incident:
+- Status: false
+- Details: This is the first time this specific client has faced this issue.
+
+Root Cause:
+- Client-side refund script was terminating the connection before the API could respond.
+- The script's HTTP client was configured with a 2-second timeout, which is below the documented P99 latency for the Refund API.
+
+Mitigation:
+- PayU Actions: PayU systems required no action.
+- Client Recommendations:
+  - Provided client with logs showing the disconnects.
+  - Advised increasing the script's timeout to at least 8 seconds.
+  - Suggested implementing a status check mechanism if a timeout does occur.
+
+Timeline:
+- [11:05] - Client reported refund failures via support portal.
+- [11:10 - 11:30] - L1 support verified client details and checked for platform-wide alerts. Escalated to L2.
+- [11:35] - L2 engineer began analyzing Splunk logs for the client's merchant ID.
+- [11:50] - Identified the pattern of HTTP 499 errors. Cross-referenced with application logs to confirm PayU processed the requests successfully post-disconnect.
+- [12:05] - Sent a detailed report with log snippets and recommendations to the client.
+
+Problem Records:
+- Created: false
+- Reason: Client-side issue resolved via operational guidance.
+
+==================================================
+Incident ID: PAYU-INC-2025-07-19-640
+==================================================
+
+Executive Summary: On 19-Jul-2025, the same e-commerce client from incident PAYU-INC-2025-05-21-512 again reported a spike in HTTP 499 errors. The issue was identical to the previous one: their system was disconnecting prematurely. The previous recommendation to increase timeouts was only applied to a subset of their servers and had been reverted during a subsequent deployment.
+
+Impact:
+- Summary:
+  - 95 transaction requests failed.
+  - Repeated impact on client's sales and customer experience.
+  - No impact on PayU systems.
+- Impacted Transactions:
+  - Count: 95
+  - Details: Create Transaction API calls were impacted.
+
+PSDII Reportable:
+- Status: false
+- Reason: Recurring client-side configuration issue.
+
+Impacted Application: Client's E-commerce Backend
+
+Accountable Party:
+- Entity: Client-side Integration
+- Details: Client failed to permanently apply and monitor the previously recommended timeout configuration.
+
+Repeat Incident:
+- Status: true
+- Details: This is a repeat of incident PAYU-INC-2025-05-21-512 with the same client and same root cause.
+
+Root Cause:
+- Client-side timeout of 3 seconds was re-introduced after a faulty deployment on their end.
+- Lack of configuration management and monitoring on the client side.
+
+Mitigation:
+- PayU Actions: Proactively monitored the client's traffic after they confirmed the fix was reapplied.
+- Client Recommendations:
+  - Strongly reiterated the need for a 10-second minimum timeout.
+  - Advised the client to add their timeout setting to their infrastructure-as-code configuration to prevent regressions.
+  - Scheduled a follow-up call with their engineering lead to ensure understanding.
+
+Timeline:
+- [18:00] - Our automated monitor flagged a recurrence of 499s for the client.
+- [18:02] - Proactively created an incident ticket and began investigation.
+- [18:10] - Confirmed cause was identical to the previous incident. Client also reported the issue via email.
+- [18:15] - Contacted client's on-call engineer directly with findings.
+- [18:45] - Client confirmed they identified the configuration regression and redeployed the fix.
+
+Problem Records:
+- Created: false
+- Reason: While a repeat, the fault remains external. A problem record was opened on the client's side.
+
+==================================================
+Incident ID: PAYU-INC-2024-11-10-119
+==================================================
+
+Executive Summary: On 10-Nov-2024, a new Fintech client reported all their API calls were failing with HTTP 400 (Bad Request). Investigation revealed their requests were missing the mandatory 'customerEmail' field in the JSON payload for payment creation. The PayU API was correctly rejecting these malformed requests.
+
+Impact:
+- Summary:
+  - Client was unable to go live with their PayU integration as planned.
+  - Approximately 200 test transactions failed during their final checks.
+  - No impact on other clients or PayU services.
+- Impacted Transactions:
+  - Count: 200
+  - Details: All failed requests were test transactions against the 'Create Transaction' endpoint.
+
+PSDII Reportable:
+- Status: false
+- Reason: API performing as designed, rejecting invalid data. No service outage.
+
+Impacted Application: Client's Payment Module
+
+Accountable Party:
+- Entity: Client-side Integration
+- Details: Client's backend code was not constructing the API request payload according to PayU's API documentation.
+
+Repeat Incident:
+- Status: false
+- Details: First interaction with this client regarding API integration issues.
+
+Root Cause:
+- The 'customerEmail' field, which is mandatory, was absent from the client's API request payload.
+- The client's development team misinterpreted the API integration guide.
+
+Mitigation:
+- PayU Actions: No action required on PayU systems.
+- Client Recommendations:
+  - Provided the client with the exact error message from API logs: 'Field customerEmail is mandatory'.
+  - Directed them to the relevant section of the API documentation and provided a sample valid cURL request.
+
+Timeline:
+- [16:00] - Client integration manager escalated an issue from a new client reporting 'nothing is working'.
+- [16:05 - 16:20] - L1 Support obtained merchant ID and sample request attempts from the client.
+- [16:25] - L2 reviewed the API gateway logs and immediately found the HTTP 400 errors with clear validation failure messages.
+- [16:30] - The cause and solution were communicated back to the client via the integration manager.
+- [17:00] - Client confirmed they had resolved the issue on their end and could successfully create test transactions.
+
+Problem Records:
+- Created: false
+- Reason: Standard integration support; no underlying problem with the platform.
+
+==================================================
+Incident ID: PAYU-INC-2025-02-15-288
+==================================================
+
+Executive Summary: On 15-Feb-2025, a client reported that their transaction verification calls were all failing with HTTP 400 errors. Our logs showed the client was sending the 'amount' field as a string (e.g., "100.00") instead of a numeric data type (e.g., 100.00). The API's strict type validation correctly rejected the requests.
+
+Impact:
+- Summary:
+  - Client's order reconciliation system was blocked, impacting 315 transactions.
+  - Operational delay for the client's finance department.
+  - PayU API platform operated correctly by enforcing data validation.
+- Impacted Transactions:
+  - Count: 315
+  - Details: Requests to the 'Verify Payment' endpoint were impacted.
+
+PSDII Reportable:
+- Status: false
+- Reason: API functioning correctly. No service unavailability.
+
+Impacted Application: Client's Order Reconciliation Service
+
+Accountable Party:
+- Entity: Client-side Integration
+- Details: The client's system was serializing all JSON values as strings, leading to a data type mismatch.
+
+Repeat Incident:
+- Status: false
+- Details: First reported instance of this data type issue from this client.
+
+Root Cause:
+- The 'amount' field was sent as a String data type in the JSON payload.
+- The PayU API expects the 'amount' field to be a Numeric data type, causing a validation failure.
+
+Mitigation:
+- PayU Actions: No action required from PayU.
+- Client Recommendations:
+  - Sent the client the validation error message from our logs: 'Invalid data type for field amount, expected Number got String'.
+  - Advised them to review their JSON serialization logic and ensure all data types match the API specification.
+
+Timeline:
+- [12:10] - Client reports transaction verification failures via email.
+- [12:15] - Support ticket created and assigned to L2 queue.
+- [12:20 - 12:40] - L2 engineer investigates logs for the client's merchant ID, filtering for non-200 responses.
+- [12:45] - Pinpointed HTTP 400 error and identified the data type mismatch in the request body logs.
+- [12:50] - Client was updated with the precise cause and a recommendation for their development team.
+
+Problem Records:
+- Created: false
+- Reason: Client integration error resolved through support.
+
+==================================================
+Incident ID: PAYU-INC-2025-04-01-404
+==================================================
+
+Executive Summary: On 01-Apr-2025, between 11:15 and 11:45 IST, a subset of transactions experienced elevated latencies, with P99 response times peaking at 12 seconds. This led to timeouts for some clients. The root cause was identified as a temporary degradation in our primary database's read replica performance due to a long-running, unoptimized query from an internal analytics job.
+
+Impact:
+- Summary:
+  - Approximately 2,500 transactions were delayed.
+  - 3 clients reported seeing timeout errors.
+  - Internal dashboards relying on the same read replica were slow to load.
+- Impacted Transactions:
+  - Count: 2500
+  - Details: Transactions requiring post-payment data enrichment were delayed.
+
+PSDII Reportable:
+- Status: true
+- Reason: The incident constituted a degradation of a core payment service, impacting multiple participants. An internal report was filed for regulatory review.
+
+Impacted Application: PayU Core Payment Processing
+
+Accountable Party:
+- Entity: PayU Internal Analytics Platform
+- Details: An unoptimized, resource-intensive query ran against a production read replica database.
+
+Repeat Incident:
+- Status: false
+- Details: First incident of this nature caused by this specific analytics job.
+
+Root Cause:
+- A newly deployed analytics query on a production read replica consumed excessive I/O, slowing down all read operations.
+- The query was not tested for performance impact under production load.
+
+Mitigation:
+- PayU Actions:
+  - The SRE team identified and terminated the long-running query.
+  - The analytics job was disabled pending a code review and optimization.
+  - Database performance returned to normal immediately after the query was killed.
+- Client Recommendations:
+  - A post-mortem summary was shared with impacted clients, explaining the temporary latency.
+
+Timeline:
+- [11:15] - Automated alerts triggered for high P99 latency on the Transaction service.
+- [11:20] - SRE team started investigation, focusing on service dependencies.
+- [11:30] - Database monitoring tools showed high I/O wait on the primary read replica.
+- [11:42] - DBA team identified the offending query from the 'internal-reporting-user' and terminated it.
+- [11:45] - System latency returned to normal SLOs. Declared incident mitigated.
+
+Problem Records:
+- Created: true
+- Reason: An internal problem record (PRB-2025-088) was created to track the optimization of the analytics query and to review policies for running jobs on production databases.
+
+==================================================
+Incident ID: PAYU-INC-2024-12-25-180
+==================================================
+
+Executive Summary: On 25-Dec-2024, all transactions being routed through 'MegaBank India' were failing with a 'Partner Connection Error'. The issue started at 08:00 IST and lasted for 45 minutes. Investigation confirmed that PayU systems were healthy, but the external API endpoint for MegaBank was unreachable. Our systems automatically began re-routing traffic to other bank acquirers where possible.
+
+Impact:
+- Summary:
+  - An estimated 800 transactions specifically requiring MegaBank (e.g., specific net banking or card schemes) failed.
+  - Overall success rate dropped by 3% during the incident window.
+  - Transactions that could be routed to other acquirers were processed successfully with minor delay.
+- Impacted Transactions:
+  - Count: 800
+  - Details: Failures were isolated to transactions dependent on the MegaBank network.
+
+PSDII Reportable:
+- Status: false
+- Reason: The outage was caused by an external third-party provider. PayU's services remained available and demonstrated resilience through re-routing.
+
+Impacted Application: PayU Bank Acquirer Integration
+
+Accountable Party:
+- Entity: MegaBank India (Third Party)
+- Details: The bank's API endpoints were down, confirmed via their status page and our monitoring.
+
+Repeat Incident:
+- Status: false
+- Details: While minor partner blips occur, this was the first major outage from MegaBank in over a year.
+
+Root Cause:
+- Total network outage at third-party partner MegaBank India.
+- Their API endpoints were not responding to any health checks or connection attempts.
+
+Mitigation:
+- PayU Actions:
+  - Our intelligent routing system automatically de-prioritized MegaBank after detecting a high failure rate.
+  - The partner management team initiated contact with MegaBank's technical liaison.
+  - Monitoring was set up to automatically re-enable the partner once their endpoints became healthy.
+- Client Recommendations:
+  - No action was required from clients. A general service notification was posted on our status page.
+
+Timeline:
+- [08:00] - Alerts fired for 'Partner Failure Rate Exceeded' for partner 'MegaBank_IN'.
+- [08:02] - Automated routing logic disabled the MegaBank acquirer connection.
+- [08:10] - Incident commander declared a major external incident and notified partner management.
+- [08:40] - MegaBank acknowledged the issue on their official partner channel.
+- [08:45] - Our health checks detected the MegaBank API was back online. The partner was automatically re-enabled in routing.
+
+Problem Records:
+- Created: false
+- Reason: External dependency issue. The incident was logged for partner performance review.
+
+==================================================
+Incident ID: PAYU-INC-2025-03-18-350
+==================================================
+
+Executive Summary: On 18-Mar-2025, following a routine deployment of the API Gateway, a critical endpoint ('/v2/payments') began erroneously rate-limiting traffic for high-volume merchants, resulting in HTTP 429 (Too Many Requests) errors. The root cause was a misconfiguration in the deployment pipeline that applied a default, low-limit policy instead of the intended enterprise-level policy.
+
+Impact:
+- Summary:
+  - 12 enterprise clients were impacted by incorrect rate-limiting.
+  - Over 4,000 legitimate transaction requests were rejected.
+  - Client trust was impacted due to a self-inflicted production issue.
+- Impacted Transactions:
+  - Count: 4000
+  - Details: Legitimate API calls were incorrectly throttled.
+
+PSDII Reportable:
+- Status: true
+- Reason: A significant portion of payment traffic was wrongfully rejected due to an internal operational failure, constituting a major incident.
+
+Impacted Application: PayU API Gateway
+
+Accountable Party:
+- Entity: PayU DevOps Team
+- Details: A faulty deployment script applied an incorrect configuration to a production environment.
+
+Repeat Incident:
+- Status: false
+- Details: This type of configuration error has not occurred before.
+
+Root Cause:
+- A bug in a CI/CD deployment script caused it to ignore environment-specific variables.
+- As a result, a default rate-limiting policy (100 RPM) was applied to an endpoint that should have had a 10,000 RPM policy.
+
+Mitigation:
+- PayU Actions:
+  - The faulty deployment was immediately rolled back using the CI/CD pipeline.
+  - Service was restored to normal within 5 minutes of rollback initiation.
+  - A moratorium was placed on API Gateway deployments pending a fix.
+- Client Recommendations:
+  - An apology and root cause analysis were shared with all impacted clients.
+
+Timeline:
+- [15:00] - API Gateway deployment v2.5.1 completed.
+- [15:02] - Multiple alerts triggered for 'HTTP 429 Response Spike'.
+- [15:03] - Multiple clients began reporting 'Too Many Requests' errors.
+- [15:05] - On-call engineer correlated the spike with the recent deployment and initiated an immediate rollback.
+- [15:10] - Rollback to v2.5.0 completed. Monitoring confirmed HTTP 429 errors ceased. Incident mitigated.
+
+Problem Records:
+- Created: true
+- Reason: Problem record PRB-2025-055 was created to address the CI/CD script bug and add pre-flight validation checks for configuration deployments.
+
+==================================================
+Incident ID: PAYU-INC-2025-07-02-610
+==================================================
+
+Executive Summary: On 02-Jul-2025, our security systems detected a large-scale carding attack originating from a distributed botnet. The Web Application Firewall (WAF) correctly engaged, blocking and rate-limiting thousands of fraudulent requests per minute. However, the aggressive rules inadvertently impacted three legitimate clients who were routing traffic through a shared public cloud proxy IP that was also being used by the botnet.
+
+Impact:
+- Summary:
+  - Three clients experienced intermittent HTTP 403 (Forbidden) errors for a period of 2 hours.
+  - An estimated 50-100 legitimate transactions were blocked.
+  - Security systems successfully prevented any fraudulent transactions from being processed.
+- Impacted Transactions:
+  - Count: 100
+  - Details: Legitimate transactions were blocked as collateral damage from security measures.
+
+PSDII Reportable:
+- Status: false
+- Reason: The system behaved as designed to protect against a security threat. The impact on legitimate traffic was minimal and rectified quickly.
+
+Impacted Application: PayU Security Infrastructure (WAF)
+
+Accountable Party:
+- Entity: External Attackers
+- Details: The incident was triggered by a malicious carding attack. The impact to legitimate clients was an unintended consequence of the defensive measures.
+
+Repeat Incident:
+- Status: false
+- Details: While attacks are common, this specific pattern of collateral damage is rare.
+
+Root Cause:
+- A large-scale, distributed carding attack forced automated security rules to block offending IP ranges.
+- A few legitimate clients were using a shared IP address that was part of the blocked range, causing them to be flagged as malicious.
+
+Mitigation:
+- PayU Actions:
+  - The Security Operations Center (SOC) analyzed the traffic and identified the impacted clients.
+  - The static IP addresses of the legitimate clients were added to a WAF allow-list as a temporary fix.
+  - The blocking rule was refined to be more specific to the attacker's signature, reducing the chance of false positives.
+- Client Recommendations:
+  - Contacted impacted clients to explain the situation.
+  - Recommended they use a dedicated static IP for their API traffic to prevent future issues with shared proxies.
+
+Timeline:
+- [02:00] - SOC alert: 'Potential Carding Attack Detected'.
+- [02:05] - WAF automatically enabled aggressive blocking rules based on source IP and request velocity.
+- [02:30] - One of the impacted clients reported receiving 403 errors.
+- [02:45 - 03:30] - SOC investigated the client's traffic, confirmed it was a false positive, and identified their shared IP.
+- [03:45] - Client's IP was added to an allow-list, resolving their issue. Rules were refined.
+
+Problem Records:
+- Created: true
+- Reason: Problem record PRB-2025-130 was created to explore more sophisticated client identification methods beyond IP addresses to reduce false positives during attacks.
+
+==================================================
+Incident ID: PAYU-INC-2024-10-05-099
+==================================================
+
+Executive Summary: On 05-Oct-2024, the service responsible for generating merchant settlement reports failed to run. This was caused by the expiration of an internal, non-federated service account password used by the reporting scheduler to access the data warehouse. The password had not been rotated as per the quarterly schedule.
+
+Impact:
+- Summary:
+  - Daily settlement reports for all merchants were not generated.
+  - Increased support ticket volume from merchants inquiring about their missing reports.
+  - No impact on payment processing or other real-time services.
+- Impacted Transactions:
+  - Count: 0
+  - Details: No transactional data was lost, but the generation of summary reports was impacted.
+
+PSDII Reportable:
+- Status: false
+- Reason: The incident impacted an ancillary, non-payment service (reporting). Core payment services were unaffected.
+
+Impacted Application: PayU Merchant Reporting Service
+
+Accountable Party:
+- Entity: PayU Platform Operations
+- Details: Operational oversight led to a failure to rotate a service account credential before its expiration.
+
+Repeat Incident:
+- Status: false
+- Details: First instance of this specific password expiration issue.
+
+Root Cause:
+- The password for the 'svc_reportgen' service account expired.
+- The service account was not included in the automated password rotation and monitoring system.
+
+Mitigation:
+- PayU Actions:
+  - The password for the service account was manually reset and updated in the scheduler's configuration.
+  - The settlement report generation job was manually re-triggered for the missed day.
+  - All reports were successfully generated and distributed by 13:00 IST.
+- Client Recommendations:
+  - A notification was sent to merchants acknowledging the delay and confirming the resolution.
+
+Timeline:
+- [09:00] - Automated check confirms that settlement reports for the previous day were not present in the distribution bucket.
+- [09:15] - On-call engineer for the Data team begins investigating the reporting service logs.
+- [09:45] - Logs reveal 'Authentication Failed' and 'Invalid Credentials' errors when connecting to the data warehouse.
+- [10:00] - The 'svc_reportgen' account is identified as the source. Its password expiration date is confirmed to have passed.
+- [10:30] - Password is rotated and the configuration is updated. The job is re-triggered.
+
+Problem Records:
+- Created: true
+- Reason: Problem record PRB-2024-211 created to ensure all internal service accounts are onboarded to the automated credential management and monitoring platform.
