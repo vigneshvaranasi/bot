@@ -41,6 +41,10 @@ dependencies = [
     "colorama>=0.4.6",  # For colored terminal output
     "rich>=13.0.0",     # For rich console output
     "click>=8.0.0",     # For CLI improvements
+
+    # API service dependencies
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0"
 ]
 
 [project.optional-dependencies]
@@ -96,6 +100,8 @@ test-gemini-api = "support_bot.scripts.test_gemini_api:main"
 
 # Development and maintenance scripts
 analyze-incidents = "support_bot.scripts.analyze_incidents:main"
+
+# API service script
 
 [build-system]
 requires = ["hatchling"]

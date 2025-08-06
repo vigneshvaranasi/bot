@@ -1,11 +1,9 @@
 import { Outlet } from 'react-router'
-import Navbar from '../components/Navbar'
 
 function Layout () {
 
   return (
-      <div className=''>
-        <Navbar />
+      <div className={`flex flex-col justify-start max-h-screen`}>
         <Outlet />
       </div>
   )

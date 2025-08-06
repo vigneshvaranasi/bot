@@ -1,8 +1,6 @@
-import React from 'react'
-
 const ProtectedPage = () => {
   return (
-    <div>Protected.page</div>
+    <div>Protected Page</div>
   )
 }
 

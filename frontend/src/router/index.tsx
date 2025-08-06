@@ -1,16 +1,20 @@
 import type { RouteObject } from 'react-router'
 import Layout from './Layout'
 import HomePage from '../pages/Home.page'
+import ChatPage from '../pages/Chat.page'
 const normalRoutes: RouteObject = {
   path: '/',
   element: <Layout />,
   children: [
     {
-      path: '/',
+      path: '/home',
       element: <HomePage />
+    },
+    {
+        path:'/',
+        element: <ChatPage />
     }
   ]
-
 }
 
 
