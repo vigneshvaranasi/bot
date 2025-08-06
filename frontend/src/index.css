@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+body {
+  color: #121212;
+  background-color: var(--color-bggrey);
+}
+
+@theme {
+  --color-bggrey: #EAEDEF;
+}

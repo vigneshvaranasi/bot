@@ -6,15 +6,15 @@ def run():
     Run the crew.
     """
     # Ask user for input
-    print("="*60)
-    print("SUPPORT BOT - INCIDENT ANALYSIS SYSTEM")
-    print("="*60)
-    print("\nSearch for similar incidents by entering keywords such as:")
-    print("• HTTP error codes (499, 400, 429, etc.)")
-    print("• Issue types (timeout, latency, outage, etc.)")
-    print("• Specific problems (carding attack, rate limit, etc.)")
-    print("• General terms (performance, authentication, etc.)")
-    print("\nExamples: 'HTTP 499', 'timeout', 'latency issue', 'carding attack'")
+    # print("="*60)
+    # print("SUPPORT BOT - INCIDENT ANALYSIS SYSTEM")
+    # print("="*60)
+    # print("\nSearch for similar incidents by entering keywords such as:")
+    # print("• HTTP error codes (499, 400, 429, etc.)")
+    # print("• Issue types (timeout, latency, outage, etc.)")
+    # print("• Specific problems (carding attack, rate limit, etc.)")
+    # print("• General terms (performance, authentication, etc.)")
+    # print("\nExamples: 'HTTP 499', 'timeout', 'latency issue', 'carding attack'")
     print("-" * 60)
     
     # Get user input
