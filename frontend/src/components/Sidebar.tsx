@@ -1,7 +1,7 @@
 import gearIcon from '../assets/Settings.svg'
 import { useSidebarContext } from '../hooks/useSidebarContext'
 import sidebarImg from '../assets/sidebar.svg'
-import newChatImg from '../assets/newChat.svg'
+import { Link } from 'react-router-dom'
 
 const pastChats = [
   {
@@ -90,12 +90,20 @@ const pastChats = [
   }
 ]
 
+
+
 function Sidebar () {
-  const { isSidebarOpen, setSidebarOpen } = useSidebarContext()
+  const { isSidebarOpen, setSidebarOpen } = useSidebarContext();
+
+  const handleLinkClick = () =>{
+  if(window.innerWidth<768){
+    setSidebarOpen(false);
+  }
+}
   return (
     <div
       className={`left-0 top-0 z-[1000] h-screen bg-gray-50 flex flex-col transition-all duration-300 overflow-hidden ${
-        isSidebarOpen ? 'w-72' : 'w-12'
+        isSidebarOpen ? 'w-full md:w-72' : 'w-0 md:w-12'
       }`}
     >
       {isSidebarOpen ? (
@@ -116,29 +124,37 @@ function Sidebar () {
               <img src={sidebarImg} alt='Close Sidebar' className='w-6 h-6' />
             </button>
           </div>
-          <div className='mx-3 mt-2 flex items-center p-2 gap-2 rounded-lg hover:bg-gray-200'>
-            <img src={newChatImg} alt='New Chat' className='w-5' />
+          <Link 
+            onClick={() => handleLinkClick()}
+            to={"/"} 
+            className='mx-3 mt-2 flex items-center p-1.5 gap-2 rounded-lg hover:bg-gray-200'>
+            <p className='pb-1 text-2xl'>+</p>
             <button
               className='font-medium '
-              onClick={() => console.log('New chat clicked')}
+              onClick={() => handleLinkClick()}
             >
               New Chat
             </button>
-          </div>
+          </Link>
           <div className='flex-1 overflow-y-auto p-4'>
             {pastChats.length === 0 ? (
               <div className='text-gray-400 text-center mt-8'>
                 No chats found.
               </div>
             ) : (
-              <ul className='space-y-4'>
+              <div className='space-y-1'>
                 {pastChats.map(chat => (
-                  <li key={chat.id} className=''>
+                  <Link  
+                    key={chat.id}
+                    className='hover:bg-gray-200 block p-2 rounded-md' 
+                    to={`/${chat.id}`}
+                    onClick={handleLinkClick}
+                    >
                     <div className='text-xs text-[#5c5c5c]'>{chat.date}</div>
                     <div className='font-medium text-base'>{chat.title}</div>
-                  </li>
+                  </Link>
                 ))}
-              </ul>
+              </div>
             )}
           </div>
           <div className='flex bg-[#eaedef] m-4 p-2 rounded-lg items-center justify-between'>
@@ -161,12 +177,13 @@ function Sidebar () {
           >
             <img src={sidebarImg} alt='Close Sidebar' className='w-6' />
           </button>
-          <button
+          <Link
+            to={"/"}
             className='p-2 rounded-md hover:bg-gray-200'
             onClick={() => console.log('New chat clicked')}
           >
-            <img src={newChatImg} alt='New Chat' className='w-6' />
-          </button>
+            <p className='text-3xl'>+</p>
+          </Link>
         </div>
       )}
     </div>
