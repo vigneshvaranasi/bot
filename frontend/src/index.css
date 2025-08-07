@@ -15,17 +15,17 @@ body {
 
 .markdown-body h1 {
   font-size: 1.5rem;
-  font-weight: bold;
+  font-weight: 600;
   margin-bottom: 0.5rem;
 }
 .markdown-body h2 {
   font-size: 1.25rem;
-  font-weight: semi-bold;
+  font-weight: 600;
   margin-bottom: 0.4rem;
 }
 .markdown-body h3 {
   font-size: 1.125rem;
-  font-weight: semi-bold;
+  font-weight: 600;
   margin-bottom: 0.3rem;
 }
 
