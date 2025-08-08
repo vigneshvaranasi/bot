@@ -48,7 +48,7 @@ from support_bot.crew import support_crew
 
 # Define your query
 inputs = {
-    'data_query': 'HTTP 499 timeout errors'
+    'user_prompt': 'HTTP 499 timeout errors'
 }
 
 # Run the analysis
@@ -118,7 +118,7 @@ The system generates a comprehensive report with:
    from support_bot.main import run
    
    # Modify the inputs in main.py or call directly
-   inputs = {'data_query': 'your query here'}
+   inputs = {'user_prompt': 'your query here'}
    result = support_crew.kickoff(inputs=inputs)
    ```
 

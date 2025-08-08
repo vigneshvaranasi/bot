@@ -14,7 +14,7 @@ def run_analysis(query: str):
     print(f"{'='*80}")
     
     inputs = {
-        'data_query': query
+        'user_prompt': query
     }
     
     try:
