@@ -38,7 +38,7 @@ class QdrantIncidentDataTool(BaseTool):
                 self._embedding_generator = EmbeddingGenerator(prefer_gemini=use_gemini)
                 self._use_qdrant = True
                 embedding_type = "Gemini" if self._embedding_generator.use_gemini else "Sentence Transformers" if self._embedding_generator.use_sentence_transformers else "Simple Hash"
-                print(f"Qdrant client initialized successfully with {embedding_type} embeddings")
+                # print(f"Qdrant client initialized successfully with {embedding_type} embeddings")
             except Exception as e:
                 print(f"Failed to initialize Qdrant client: {e}")
                 self._client = None
