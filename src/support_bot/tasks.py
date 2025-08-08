@@ -1,5 +1,5 @@
 from crewai import Task
-from .agents import researcher_agent, synthesizer_agent, expert_writer_agent
+from .agents import researcher_agent, synthesizer_agent, expert_writer_agent, user_query_responder_agent
 
 # Task 1: Research historical incidents
 research_task = Task(
@@ -87,4 +87,64 @@ report_task = Task(
     ),
     agent=expert_writer_agent,
     context=[research_task, synthesis_task]
+)
+
+# Task 4: User Query Response
+user_query_response_task = Task(
+    description=(
+        """Answer the user's query (`data_query`) using **only** the content from the incident analysis report written by the Expert Writer Agent.
+
+Your response must be **clear, concise, and strictly formatted in Markdown**.
+
+---
+
+### INTENT DETECTION:
+
+- **If the user asks for a solution** → Provide:
+  - `Solution Strategy`
+  - `Monitoring and Validation`
+
+- **If the user asks for a cause or explanation** → Provide:
+  - `Root Cause Analysis`
+
+- **If the exact incident is found**:
+  - Mention the matched incident title.
+  - Return only the relevant section(s) based on user intent.
+
+- **If the incident is not found**:
+  - State: "This issue is not available in the current knowledge base."
+  - Retrieve and summarize 2-3 similar incidents based on:
+    - API name or error type (e.g., HTTP 499, timeout).
+    - Client-side vs server-side nature.
+    - Similar symptoms or misconfigurations.
+  - For each incident, provide:
+    - Title.
+    - 1-2 sentence summary.
+  - If a solution or cause is requested, adapt and provide that section from the closest match.
+
+- **If the query is unrelated to incidents**:
+  - Respond politely: "This system is designed only to handle incident-related queries."
+
+---
+
+### RESPONSE GUIDELINES:
+
+- Use a **friendly and helpful tone**.
+- Avoid mentioning the report or system behavior.
+- Minimize technical jargon unless necessary.
+- Format responses in **Markdown**:
+  - Use bold headers, bullet points, and spacing for readability.
+"""
+    ),
+    expected_output=(
+        """A markdown-formatted response that includes:
+- Relevant sections based on query intent (Solution Strategy, Monitoring and Validation, or Root Cause Analysis).
+- A matched incident notice, if found.
+- If no match, 2-3 closest related incidents (title + short summary).
+- Adapted solution or cause from the best match if requested.
+- A polite response if the query is out of scope.
+- Clean, helpful Markdown formatting."""
+    ),
+    agent=user_query_responder_agent,
+    context=[report_task]
 )

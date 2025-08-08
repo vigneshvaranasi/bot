@@ -44,7 +44,11 @@ dependencies = [
 
     # API service dependencies
     "fastapi>=0.110.0",
-    "uvicorn[standard]>=0.29.0"
+    "uvicorn[standard]>=0.29.0",
+
+    # PII detection
+    "presidio-analyzer",
+    "presidio-anonymizer"
 ]
 
 [project.optional-dependencies]

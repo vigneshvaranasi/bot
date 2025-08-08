@@ -10,9 +10,9 @@ type BubbleProps = {
 const Bubble = ({ variant = "bot", content }: BubbleProps) => {
   const variantClasses = {
     bot: "border-none bg-transparent",
-    user: "order border-blue-500 bg-[#1985f9] text-white max-w-3/4",
+    user: "order border-gray-300 bg-bubblegray max-w-3/4",
   };
-  const defaultClass = "border border-gray-300";
+  const defaultClass = "border border-gray-300 text-gray-900";
   const [renderedContent, setRenderedContent] = useState("");
 
   useEffect(() => {
