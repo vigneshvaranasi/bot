@@ -12,7 +12,11 @@ const ChatView = () => {
             <Bubble variant='bot' content='Hello, how can I help you today?' />
             <Bubble
               variant='user'
-              content='I am getting a status code 499 when connecting to PayU Service, how to solve it?'
+              content='I am getting a status code 499 when connecting to PayU Service, how to solve it?
+              I am getting a status code 499 when connecting to PayU Service, how to solve it?
+              I am getting a status code 499 when connecting to PayU Service, how to solve it?
+              I am getting a status code 499 when connecting to PayU Service, how to solve it?
+              I am getting a status code 499 when connecting to PayU Service, how to solve it?'
             />
             <Bubble variant='bot' content='## INCIDENT ANALYSIS REPORT' />
             <Bubble variant='bot' content='## INCIDENT ANALYSIS REPORT' />

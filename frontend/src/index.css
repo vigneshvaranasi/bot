@@ -2,14 +2,17 @@
 
 
 body {
-  color: #121212;
-  background-color: var(--color-bggrey);
+  color: var(--color-appblack);
+  background-color: var(--color-appgray);
   height: 100%;
   width: 100%;
 }
 
 @theme {
-  --color-bggrey: #EAEDEF;
+  --color-appgray: #f9fafb;
+  --color-appblack: #121212;
+  --color-bubblegray: #f1f1f1;
+  --color-bubbleblue: #1985f9;
 }
 
 
