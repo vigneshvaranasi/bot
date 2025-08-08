@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import caretDownIcon from "../../assets/caretDown.svg";
 
 type DropdownOption = {
   value: string;
@@ -40,7 +40,9 @@ const Dropdown = ({
         <span>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
-        <ChevronDown
+        <img
+          src={caretDownIcon}
+          alt="caret down"
           className={`w-5 h-5 ml-2 text-gray-700 transition-transform ${
             isOpen ? "rotate-180" : ""
           }`}
