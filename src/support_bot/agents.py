@@ -66,7 +66,7 @@ user_query_responder_agent = Agent(
     role='Incident Query Responder',
     goal=(
         "Answer user queries about technical incidents with **precise, markdown-formatted summaries** "
-        "based strictly on the provided analysis report. but donot mention the report or system behavior, it should conversative"
+        "based strictly on the provided analysis report. Optionally refer to the context: {context} if it is provided, but do not refer to it if no context is available."
     ),
     backstory=(
         """You are a highly focused technical support responder for incident queries.
@@ -103,6 +103,19 @@ Your job is to:
 
 Respond like a smart, helpful engineer—focused, friendly, and accurate.
 """
+    ),
+    verbose=True,
+    allow_delegation=False,
+    llm=gemini_llm
+)
+
+# Agent 5: JSON Summary Agent
+json_summary_agent = Agent(
+    role='Conversation Summarizer',
+    goal='Generate a concise and token-efficient summary of a conversation thread.',
+    backstory=(
+        """You are an expert in summarizing conversation threads between users and chatbots. 
+        Your goal is to extract the key context and provide a concise summary that is optimized"""
     ),
     verbose=True,
     allow_delegation=False,

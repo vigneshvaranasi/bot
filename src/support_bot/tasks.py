@@ -1,17 +1,17 @@
 from crewai import Task
-from .agents import researcher_agent, synthesizer_agent, expert_writer_agent, user_query_responder_agent
+from .agents import researcher_agent, synthesizer_agent, expert_writer_agent, user_query_responder_agent, json_summary_agent
 
 # Task 1: Research historical incidents
 research_task = Task(
     description=(
-        """Use the Customer Support Data Fetcher tool to retrieve historical incident data based on the provided data_query.
+        """Use the Customer Support Data Fetcher tool to retrieve historical incident data based on the provided user_prompt.
         Search for incidents that are similar or related to the query terms. Analyze the retrieved incidents to identify:
         - The most relevant/similar historical incident(s)
         - Common patterns and root causes
         - Previous resolution approaches that were successful
         - Any recurring themes or issues
         
-        Query to search: {data_query}"""
+        Query to search: {user_prompt}"""
     ),
     expected_output=(
         """A detailed analysis report containing:
@@ -92,8 +92,7 @@ report_task = Task(
 # Task 4: User Query Response
 user_query_response_task = Task(
     description=(
-        """Answer the user's query (`data_query`) using **only** the content from the incident analysis report written by the Expert Writer Agent.
-
+        """Answer the user's query: user_prompt using **only** the content from the incident analysis report written by the Expert Writer Agent. Optionally refer to the context {context} if the user's prompt {user_prompt} is referring to it. If no context is provided, do not refer to it.
 Your response must be **clear, concise, and strictly formatted in Markdown**.
 
 ---
@@ -147,4 +146,25 @@ Your response must be **clear, concise, and strictly formatted in Markdown**.
     ),
     agent=user_query_responder_agent,
     context=[report_task]
+)
+
+# Task 5: JSON Summary Generation
+json_summary_task = Task(
+    description=(
+        """Process a JSON thread of conversations between a user and a chatbot. Extract the key context and generate a concise summary that is optimized for token usage.
+        The summary should:
+        - Capture the main intent of the user.
+        - Highlight key responses from the chatbot.
+        - Provide a clear and economical context for further processing.
+        
+        Input: {conversation_json}
+        """
+    ),
+    expected_output=(
+        """A concise text summary of the conversation thread, capturing:
+        - User's main intent.
+        - Key chatbot responses.
+        - Overall context in an economical format."""
+    ),
+    agent=json_summary_agent
 )

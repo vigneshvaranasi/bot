@@ -15,7 +15,7 @@ def run():
     
     # Prompt passed to crew
     inputs = {
-        'data_query': user_query
+        'user_prompt': user_query
     }
     
     # Kick off Crew
