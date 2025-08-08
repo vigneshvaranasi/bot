@@ -1,7 +1,10 @@
 import gearIcon from '../assets/Settings.svg'
 import { useSidebarContext } from '../hooks/useSidebarContext'
 import sidebarImg from '../assets/sidebar.svg'
+import searchIcon from '../assets/SearchIcon.svg'
 import { Link } from 'react-router-dom'
+import InputBox from './ui/InputBox'
+import { useState } from 'react'
 
 const pastChats = [
   {
@@ -94,6 +97,7 @@ const pastChats = [
 
 function Sidebar () {
   const { isSidebarOpen, setSidebarOpen } = useSidebarContext();
+  const [searchInput,setSearchInput] = useState('');
 
   const handleLinkClick = () =>{
   if(window.innerWidth<768){
@@ -111,10 +115,16 @@ function Sidebar () {
           <div className='flex items-center justify-between pt-2 px-4'>
             {/* Implement Search Box to search the past chats */}
             <div className='relative'>
-              <input
-                type='text'
+              <InputBox
                 placeholder='Search...'
-                className='border-b border-gray-300 rounded-md py-2 px-3 w-full foucus:outline-none focus:ring-0 '
+                variant='primary'
+                onChange={(value) => {setSearchInput(value);
+                  console.log('value: ', value);
+                }}
+                value={searchInput}
+                icon={searchIcon}
+                backgroundColor='f9fafb'
+
               />
             </div>
             <button
