@@ -1,51 +1,56 @@
-import React from "react";
-import { FiSearch } from "react-icons/fi";
+import React from 'react'
 
 type InputBoxProps = {
-  value: string;
-  placeholder?: string;
-  onChange: (value: string) => void;
-  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-  showIcon?: boolean;
-  className?: string;
-  variant?: "chat" | "sidebar";
-};
+  value: string
+  placeholder?: string
+  onChange: (value: string) => void
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  icon?: string | React.ReactNode
+  className?: string
+  variant: 'primary'
+  backgroundColor?: string
+}
 
-const variantClasses: Record<"chat" | "sidebar", string> = {
-  chat: "border border-gray-300 bg-white",
-  sidebar: "border-none bg-gray-100 text-sm",
-};
+const variantClasses: Record<'primary', string> = {
+  primary: 'border-b border-gray-300'
+}
 
 const InputBox = ({
   value,
-  placeholder = "",
+  placeholder = '',
   onChange,
   onKeyDown,
-  showIcon = false,
-  className = "",
-  variant = "chat",
+  icon,
+  className = '',
+  variant = 'primary',
+  backgroundColor = 'fff'
 }: InputBoxProps) => {
-  const variantClass = variantClasses[variant];
+  const variantClass = variantClasses[variant]
 
   return (
     <div className={`relative w-full ${className}`}>
-      {showIcon && (
-        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-          <FiSearch />
+      {icon && (
+        <div className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-500'>
+          {typeof icon === 'string' ? (
+            <img src={icon} className='w-4' alt='' />
+          ) : (
+            icon
+          )}
         </div>
       )}
       <input
-        type="text"
+        type='text'
         value={value}
         placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={e => onChange(e.target.value)}
         onKeyDown={onKeyDown}
-        className={`w-full px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${
-          showIcon ? "pl-10" : ""
+        className={`w-full px-2 py-2 focus:outline-none transition ${
+          icon ? 'pl-10' : ''
         } ${variantClass}`}
+        style={{ backgroundColor: `#${backgroundColor}` }}
       />
     </div>
-  );
-};
+  )
+}
 
-export default InputBox;
+export default InputBox
