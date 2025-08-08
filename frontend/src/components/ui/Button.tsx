@@ -31,7 +31,7 @@ export const Button: React.FC<ButtonProps> = ({
     <button
       type={type}
       onClick={onClick}
-      className={`${baseClasses} ${variantClasses[variant]} rounded-${rounded} ${className}`}
+      className={`${baseClasses} ${variantClasses[variant]} rounded-${rounded} ${className} cursor-pointer`}
     >
       {children}
     </button>

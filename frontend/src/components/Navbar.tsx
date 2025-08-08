@@ -12,7 +12,7 @@ const Navbar = () => {
         onClick={() => setSidebarOpen(!isSidebarOpen)}
       />
       <div className='absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0'>
-        <div className='text-lg'>Logo</div>
+        <div className='text-lg'>Support Bot</div>
       </div>
       <Link
         to={'/'}
