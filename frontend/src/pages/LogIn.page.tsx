@@ -13,26 +13,17 @@ function Login() {
     password: "",
   });
   const navigate = useNavigate();
-  const { setUser, setLoading, setIsLoggedIn, loading } = useAuthContext();
+  const { login, loading } = useAuthContext();
   const handleLogin = async () => {
-    console.log("User Data:", userData);
-    setLoading(true);
     const { email, password } = userData;
     const loginData = await loginHandler(email, password);
-    console.log("loginData: ", loginData);
     if (loginData.success) {
-      setLoading(false);
-      setUser({
+      login({
         email: loginData.email,
         role_id: loginData.role_id,
-        token: loginData.jwt,
-      });
-      setIsLoggedIn(true);
-      localStorage.setItem("token", loginData.jwt);
+      }, loginData.jwt);
       navigate("/");
-    }
-    else {
-      setLoading(false);
+    } else {
       console.error("Login failed:", loginData.message);
     }
   };

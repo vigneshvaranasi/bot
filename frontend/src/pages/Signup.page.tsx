@@ -21,10 +21,9 @@ function Signup() {
 
   const [allRoles, setAllRoles] = useState<RolesDropDown>([]);
 
-  const { setUser, setLoading, setIsLoggedIn, loading } = useAuthContext();
+  const { login, loading } = useAuthContext();
 
   useEffect(() => {
-    setLoading(true);
     const fetchRoles = async () => {
       try {
         const roles = await getAllRolesHandler();
@@ -37,7 +36,6 @@ function Signup() {
       } catch (error) {
         console.error("Error fetching roles:", error);
       }
-      setLoading(false);
     };
     fetchRoles();
   }, []);
@@ -51,23 +49,15 @@ function Signup() {
   }
 
   const handleSignup = async () => {
-    console.log("User Data:", userData);
-    setLoading(true);
     const { email, password, role_id } = userData;
     const signUpData = await signUpHandler(email, password, role_id);
-    if(signUpData.success){
-      setLoading(false);
-       setUser({ 
+    if (signUpData.success) {
+      login({
         email: signUpData.email,
         role_id: signUpData.role_id,
-        token: signUpData.jwt
-      });
-      setIsLoggedIn(true);
-      localStorage.setItem("token", signUpData.jwt);
+      }, signUpData.jwt);
       navigate("/");
-    }
-    else {
-      setLoading(false);
+    } else {
       console.error("Signup failed:", signUpData.message);
     }
     if (signUpData) {
