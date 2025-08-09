@@ -27,34 +27,32 @@ dependencies = [
     "sentence-transformers>=2.2.0",
     "transformers>=4.36.0",
     "torch>=2.0.0",
-    
     # Vector database and data processing
     "qdrant-client>=1.7.0",
     "numpy>=1.24.0",
-    
     # Utilities and configuration
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
     "requests>=2.31.0",
-    
     # Optional dependencies for enhanced functionality
-    "colorama>=0.4.6",  # For colored terminal output
-    "rich>=13.0.0",     # For rich console output
-    "click>=8.0.0",     # For CLI improvements
-
+    "colorama>=0.4.6", # For colored terminal output
+    "rich>=13.0.0", # For rich console output
+    "click>=8.0.0", # For CLI improvements
     # API service dependencies
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.29.0",
-
     # PII detection
     "presidio-analyzer",
     "presidio-anonymizer",
-
     # Database integration
     "sqlalchemy[asyncio]>=1.4.0",
     "asyncpg>=0.27.0",
     "psycopg2-binary>=2.9.0",
     "alembic>=1.11.0",
+    "python-jose[cryptography]>=3.5.0",
+    "passlib[bcrypt]>=1.7.4",
+    "python-multipart>=0.0.20",
+    "email-validator>=2.2.0",
 ]
 
 [project.optional-dependencies]
