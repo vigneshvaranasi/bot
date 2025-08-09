@@ -2,14 +2,14 @@ import { Link } from 'react-router-dom'
 import hamburger from '../assets/hamburger.svg'
 import { useSidebarContext } from '../hooks/useSidebarContext'
 const Navbar = () => {
-  const { isSidebarOpen, setSidebarOpen } = useSidebarContext()
+  const { isSidebarOpen, toggleSidebar } = useSidebarContext()
   return (
     <div className='relative flex items-center justify-between p-3 bg-gray-50 md:justify-start md:gap-4'>
       <img
         src={hamburger}
         className={`${isSidebarOpen ? 'hidden' : 'w-6 md:hidden'}`}
         alt='menu'
-        onClick={() => setSidebarOpen(!isSidebarOpen)}
+        onClick={() => toggleSidebar()}
       />
       <div className='absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0'>
         <div className='text-lg'>Support Bot</div>

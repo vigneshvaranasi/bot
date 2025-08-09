@@ -9,6 +9,8 @@ interface ButtonProps {
   className?: string;
   type?: 'button' | 'submit' | 'reset';
   rounded?: 'full' | 'md' | 'none';
+  disabled?: boolean;
+  ref?: React.Ref<HTMLButtonElement>;
 };
 
 export const Button: React.FC<ButtonProps> = ({
@@ -18,6 +20,8 @@ export const Button: React.FC<ButtonProps> = ({
   className = '',
   type = 'button',
   rounded = 'md',
+  disabled = false,
+  ref
 }) => {
   const baseClasses = 'font-semibold py-2 px-6 transition-colors duration-200';
 
@@ -29,8 +33,10 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <button
+      ref={ref}
       type={type}
       onClick={onClick}
+      disabled={disabled}
       className={`${baseClasses} ${variantClasses[variant]} rounded-${rounded} ${className} cursor-pointer`}
     >
       {children}
