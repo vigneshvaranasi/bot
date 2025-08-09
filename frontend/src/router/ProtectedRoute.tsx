@@ -1,13 +1,20 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuthContext } from "../hooks/useAuthContext";
 
 const ProtectedRoute = () => {
-  const isAuthenticated = false;
+  const { isLoggedIn, loading } = useAuthContext();
+  if (loading) {
+    return (
+      <div className="flex text-3xl justify-center items-center h-screen">
+        Authenticating...
+      </div>
+    );
+  }
 
-  return isAuthenticated ? (
-    <div>ProtectedRoute</div>
-  ) : (
-    <Navigate to="/" />
-  );
+  if (!loading && !isLoggedIn) {
+    return <Navigate to="/login" replace />;
+  }
+  return <Outlet />;
 };
 
-export default ProtectedRoute
+export default ProtectedRoute;
