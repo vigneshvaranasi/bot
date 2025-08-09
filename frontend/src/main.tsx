@@ -3,11 +3,14 @@ import "./index.css";
 import App from "./App.tsx";
 import { BrowserRouter } from "react-router-dom";
 import { SidebarProvider } from "./store/SidebarContext.tsx";
+import AuthProvider from "./store/AuthProvider.tsx";
 
 createRoot(document.getElementById("root")!).render(
+  <AuthProvider>
     <BrowserRouter>
-        <SidebarProvider>
-            <App />
-        </SidebarProvider>
+      <SidebarProvider>
+        <App />
+      </SidebarProvider>
     </BrowserRouter>
+  </AuthProvider>
 );
