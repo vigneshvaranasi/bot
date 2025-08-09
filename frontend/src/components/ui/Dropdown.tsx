@@ -10,7 +10,7 @@ type DropdownProps = {
   options: DropdownOption[];
   value?: string;
   placeholder?: string;
-  onChange?: (value: string) => void;
+  onChange: (value: any) => void
 };
 
 const Dropdown = ({
@@ -28,7 +28,7 @@ const Dropdown = ({
   };
 
   return (
-    <div className="relative inline-block w-[170px]">
+    <div className="relative inline-block">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}

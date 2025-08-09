@@ -3,12 +3,13 @@ import React from 'react'
 type InputBoxProps = {
   value: string
   placeholder?: string
-  onChange: (value: string) => void
+  onChange: (value: any) => void
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
   icon?: string | React.ReactNode
   className?: string
   variant: 'primary'
   backgroundColor?: string
+  type?: 'text' | 'password' | 'email' | 'number'
 }
 
 const variantClasses: Record<'primary', string> = {
@@ -23,7 +24,8 @@ const InputBox = ({
   icon,
   className = '',
   variant = 'primary',
-  backgroundColor = 'fff'
+  backgroundColor = 'fff',
+  type = 'text'
 }: InputBoxProps) => {
   const variantClass = variantClasses[variant]
 
@@ -39,7 +41,7 @@ const InputBox = ({
         </div>
       )}
       <input
-        type='text'
+        type={type}
         value={value}
         placeholder={placeholder}
         onChange={e => onChange(e.target.value)}
