@@ -1,8 +1,11 @@
 import Bubble from '../components/ui/Bubble'
 import { useParams } from 'react-router-dom'
+import { useAuthContext } from '../hooks/useAuthContext'
 
 const ChatView = () => {
   const { chatId } = useParams<{ chatId: string }>()
+  const {user} = useAuthContext()
+
 
   return (
     <div className={`flex-1 space-y-4 overflow-y-auto px-3`}>
@@ -35,6 +38,13 @@ const ChatView = () => {
             <p className='text-lg md:text-2xl'>
                 Welcome, How can I assist you today?
             </p>
+            {
+              user && (
+                <p className='text-sm md:text-base text-gray-500 mt-2'>
+                  You are logged in as {user.email}
+                </p>
+              )
+            }
         </div>
       )}
     </div>
