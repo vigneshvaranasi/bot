@@ -27,7 +27,7 @@ function ChatPage () {
           <Outlet />
           {/* Prompt Box */}
           <div
-            className='flex p-5 gap-x-2 border-t border-gray-200 bg-gray-50 w-full'
+            className='flex p-5 gap-x-2 bg-gray-50 w-full'
           >
             <InputBox
               onChange={(value) => {setChatInput(value);
