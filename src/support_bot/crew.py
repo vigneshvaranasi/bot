@@ -1,6 +1,6 @@
 from crewai import Crew, Process
-from .tasks import research_task, synthesis_task, report_task, user_query_response_task, json_summary_task
-from .agents import researcher_agent, synthesizer_agent, expert_writer_agent, user_query_responder_agent, json_summary_agent
+from .tasks import research_task, synthesis_task, report_task, user_query_response_task, json_summary_task, summary_title_generation_task
+from .agents import researcher_agent, synthesizer_agent, expert_writer_agent, user_query_responder_agent, json_summary_agent, summary_title_agent
 
 support_crew = Crew(
     agents=[researcher_agent, synthesizer_agent, expert_writer_agent, user_query_responder_agent],
@@ -12,6 +12,13 @@ support_crew = Crew(
 conversation_summary_crew = Crew(
     agents=[json_summary_agent],
     tasks=[json_summary_task],
+    process=Process.sequential,
+    verbose=True
+)
+
+conversation_title_generation_crew = Crew(
+    agents=[summary_title_agent],
+    tasks=[summary_title_generation_task],
     process=Process.sequential,
     verbose=True
 )

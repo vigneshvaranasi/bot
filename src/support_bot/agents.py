@@ -121,3 +121,16 @@ json_summary_agent = Agent(
     allow_delegation=False,
     llm=gemini_llm
 )
+
+# Agent 6: Summary Title Agent
+summary_title_agent = Agent(
+    role='Summary Title Generator',
+    goal='Create a concise and informative title for User Prompt',
+    backstory=(
+        """You are a specialist in generating titles for User Prompts. Your task is to
+        create a title that captures the essence of the user prompt while being concise and informative."""
+    ),
+    verbose=True,
+    allow_delegation=False,
+    llm=gemini_llm
+)

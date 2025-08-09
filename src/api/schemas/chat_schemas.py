@@ -22,3 +22,15 @@ class ChatListItem(BaseModel):
 class ChatListResponse(BaseModel):
     """Schema for the response containing list of user's chats."""
     chats: List[ChatListItem]
+
+
+class ChatPromptResponse(BaseModel):
+    """Schema for the response containing chat prompt."""
+    chatId: str
+    chatTitle: str
+    new_message: str
+
+class ChatPromptRequest(BaseModel):
+    """Schema for the request containing chat prompt."""
+    chatId: str = None
+    prompt: str

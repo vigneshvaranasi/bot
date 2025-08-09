@@ -1,5 +1,5 @@
 from crewai import Task
-from .agents import researcher_agent, synthesizer_agent, expert_writer_agent, user_query_responder_agent, json_summary_agent
+from .agents import researcher_agent, synthesizer_agent, expert_writer_agent, user_query_responder_agent, json_summary_agent, summary_title_agent
 
 # Task 1: Research historical incidents
 research_task = Task(
@@ -167,4 +167,19 @@ json_summary_task = Task(
         - Overall context in an economical format."""
     ),
     agent=json_summary_agent
+)
+
+# Task 6: Summary Title Generation
+summary_title_generation_task = Task(
+    description=(
+        """Generate a concise and informative title for a user prompt.
+        The title should capture the essence of the user prompt while being concise and informative.
+
+        Input: {user_prompt}
+        """
+    ),
+    expected_output=(
+        """A concise and informative title for the user prompt."""
+    ),
+    agent=summary_title_agent
 )
