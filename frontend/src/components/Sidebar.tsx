@@ -5,114 +5,63 @@ import sidebarImg from '../assets/sidebar.svg'
 import searchIcon from '../assets/SearchIcon.svg'
 import { Link } from 'react-router-dom'
 import InputBox from './ui/InputBox'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useAuthContext } from '../hooks/useAuthContext'
+import { getAllMyChats } from '../handlers/chatHandler'
 
-const testChats = [
-  {
-    id: 1,
-    title: '499 Issue with PayU',
-    date: '2025-08-01',
-    description: 'Customer reported an issue with PayU payment gateway.'
-  },
-  {
-    id: 2,
-    title: '500 Service Unavailable',
-    date: '2025-08-02',
-    description: 'Service was unavailable for 30 minutes.'
-  },
-  {
-    id: 3,
-    title: '502 Bad Gateway',
-    date: '2025-08-03',
-    description: 'Received a 502 error from the payment service.'
-  },
-  {
-    id: 4,
-    title: '503 Service Unavailable',
-    date: '2025-08-04',
-    description: 'Service was down for maintenance.'
-  },
-  {
-    id: 5,
-    title: '504 Gateway Timeout',
-    date: '2025-08-05',
-    description: 'Payment gateway timed out after 60 seconds.'
-  },
-  {
-    id: 6,
-    title: '505 HTTP Version Not Supported',
-    date: '2025-08-06',
-    description: 'Payment service does not support HTTP/2.'
-  },
-  {
-    id: 7,
-    title: '506 Variant Also Negotiates',
-    date: '2025-08-07',
-    description: 'Payment service returned a 506 error.'
-  },
-  {
-    id: 8,
-    title: '507 Insufficient Storage',
-    date: '2025-08-08',
-    description: 'Payment service ran out of storage space.'
-  },
-  {
-    id: 9,
-    title: '508 Loop Detected',
-    date: '2025-08-09',
-    description: 'Payment service detected an infinite loop.'
-  },
-  {
-    id: 10,
-    title: '509 Bandwidth Limit Exceeded',
-    date: '2025-08-10',
-    description: 'Payment service exceeded its bandwidth limit.'
-  },
-  {
-    id: 11,
-    title: '510 Not Extended',
-    date: '2025-08-11',
-    description: 'Payment service requires further extensions.'
-  },
-  {
-    id: 12,
-    title: '511 Network Authentication Required',
-    date: '2025-08-12',
-    description: 'Payment service requires network authentication.'
-  },
-  {
-    id: 13,
-    title: '512 Custom Error',
-    date: '2025-08-13',
-    description: 'Custom error message from the payment service.'
-  },
-  {
-    id: 14,
-    title: '513 Custom Error',
-    date: '2025-08-14',
-    description: 'Another custom error message from the payment service.'
-  }
-]
 
 function Sidebar () {
-  const { isSidebarOpen, setSidebarOpen } = useSidebarContext()
+  const { isSidebarOpen, toggleSidebar, chats, setChats, currentChat } = useSidebarContext()
   const [searchInput, setSearchInput] = useState('')
-  const [pastChats, setPastChats] = useState(testChats)
+  const { user } = useAuthContext();
+  if(!user){
+    return (
+      <div className='flex justify-center items-center h-screen'>
+        <p className='text-gray-500'>Please log in to view chats.</p>
+      </div>
+    )
+  }
+
+  // fetch chats
+  useEffect(() => {
+    const fetchChats = async () => {
+      try {
+        const allMyChats = await getAllMyChats(user?.token);
+        console.log('allMyChats: ', allMyChats);
+        if (allMyChats && Array.isArray(allMyChats.chats)) {
+          setChats(
+            allMyChats.chats.map((chat: any) => ({
+              chatId: chat.id,
+              chatTitle: chat.title,
+              date: chat.created_at,
+            }))
+          );
+        } else {
+          setChats([]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch chats:', err);
+        setChats([]);
+      }
+    };
+    fetchChats();
+  }, [user,currentChat]);
+
 
   const handleLinkClick = () => {
     if (window.innerWidth < 768) {
-      setSidebarOpen(false)
+      toggleSidebar()
     }
   }
 
   const filteredChats = searchInput
-    ? pastChats
+    ? chats
         .filter(
           chat =>
-            fuzzyMatch(chat.title, searchInput) ||
-            fuzzyMatch(chat.description, searchInput)
+            fuzzyMatch(chat.chatTitle, searchInput) ||
+            fuzzyMatch(chat.date, searchInput)
         )
-    : pastChats
+    : chats
 
   return (
     <div
@@ -129,7 +78,6 @@ function Sidebar () {
                 variant='primary'
                 onChange={value => {
                   setSearchInput(value)
-                  // console.log('value: ', value)
                 }}
                 value={searchInput}
                 icon={searchIcon}
@@ -138,7 +86,7 @@ function Sidebar () {
             </div>
             <button
               className='p-2 rounded-md hover:bg-gray-200'
-              onClick={() => setSidebarOpen(false)}
+              onClick={() => toggleSidebar()}
             >
               <img src={sidebarImg} alt='Close Sidebar' className='w-7 mt-3 md:mt-0 md:w-6' />
             </button>
@@ -162,13 +110,15 @@ function Sidebar () {
               <div className='space-y-1'>
                 {filteredChats.map(chat => (
                   <Link
-                    key={chat.id}
+                    key={chat.chatId}
                     className='hover:bg-gray-200 block p-2 rounded-md'
-                    to={`/${chat.id}`}
+                    to={`/${chat.chatId}`}
                     onClick={handleLinkClick}
                   >
-                    <div className='text-xs text-[#5c5c5c]'>{chat.date}</div>
-                    <div className='font-medium text-base'>{chat.title}</div>
+                    <div className='text-xs text-[#5c5c5c]'>
+                      {chat.date ? new Date(chat.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : ''}
+                    </div>
+                    <div className='font-medium text-base'>{chat.chatTitle}</div>
                   </Link>
                 ))}
               </div>
@@ -181,7 +131,11 @@ function Sidebar () {
                 className='w-8 rounded-full'
                 alt=''
               />
-              <p>Username</p>
+              <p>
+                {
+                  user?.email.split('@')[0] || 'Guest'
+                }
+              </p>
             </div>
             <img src={gearIcon} className='w-5 rounded-full' alt='' />
           </div>
@@ -190,7 +144,7 @@ function Sidebar () {
         <div className='flex flex-col justify-center items-center gap-2 pt-2'>
           <button
             className='p-2 rounded-md hover:bg-gray-200'
-            onClick={() => setSidebarOpen(true)}
+            onClick={() => toggleSidebar()}
           >
             <img src={sidebarImg} alt='Close Sidebar' className='w-6' />
           </button>
