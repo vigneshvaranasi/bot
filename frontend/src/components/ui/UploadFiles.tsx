@@ -66,6 +66,18 @@ const UploadFiles = () => {
               uploadedAt: new Date()
             };
             newFiles.push(newFile);
+            
+            // Console log the uploaded file details with full content
+            console.log('File uploaded:', {
+              id: newFile.id,
+              name: newFile.name,
+              size: newFile.size,
+              type: newFile.type,
+              uploadedAt: newFile.uploadedAt
+            });
+            
+            // Log the complete file content
+            console.log('Full file content for', newFile.name, ':\n', content);
           } catch (error) {
             console.error('Error reading file:', error);
           }
@@ -112,7 +124,16 @@ const UploadFiles = () => {
   const processFiles = async () => {
     setIsProcessing(true);
     try {
+      console.log('Processing files:', localFiles.map(file => ({
+        id: file.id,
+        name: file.name,
+        size: file.size,
+        type: file.type
+      })));
+      
       addFiles(localFiles);
+      
+      console.log(`Successfully processed ${localFiles.length} files and added to global context`);
       // Optionally clear local files after processing
       // setLocalFiles([]);
       alert(`Successfully processed ${localFiles.length} files!`);
@@ -260,25 +281,7 @@ const UploadFiles = () => {
                 ))}
               </div>
 
-              {/* Temporary File References */}
-              {localFiles.length > 0 && (
-                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h3 className="text-sm font-medium text-blue-800 mb-2">
-                    Temporary File References
-                  </h3>
-                  <div className="text-xs text-blue-700 space-y-1">
-                    {localFiles.map((file, index) => (
-                      <div key={file.id} className="flex justify-between">
-                        <span>File {index + 1}:</span>
-                        <span className="font-mono">{file.id}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-blue-600 mt-2">
-                    These references can be used to access the uploaded files in your chat conversations.
-                  </p>
-                </div>
-              )}
+
 
               {/* Action Buttons */}
               <div className="mt-6 flex justify-end space-x-3">
