@@ -3,7 +3,15 @@ import { Button } from './Button';
 import { useFileContext } from '../../hooks/useFileContext';
 import type { UploadedFile } from '../../store/FileProvider';
 
-const UploadFiles = () => {
+interface UploadFilesProps {
+  maxFiles?: number; // Optional prop to limit number of files (undefined = no limit)
+  // Usage Examples:
+  // <UploadFiles /> - No limit (unlimited files)
+  // <UploadFiles maxFiles={5} /> - Limit to 5 files
+  // <UploadFiles maxFiles={1} /> - Single file upload only
+}
+
+const UploadFiles = ({ maxFiles }: UploadFilesProps) => {
   const [localFiles, setLocalFiles] = useState<UploadedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -24,8 +32,15 @@ const UploadFiles = () => {
   };
 
   // Validate file type
+  // TO CHANGE ACCEPTED FILE TYPES: Modify the allowedTypes array below
+  // Currently accepts: .json and .md files only
+  // Examples:
+  // ['.json', '.md'] - JSON and Markdown files
+  // ['.pdf', '.doc', '.docx'] - Document files
+  // ['.jpg', '.png', '.gif'] - Image files
+  // ['.json', '.csv', '.txt', '.md'] - Text-based files
   const isValidFileType = (file: File): boolean => {
-    const allowedTypes = ['.json', '.md'];
+    const allowedTypes = ['.json', '.md']; // 👈 CHANGE FILE TYPES HERE
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
     return allowedTypes.includes(fileExtension);
   };
@@ -47,6 +62,13 @@ const UploadFiles = () => {
     const newFiles: UploadedFile[] = [];
     
     for (const file of Array.from(selectedFiles)) {
+      // FILE LIMIT CHECK: This enforces the maximum number of files allowed
+      // The limit is set via the maxFiles prop when using the component
+      if (maxFiles && (localFiles.length + newFiles.length) >= maxFiles) {
+        alert(`Maximum ${maxFiles} files allowed. Cannot add more files.`);
+        break; // Stop processing more files once limit is reached
+      }
+      
       if (isValidFileType(file)) {
         // Check if file already exists
         const fileExists = localFiles.some(existingFile => 
@@ -86,7 +108,7 @@ const UploadFiles = () => {
     }
 
     setLocalFiles(prev => [...prev, ...newFiles]);
-  }, [localFiles]);
+  }, [localFiles, maxFiles]);
 
   // Handle drag events
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -148,18 +170,18 @@ const UploadFiles = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h1 className="text-2xl font-semibold text-gray-800 mb-6">Upload files</h1>
+        <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300   p-5">
+          <h1 className="text-xl text-black mb-4">Upload files</h1>
           
-          <p className="text-gray-600 mb-6">
-            Please drag and drop file(s) in the below area or browse files by using the button.
+          <p className="text-sm text-black mb-6">
+            Please drag and drop file(s) in the below area; or browse files by using the button.
           </p>
 
           {/* Upload Area */}
           <div
             className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
               isDragOver
-                ? 'border-blue-400 bg-blue-50'
+                ? 'border-gray-400 bg-gray-50'
                 : 'border-gray-300 bg-gray-50'
             }`}
             onDragOver={handleDragOver}
@@ -190,7 +212,7 @@ const UploadFiles = () => {
               </svg>
             </div>
 
-            <p className="text-lg text-gray-700 mb-4">Drop files here or</p>
+            <p className="text-base text-black mb-4">Drop files here or</p>
             
             <Button
               variant="secondary"
@@ -200,12 +222,22 @@ const UploadFiles = () => {
               BROWSE FILES
             </Button>
 
-            <p className="text-sm text-gray-500">
+            <p className="text-xs text-black">
               Files must be in .JSON or .MD format.
+              {maxFiles && (
+                <span className="block mt-1">
+                  Maximum {maxFiles} files allowed.
+                </span>
+              )}
             </p>
           </div>
 
           {/* Hidden file input */}
+          {/* 
+            IMPORTANT: The accept attribute must match the allowedTypes in isValidFileType function
+            Current: accepts .json and .md files
+            To change: update both the accept attribute below AND the allowedTypes array above
+          */}
           <input
             ref={fileInputRef}
             type="file"
@@ -218,8 +250,9 @@ const UploadFiles = () => {
           {/* Upload Progress */}
           {totalCount > 0 && (
             <div className="mt-6">
-              <p className="text-lg font-medium text-gray-800 mb-4">
+              <p className="text-base text-black mb-4">
                 {uploadedCount} out of {totalCount} files uploaded
+                {maxFiles && ` (max ${maxFiles})`}
               </p>
 
               {/* File List */}
@@ -248,10 +281,10 @@ const UploadFiles = () => {
                       )}
                       
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm text-black">
                           {file.name}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-xs text-black">
                           {formatFileSize(file.size)}
                         </p>
                       </div>
