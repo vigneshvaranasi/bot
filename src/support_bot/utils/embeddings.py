@@ -140,6 +140,31 @@ class EmbeddingGenerator:
         if not self.available:
             return []
             
+    def generate_embedding_with_dimensions(self, text: str, dimensions: int, task_type: str = "RETRIEVAL_DOCUMENT") -> List[float]:
+        """
+        Generate an embedding with an exact target dimensionality, choosing the
+        best available backend and falling back to simple embedding to match size.
+        """
+        try:
+            # Prefer native backends only when their dimension matches
+            if self.use_gemini and dimensions == 3072:
+                vec = self._gemini_embedding(text, task_type)
+                # Pad/truncate defensively
+                if len(vec) != dimensions:
+                    return (vec + [0.0] * dimensions)[:dimensions]
+                return vec
+
+            if self.use_sentence_transformers and dimensions == 384:
+                vec = self.model.encode(text).tolist()
+                if len(vec) != dimensions:
+                    return (vec + [0.0] * dimensions)[:dimensions]
+                return vec
+
+            # Fallback: simple embedding with requested size
+            return self._simple_text_embedding(text, dimensions)
+        except Exception:
+            return self._simple_text_embedding(text, dimensions)
+
         try:
             if self.use_gemini:
                 return self._gemini_embedding_batch(texts, task_type)

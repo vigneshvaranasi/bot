@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from support_bot.crew import support_crew
+from support_bot.utils.formatting import sanitize_markdown_output
 
 def run():
     """
@@ -21,7 +22,13 @@ def run():
     
     # Kick off Crew
     result = support_crew.kickoff(inputs=inputs)
-    return result
+    # Ensure clean markdown without fenced code blocks
+    try:
+        cleaned = sanitize_markdown_output(str(result))
+        print("\n" + cleaned)
+        return cleaned
+    except Exception:
+        return result
 
 # Entry Point
 if __name__ == "__main__":
