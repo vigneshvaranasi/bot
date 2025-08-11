@@ -10,7 +10,7 @@ type DropdownProps = {
   options: DropdownOption[];
   value?: string;
   placeholder?: string;
-  onChange: (value: any) => void
+  onChange: (value: string) => void
 };
 
 const Dropdown = ({
@@ -33,18 +33,19 @@ const Dropdown = ({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-2 py-1 text-sm font-normal text-gray-800 
-                   flex justify-between items-center 
-                   border-b-2 border-gray-400 
-                   bg-white rounded-bl-md rounded-br-md"
+           flex justify-between items-center 
+           border-b-2 border-gray-400 
+           bg-white rounded-bl-md rounded-br-md
+           min-w-[200px]"
       >
-        <span>
+        <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <img
           src={caretDownIcon}
           alt="caret down"
-          className={`w-5 h-5 ml-2 text-gray-700 transition-transform ${
-            isOpen ? "rotate-180" : ""
+          className={`w-5 h-5 ml-2 text-gray-700 transition-transform flex-shrink-0 ${
+        isOpen ? "rotate-180" : ""
           }`}
         />
       </button>
