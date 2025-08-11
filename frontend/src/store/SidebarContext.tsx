@@ -18,6 +18,8 @@ type SidebarContextType = {
   currentChat: currentChatType | null;
   setCurrentChat: React.Dispatch<React.SetStateAction<currentChatType | null>>;
   toggleSidebar: () => void;
+  isSidebarLoading: boolean;
+  setIsSidebarLoading: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 export const SidebarContext = createContext<SidebarContextType>({
@@ -28,7 +30,8 @@ export const SidebarContext = createContext<SidebarContextType>({
   currentChat: null,
   setCurrentChat: () => {},
   toggleSidebar: () => {},
-
+  isSidebarLoading: false,
+  setIsSidebarLoading: () => {},
 });
 
 export const SidebarProvider = ({
@@ -39,6 +42,7 @@ export const SidebarProvider = ({
   const [isSidebarOpen, setSidebarOpen] = useState<boolean>(localStorage.getItem("isSidebarOpen") === "true" || false);
   const [chats, setChats] = useState<ChatInSidebar[]>([]);
   const [currentChat, setCurrentChat] = useState<currentChatType | null>(null);
+  const [isSidebarLoading, setIsSidebarLoading] = useState<boolean>(false);
 
   const closeSidebar = () => {
     setSidebarOpen(false);
@@ -65,6 +69,8 @@ export const SidebarProvider = ({
         currentChat,
         setCurrentChat,
         toggleSidebar,
+        isSidebarLoading,
+        setIsSidebarLoading,
       }}
     >
       {children}

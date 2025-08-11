@@ -1,9 +1,10 @@
 import Bubble from "../components/ui/Bubble";
 import { useParams } from "react-router-dom";
 import { useAuthContext } from "../hooks/useAuthContext";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState, useRef, useCallback } from "react";
 import { getChatMessagesById } from "../handlers/chatHandler";
 import { useSidebarContext } from "../hooks/useSidebarContext";
+import Spinner from "../components/ui/Spinner";
 
 const ChatView = () => {
   const { chatId } = useParams<{ chatId: string }>();
@@ -11,9 +12,25 @@ const ChatView = () => {
   const { currentChat, setCurrentChat } = useSidebarContext();
   const [loading, setLoading] = useState(false);
 
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToBottom = useCallback((smooth: boolean = true) => {
+    const container = containerRef.current;
+    if (!container) return;
+    if (bottomRef.current) {
+      try {
+        bottomRef.current.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "end" });
+      } catch {
+      }
+    }
+    container.scrollTop = container.scrollHeight;
+  }, []);
+
   useEffect(() => {
     if (!user || !chatId) return;
     setLoading(true);
+
     const fetchMessages = async () => {
       try {
         const res = await getChatMessagesById(user?.token, chatId);
@@ -43,11 +60,35 @@ const ChatView = () => {
         setLoading(false);
       }
     };
+
     fetchMessages();
-    return()=>{
+
+    return () => {
       setCurrentChat(null);
-    }
+    };
   }, [chatId, user]);
+
+  useLayoutEffect(() => {
+    scrollToBottom(false);
+  }, [chatId, scrollToBottom]);
+
+  // Scroll when number of messages changes
+  useEffect(() => {
+    requestAnimationFrame(() => scrollToBottom());
+    const t1 = setTimeout(() => scrollToBottom(), 40);
+    const t2 = setTimeout(() => scrollToBottom(false), 120);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [currentChat?.allMessages?.length, loading, scrollToBottom]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(() => scrollToBottom(false));
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+  }, [scrollToBottom]);
 
   if (!user) {
     return (
@@ -58,27 +99,31 @@ const ChatView = () => {
   }
 
   return (
-    <div className={`flex-1 space-y-4 overflow-y-auto px-3`}>
+    <div ref={containerRef} className="flex-1 space-y-4 overflow-y-auto px-3" style={{ WebkitOverflowScrolling: "touch" }}>
       {loading ? (
-        <p>Loading messages...</p>
+        <div className="flex items-center justify-center h-full py-10">
+          <Spinner size={20} />
+        </div>
       ) : currentChat?.allMessages.length === 0 ? (
         <p>No messages found</p>
       ) : (
         currentChat?.allMessages.map((message) => (
           <div key={message.id}>
-            <Bubble
-              key={message.id + "-user"}
-              variant="user"
-              content={message.userMessage}
-            />
-            <Bubble
-              key={message.id + "-bot"}
-              variant="bot"
-              content={message.botMessage}
-            />
+            <Bubble variant="user" content={message.userMessage} />
+            <Bubble variant="bot" content={message.botMessage} />
           </div>
         ))
       )}
+      <div ref={bottomRef} data-bottom-marker />
+      {
+        chatId == undefined && currentChat == null && (
+          <div className="flex items-center justify-center h-full py-10">
+            <p className="text-lg md:text-2xl">
+              How can I help you today?
+            </p>
+          </div>
+        )
+      }
     </div>
   );
 };
