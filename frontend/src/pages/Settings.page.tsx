@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button';
 import InputBox from '../components/ui/InputBox';
 import Dropdown from '../components/ui/Dropdown';
 import UploadFiles from '../components/ui/UploadFiles';
+import Checkbox from '../components/ui/Checkbox';
 
 interface FileRecord {
   fileName: string;
@@ -27,6 +28,10 @@ const Settings: React.FC = () => {
   const [versionsTracked, setVersionsTracked] = useState('5');
   const [purgeDays, setPurgeDays] = useState('30');
   const [pidMaskingFields, setPidMaskingFields] = useState('');
+  const [accessChat, setAccessChat] = useState(false);
+  const [rating, setRating] = useState(false);
+  const [requestPastIncidents, setRequestPastIncidents] = useState(false);
+
 
   const roleOptions = [
     { value: 'Support', label: 'Support' },
@@ -97,32 +102,38 @@ const Settings: React.FC = () => {
               <UploadFiles compact />
 
               {/* Role Management */}
-              <div className="bg-white rounded-lg border border-gray-500 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Role Management</h2>
+              <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-3">
+                <h2 className="text-xl text-black mb-4">Role Management</h2>
 
                 <div className="mb-4 flex items-center gap-3">
-                    <label className="text-sm font-medium text-gray-700">Role Permissions</label>
-                    <Dropdown
-                        options={roleOptions}
-                        value={selectedRole}
-                        onChange={setSelectedRole}
-                        placeholder="Select role"
-                    />
+                  <label className="text-base text-gray-800">Role Permissions</label>
+                  <Dropdown
+                    options={roleOptions}
+                    value={selectedRole}
+                    onChange={setSelectedRole}
+                    placeholder="Select role"
+                  />
                 </div>
 
                 <div className="flex flex-wrap gap-6">
-                  <label className="flex items-center">
-                    <input type="checkbox" defaultChecked className="h-4 w-4 text-blue-600 rounded border-gray-300 mr-3" />
-                    <span className="text-sm text-gray-700">Access Chat</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input type="checkbox" className="h-4 w-4 text-blue-600 rounded border-gray-300 mr-3" />
-                    <span className="text-sm text-gray-700">Rating</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input type="checkbox" className="h-4 w-4 text-blue-600 rounded border-gray-300 mr-3" />
-                    <span className="text-sm text-gray-700">Request Past Incidents</span>
-                  </label>
+                  <Checkbox
+                    id="perm-access-chat"
+                    label="Access Chat"
+                    checked={accessChat}
+                    onChange={setAccessChat}
+                  />
+                  <Checkbox
+                    id="perm-rating"
+                    label="Rating"
+                    checked={rating}
+                    onChange={setRating}
+                  />
+                  <Checkbox
+                    id="perm-request-past"
+                    label="Request Past Incidents"
+                    checked={requestPastIncidents}
+                    onChange={setRequestPastIncidents}
+                  />
                 </div>
               </div>
             </div>
