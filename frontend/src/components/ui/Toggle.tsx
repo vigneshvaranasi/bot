@@ -15,18 +15,9 @@ const Toggle: React.FC<ToggleProps> = ({ enabled, onChange, label, id }) => {
     >
       {label && <span>{label}</span>}
 
-      <div
-        className="relative"
-        style={{
-          width: "52px",
-          height: "30px",
-          borderRadius: "2px",
-          border: `2px solid ${enabled ? "#1B7F9E" : "#72777D"}`,
-          padding: "2px",
-          backgroundColor: "#FFFFFF",
-          transition: "border-color 0.2s ease",
-        }}
-      >
+        <div
+          className={`relative w-[40px] h-[22px] rounded-[2px] p-[2px] bg-white transition-colors duration-200 border-2 ${enabled ? "border-[#1B7F9E]" : "border-[#72777D]"}`}
+        >
         <input
           id={id}
           type="checkbox"
@@ -35,10 +26,10 @@ const Toggle: React.FC<ToggleProps> = ({ enabled, onChange, label, id }) => {
           className="sr-only peer"
         />
 
-        <div
-          className={`absolute top-[1px] bottom-[1px] flex items-center justify-center w-6 rounded-[2px] transition-all duration-200
-            ${enabled ? "left-[23px] bg-[#1B7F9E]" : "left-[1px] bg-gray-600"}`}
-        >
+          <div
+            className={`absolute top-[1px] bottom-[1px] flex items-center justify-center w-4 rounded-[2px] transition-all duration-200
+              ${enabled ? "left-[20px] bg-[#1B7F9E]" : "left-[2px] bg-gray-600"}`}
+          >
           {enabled && (
             <svg
               xmlns="http://www.w3.org/2000/svg"
