@@ -7,6 +7,8 @@ import UploadFiles from "../components/ui/UploadFiles";
 import Checkbox from "../components/ui/Checkbox";
 import Toggle from "../components/ui/Toggle";
 import { ConfigurableTable } from "../components/ui/Table";
+import ButtonGroup from "../components/ui/ButtonGroup";
+import arrowLeftIcon from "../assets/arrow-left.svg";
 
 interface FileRecord {
   fileName: string;
@@ -414,20 +416,25 @@ const Settings: React.FC = () => {
           </div>
 
           {/* Bottom Actions */}
-          <div className="mt-6 flex items-center justify-between mb-1">
-            <Button
-              variant="secondary"
-              onClick={handleGoToChat}
-              className="bg-gray-300 text-gray-800 hover:bg-gray-400 rounded-full px-6 py-2"
-            >
-              ← Go to Chat
-            </Button>
-            <Button
-              variant="primary"
-              className="bg-blue-500 text-white hover:bg-blue-600 rounded-full px-8 py-2"
-            >
-              SAVE
-            </Button>
+          <div className="mt-6 flex items-center justify-center mb-1">
+            <ButtonGroup className="border border-gray-300 bg-white rounded-full shadow-sm p-1">
+              <Button
+                variant="default"
+                onClick={handleGoToChat}
+                className="bg-transparent hover:bg-gray-50 hover:rounded-full text-gray-900 px-6 py-2 rounded-full flex items-center gap-2"
+              >
+                <img src={arrowLeftIcon} alt="arrow left" className="w-4 h-4" />
+                Go to Chat
+              </Button>
+
+              <Button
+                variant="primary"
+                className="bg-blue-500 hover:bg-blue-600 text-white px-[20px] py-[6px] ml-[6px] mr-[6px]"
+              >
+                SAVE
+              </Button>
+
+            </ButtonGroup>
           </div>
         </div>
       </div>
