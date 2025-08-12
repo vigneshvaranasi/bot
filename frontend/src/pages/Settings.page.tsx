@@ -5,6 +5,7 @@ import InputBox from '../components/ui/InputBox';
 import Dropdown from '../components/ui/Dropdown';
 import UploadFiles from '../components/ui/UploadFiles';
 import Checkbox from '../components/ui/Checkbox';
+import Toggle from '../components/ui/Toggle';
 
 interface FileRecord {
   fileName: string;
@@ -31,14 +32,19 @@ const Settings: React.FC = () => {
   const [accessChat, setAccessChat] = useState(false);
   const [rating, setRating] = useState(false);
   const [requestPastIncidents, setRequestPastIncidents] = useState(false);
+  const [versionControl, setVersionControl] = useState(true);
 
 
   const roleOptions = [
-    { value: 'Support', label: 'Support' },
-    { value: 'Admin', label: 'Admin' },
-    { value: 'Manager', label: 'Manager' },
-    { value: 'Analyst', label: 'Analyst' }
-  ];
+    { value: 'L1 Support', label: 'L1 Support' },
+    { value: 'L2 Support', label: 'L2 Support' },
+    { value: 'L3 Support', label: 'L3 Support' },
+    { value: 'Senior Support', label: 'Senior Support' },
+    { value: 'Support Manager', label: 'Support Manager' },
+    { value: 'Technical Lead', label: 'Technical Lead' },
+    { value: 'System Administrator', label: 'System Administrator' },
+    { value: 'Operations Lead', label: 'Operations Lead' }
+];
 
   const handleDeleteFile = (fileId: string) => {
     setUploadedFiles(files => files.filter(file => file.id !== fileId));
@@ -140,78 +146,119 @@ const Settings: React.FC = () => {
 
             {/* Right Column */}
             <div className="space-y-6 pr-13">
-              {/* Knowledge Base Management */}
-              <div className="bg-white rounded-lg border border-gray-300 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Knowledge Base Management</h2>
+              {/* Knowledge Base Management — redesigned */}
+              <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-5">
+                {/* Big, clean title like the mock */}
+                <h2 className="text-xl text-black mb-4">
+                  Knowledge Base Management
+                </h2>
 
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm text-gray-700">Re-train the knowledge base & put the app on maintenance</span>
-                  <Button variant="secondary" className="bg-gray-400 text-white hover:bg-gray-500 text-sm px-4 py-1">
+                {/* Description + REFRESH on the same row */}
+                <div className="flex items-center mb-2">
+                  <span className="text-medium text-black">
+                    Re-train the knowledge base &amp; put the app on maintenance
+                  </span>
+                  <Button
+                    variant="secondary"
+                    className="ml-4 font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer"
+                  >
                     REFRESH
                   </Button>
                 </div>
 
-                <div className="mb-4">
-                  <label className="flex items-center">
-                    <input type="checkbox" defaultChecked className="h-4 w-4 text-blue-600 rounded border-gray-300 mr-3" />
-                    <span className="text-sm text-gray-700">Version Control</span>
+                {/* Toggle row (uses your Toggle component) */}
+                <div className="mb-3">
+                  <label className="flex items-center gap-4">
+                    <span className="text-medium text-gray-900">Version Control</span>
+                    {/* keep the Toggle exactly as your component defines it */}
+                    <Toggle
+                      id="kb-version-control"
+                      enabled={versionControl}
+                      onChange={setVersionControl}
+                    />
                   </label>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-700">Number of versions tracked</span>
-                  <InputBox
-                    value={versionsTracked}
-                    onChange={setVersionsTracked}
-                    variant="primary"
-                    type="number"
-                    className="w-16"
-                  />
+                {/* Number with underline treatment (like search/upload) */}
+                <div>
+                  <label className="block text-medium text-gray-900">
+                    Number of versions tracked
+                  </label>
+
+                  {/* input value + long underline */}
+                  <div className="flex items-end gap-4">
+                    <InputBox
+                      value={versionsTracked}
+                      onChange={setVersionsTracked}
+                      variant="primary"
+                      type="number"
+                      className="
+                        outline: none
+                        border-b-2 
+                        border-gray-400 
+                        rounded-[8px] 
+                        px-0 py-0
+                        text-medium 
+                        text-gray-900
+                      "/>
+                  </div>
                 </div>
               </div>
 
               {/* Data & Privacy */}
-              <div className="bg-white rounded-lg border border-gray-300 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Data & Privacy</h2>
+              <div className="mt-8 bg-white rounded-lg border-2 border-gray-300 p-6">
+                <h2 className="text-lg text-gray-900 mb-4">Data & Privacy</h2>
 
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">PID Masking Rules</span>
-                    <Button variant="secondary" className="bg-gray-400 text-white hover:bg-gray-500 text-sm px-4 py-1">
+                <div className="flex items-center flex-wrap gap-6">
+                  {/* PID Masking Rules + Button */}
+                  <div className="flex items-center">
+                    <span className="text-medium text-black">PID Masking Rules</span>
+                    <Button
+                      variant="secondary"
+                      className="ml-4 font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer"
+                    >
                       ADD RULE
                     </Button>
                   </div>
-                  <InputBox
-                    value={pidMaskingFields}
-                    onChange={setPidMaskingFields}
-                    placeholder="Add fields to ignore"
-                    variant="primary"
-                  />
-                </div>
 
-                <div className="mb-4">
-                  <label className="flex items-center justify-between">
+                  {/* Toggle for Purge Archived Clusters */}
+                  <label className="flex items-center gap-3">
                     <span className="text-sm text-gray-700">Automatically Purge Archived Clusters</span>
-                    <input type="checkbox" defaultChecked className="h-4 w-4 text-blue-600 rounded border-gray-300" />
+                    <Toggle
+                      id="purge-archived-clusters"
+                      enabled={true}
+                      onChange={() => {}}
+                    />
                   </label>
-                </div>
 
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-700">Choose Purge Trigger days</span>
-                  <InputBox
-                    value={purgeDays}
-                    onChange={setPurgeDays}
-                    variant="primary"
-                    type="number"
-                    className="w-16"
-                  />
+                  {/* InputBox for Add fields */}
+                  <div className="min-w-[200px]">
+                    <InputBox
+                      value={pidMaskingFields}
+                      onChange={setPidMaskingFields}
+                      placeholder="Add fields to ignore"
+                      variant="primary"
+                    />
+                  </div>
+
+                  {/* Purge Days */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-gray-700">Choose Purge Trigger days</span>
+                    <InputBox
+                      value={purgeDays}
+                      onChange={setPurgeDays}
+                      variant="primary"
+                      type="number"
+                      className="w-16"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* User Management */}
-              <div className="bg-white rounded-lg border border-gray-300 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">User Management</h2>
-                <Button variant="secondary" className="bg-gray-400 text-white hover:bg-gray-500">
+              <div className="mt-8 bg-white rounded-lg border border-gray-300 p-6">
+                <h2 className="text-lg text-gray-900 mb-4">User Management</h2>
+                <Button variant="secondary" className="ml-4 font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer">
                   EDIT USERS
                 </Button>
               </div>
