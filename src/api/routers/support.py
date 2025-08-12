@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from support_bot.crew import support_crew
+from src.support_bot.crew import support_crew
+from src.support_bot.utils.formatting import sanitize_markdown_output
 
 router = APIRouter()
 
@@ -20,7 +21,7 @@ async def _process_support_prompt(prompt: str, context: Optional[str] = ""):
         inputs = {"user_prompt": prompt}
         inputs["context"] = context
         result = await support_crew.kickoff_async(inputs=inputs)
-        return result.raw
+        return sanitize_markdown_output(result.raw)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing prompt: {str(e)}")
 

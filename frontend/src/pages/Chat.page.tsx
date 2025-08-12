@@ -9,55 +9,62 @@ import { newMessageHandler } from "../handlers/chatHandler";
 import { useAuthContext } from "../hooks/useAuthContext";
 
 function ChatPage() {
-  const { isSidebarOpen, setCurrentChat, currentChat } = useSidebarContext();
+  const { isSidebarOpen, setCurrentChat } = useSidebarContext();
   const [chatInput, setChatInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const promptInputRef = useRef<HTMLInputElement>(null);
   const sendBtnRef = useRef<HTMLButtonElement>(null);
   const { chatId } = useParams<{ chatId: string }>();
   const { user } = useAuthContext();
   const navigate = useNavigate();
 
   const handlePromptSend = async () => {
-    console.log('Sending prompt...');
+    console.log("Sending prompt...");
     sendBtnRef.current?.setAttribute("disabled", "true");
     const prompt = chatInput;
-    console.log('Prompt:', prompt);
+    console.log("Prompt:", prompt);
     if (!prompt || !user) {
       console.error("Invalid prompt or user");
       return;
     }
     setChatInput("");
     try {
-      let currChatId = chatId || "";      
-      setCurrentChat({
+      let currChatId = chatId || "";
+      const newMessageId = Date.now().toString();
+
+      setCurrentChat((prevChat:any) => ({
         chatId: currChatId,
         allMessages: [
-          ...(currentChat?.allMessages ?? []),
+          ...(prevChat?.allMessages ?? []),
           {
-            id: Date.now().toString(),
+            id: newMessageId,
             userMessage: prompt,
-            botMessage: "",
+            botMessage: "Thinking...",
           },
         ],
-      });
+      }));
+
       setIsLoading(true);
+
+      // Fetch the bot's response
       const res = await newMessageHandler(currChatId, prompt, user?.token);
-      console.log('res: ', res);
-      if(currChatId==""){
+      console.log("res: ", res);
+
+      if (currChatId === "") {
         navigate(`/${res.chatId}`);
         return;
       }
-      let previousMessages = currentChat?.allMessages ?? [];
-      previousMessages[previousMessages.length - 1].botMessage = res.new_message;
-      console.log('previousMessages: ', previousMessages);
-      setCurrentChat({
+
+      // Update the "Thinking..." message with the bot's response
+      setCurrentChat((prevChat:any) => ({
         chatId: res.chatId,
-        allMessages: previousMessages,
-      });
+        allMessages: prevChat?.allMessages.map((message:any) =>
+          message.id === newMessageId
+            ? { ...message, botMessage: res.new_message }
+            : message
+        ),
+      }));
+
       setIsLoading(false);
-      
-      // until this is recieved we have to stop the input and button
     } catch (err) {
       console.error("Error sending prompt:", err);
       setIsLoading(false);

@@ -9,6 +9,7 @@ from src.api.models import Chat, Message
 from src.api.schemas import ChatCreate, ChatResponse, ChatListItem, ChatListResponse
 from src.api.utils.auth import get_current_user
 from src.support_bot.crew import support_crew, conversation_summary_crew,conversation_title_generation_crew
+from src.support_bot.utils.formatting import sanitize_markdown_output
 from typing import List
 import re
 
@@ -84,7 +85,7 @@ async def get_chat_prompt(
             
             # 2. Retrieve Output from support crew
             result = support_crew.kickoff(inputs=inputs)
-            bot_response = str(result)
+            bot_response = sanitize_markdown_output(str(result))
             
             # 3. Generate Summary and Title based on output
             title = await generate_title_from_prompt(request.prompt)
@@ -134,7 +135,7 @@ async def get_chat_prompt(
             
             # 3. Get crew response
             result = support_crew.kickoff(inputs=inputs)
-            bot_response = str(result)
+            bot_response = sanitize_markdown_output(str(result))
             
             # 4. Create new Message in DB
             new_message = Message(

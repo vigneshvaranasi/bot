@@ -15,6 +15,12 @@ body {
   --color-bubbleblue: #1985f9;
 }
 
+@keyframes spinner-fade {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+
 
 .markdown-body h1 {
   font-size: 1.5rem;

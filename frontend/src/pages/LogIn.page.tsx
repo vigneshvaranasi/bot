@@ -4,6 +4,7 @@ import { Button } from "../components/ui/Button";
 import { useAuthContext } from "../hooks/useAuthContext";
 import { loginHandler } from "../handlers/authHandlers";
 import { useNavigate } from "react-router-dom";
+import Spinner from "../components/ui/Spinner";
 function Login() {
   const [userData, setUserData] = useState<{
     email: string;
@@ -31,7 +32,7 @@ function Login() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        Loading...
+        <Spinner size={48} />
       </div>
     );
   }
@@ -64,6 +65,7 @@ function Login() {
           children="Log In"
         />
       </div>
+  {/* Removed always-visible spinner; loading state handled above */}
     </div>
   );
 }

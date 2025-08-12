@@ -1,99 +1,95 @@
 from crewai import Task
-from .agents import researcher_agent, synthesizer_agent, expert_writer_agent, user_query_responder_agent, json_summary_agent, summary_title_agent
+from .agents import (
+    support_coordinator_agent,
+    researcher_agent,
+    synthesizer_agent,
+    user_query_responder_agent,
+    json_summary_agent,
+    summary_title_agent,
+)
 
-# Task 1: Research historical incidents
+"""
+Workflow contract
+- Inputs: {user_prompt}, {context}
+- Manager output (route_plan): JSON with keys: route in [context_only, info_only, solution_plan], search_query, rationale
+- Research output: raw_results (top incidents, details)
+- Synthesis output (optional): action_plan (steps, mitigations, monitoring)
+- Responder output: final markdown answer as per formatting rules
+"""
+
+# Task 0: Manager planning with context-first optimization and routing
+manager_plan_task = Task(
+    description=(
+        """As SupportCoordinator, determine the minimal workflow to answer the user's prompt.
+
+1) Context-first optimization: If the answer can be produced from {context} alone with high confidence, select route=context_only.
+2) Intent analysis: Determine if the user asks for information-only (what/why/history) or a solution/action plan (how/steps/mitigation).
+3) Routing:
+   - context_only → Responder only
+   - info_only → HistoryResearcher → Responder
+   - solution_plan → HistoryResearcher → SolutionSynthesizer → Responder
+4) Build search_query: If a specific incident id/code is present, craft a targeted query; else craft a broad nearest-neighbor query.
+
+Produce a compact JSON plan with fields: route, search_query, rationale.
+Input prompt: {user_prompt}
+Context: {context}
+"""
+    ),
+    expected_output=(
+        """A compact JSON object: {\"route\": \"context_only|info_only|solution_plan\", \"search_query\": \"...\", \"rationale\": \"...\"}"""
+    ),
+    agent=support_coordinator_agent,
+)
+
+# Task 1: Research historical incidents per manager plan
 research_task = Task(
     description=(
-        """Use the Customer Support Data Fetcher tool to retrieve historical incident data based on the provided user_prompt.
-        Search for incidents that are similar or related to the query terms. Analyze the retrieved incidents to identify:
-        - The most relevant/similar historical incident(s)
-        - Common patterns and root causes
-        - Previous resolution approaches that were successful
-        - Any recurring themes or issues
-        
-        Query to search: {user_prompt}"""
+        """Follow the SupportCoordinator plan from the context. Steps:
+1) Parse the plan JSON from SupportCoordinator output in your context to get: route and search_query.
+2) If route=context_only → DO NOT use any tools. Output exactly: 'SKIP: context_only'.
+3) Otherwise → use the Qdrant tool to run the search using the extracted search_query.
+4) Return raw incident data (IDs, titles, summaries/details, scores if any) without interpretation.
+"""
     ),
     expected_output=(
-        """A detailed analysis report containing:
-        - List of relevant historical incidents found
-        - Summary of the most similar incident(s) to the current query
-        - Key patterns identified across similar incidents
-        - Root causes and contributing factors from past incidents
-        - Previous successful resolution methods"""
+        """Raw incident hits including IDs, titles, summaries/details, and any scores available. Provide up to 5 results, or 'SKIP: context_only'."""
     ),
-    agent=researcher_agent
+    agent=researcher_agent,
+    context=[manager_plan_task],
 )
 
-# Task 2: Synthesize resolution steps
+# Task 2: Synthesize resolution steps (only when needed by route)
 synthesis_task = Task(
     description=(
-        """Based on the historical incident analysis provided by the Researcher Agent, generate comprehensive 
-        resolution steps for addressing similar issues. Focus on:
-        - Immediate action items based on past successful resolutions
-        - Preventive measures to avoid recurrence
-        - Best practices derived from historical data
-        - Step-by-step troubleshooting approach
-        - Escalation procedures if initial steps fail
-        
-        Consider the root causes and successful mitigation strategies from the historical data."""
+        """If route=solution_plan, transform the research raw results into an Action Plan:
+- Immediate Resolution Steps (prioritized)
+- Mitigation strategies linked to likely causes
+- Monitoring and Validation guidance
+- Escalation Path if initial steps fail
+If route is not solution_plan, output 'SKIP: no_synthesis'.
+"""
     ),
     expected_output=(
-        """A structured resolution strategy containing:
-        - Immediate Resolution Steps (prioritized action items)
-        - Root Cause Mitigation (steps to address underlying causes)
-        - Prevention Strategy (measures to prevent recurrence)
-        - Monitoring and Validation (how to confirm resolution)
-        - Escalation Path (next steps if resolution fails)"""
+        """Action Plan with sections: Immediate Steps, Root Cause Mitigation, Monitoring and Validation, Escalation Path; or 'SKIP: no_synthesis'."""
     ),
     agent=synthesizer_agent,
-    context=[research_task]
+    context=[manager_plan_task, research_task],
 )
 
-# Task 3: Generate comprehensive report
-report_task = Task(
-    description=(
-        """Compile a comprehensive incident analysis report using the research findings and resolution steps.
-        The report should be detailed and professional, containing:
-        
-        1. **Nearest Matching Issue**: Identify and describe the most similar historical incident
-        2. **Root Cause Explanation**: Provide detailed explanation of why this type of issue occurs
-        3. **Solution Strategy**: Present the resolution steps recommended by the Synthesizer Agent
-        
-        Make the report clear, actionable, and suitable for both technical teams and management."""
-    ),
-    expected_output=(
-        """A comprehensive incident analysis report with the following sections:
-        
-        ## INCIDENT ANALYSIS REPORT
-        
-        ### 1. NEAREST MATCHING ISSUE
-        - Incident ID and description of the most similar historical case
-        - Similarity analysis and relevance score
-        
-        ### 2. ROOT CAUSE ANALYSIS
-        - Detailed explanation of why this issue typically occurs
-        - Contributing factors and environmental conditions
-        - Technical and operational root causes
-        
-        ### 3. SOLUTION STRATEGY
-        - Complete resolution steps from the Synthesizer Agent
-        - Implementation timeline and resource requirements
-        - Success metrics and validation criteria
-        
-        ### 4. RECOMMENDATIONS
-        - Long-term prevention strategies
-        - Process improvements
-        - Monitoring enhancements"""
-    ),
-    agent=expert_writer_agent,
-    context=[research_task, synthesis_task]
-)
+# Removed the monolithic report task; the Responder consumes research/synthesis directly.
 
-# Task 4: User Query Response
+# Task 3: User Query Response
 user_query_response_task = Task(
     description=(
-        """Answer the user's query: user_prompt using **only** the content from the incident analysis report written by the Expert Writer Agent. Optionally refer to the context {context} if the user's prompt {user_prompt} is referring to it. If no context is provided, do not refer to it.
+        """Produce the final answer for the user in Markdown.
+Use this routing logic from SupportCoordinator plan:
+- If route=context_only → answer using only {context}, do not perform research/synthesis.
+- If route=info_only → use research results to answer information requests (root causes, nearest incidents), skip synthesis.
+- If route=solution_plan → use research + action plan to answer with Solution Strategy and Monitoring and Validation.
+
+Always consider the original prompt: {user_prompt} and the provided context: {context}.
 Your response must be **clear, concise, and strictly formatted in Markdown**.
+Do NOT wrap the entire response in any fenced code block (no ``` or ```markdown). Use headings and lists directly.
 
 ---
 
@@ -101,22 +97,21 @@ Your response must be **clear, concise, and strictly formatted in Markdown**.
 
 - **If the user asks for a solution** → Provide:
   - `Solution Strategy`
-  - `Monitoring and Validation`
+    - `Monitoring and Validation`
 
 - **If the user asks for a cause or explanation** → Provide:
-  - `Root Cause Analysis`
+    - `Root Cause Analysis`
 
 - **If the exact incident is found**:
   - Mention the matched incident title.
   - Return only the relevant section(s) based on user intent.
 
-- **If the incident is not found**:
-  - State: "This issue is not available in the current knowledge base."
-  - Retrieve and summarize 2-3 similar incidents based on:
+ - **If the exact incident is not found**:
+  - Do not block the answer. Retrieve and summarize the 3-4 most recent, nearest incidents based on:
     - API name or error type (e.g., HTTP 499, timeout).
     - Client-side vs server-side nature.
     - Similar symptoms or misconfigurations.
-  - For each incident, provide:
+    - For each incident (3-4), provide:
     - Title.
     - 1-2 sentence summary.
   - If a solution or cause is requested, adapt and provide that section from the closest match.
@@ -132,20 +127,15 @@ Your response must be **clear, concise, and strictly formatted in Markdown**.
 - Avoid mentioning the report or system behavior.
 - Minimize technical jargon unless necessary.
 - Format responses in **Markdown**:
-  - Use bold headers, bullet points, and spacing for readability.
+        - Use bold headers, bullet points, and spacing for readability.
+        - Never include triple backticks in the output.
 """
     ),
     expected_output=(
-        """A markdown-formatted response that includes:
-- Relevant sections based on query intent (Solution Strategy, Monitoring and Validation, or Root Cause Analysis).
-- A matched incident notice, if found.
-- If no match, 2-3 closest related incidents (title + short summary).
-- Adapted solution or cause from the best match if requested.
-- A polite response if the query is out of scope.
-- Clean, helpful Markdown formatting."""
+        """A markdown-formatted response that includes relevant sections based on the selected route and user intent; cites matched incident titles when appropriate; and if no exact match exists, lists 3-4 most recent nearest incidents (title + short summary) and adapts content as needed. Avoid triple backticks."""
     ),
     agent=user_query_responder_agent,
-    context=[report_task]
+    context=[manager_plan_task, research_task, synthesis_task],
 )
 
 # Task 5: JSON Summary Generation
@@ -166,7 +156,7 @@ json_summary_task = Task(
         - Key chatbot responses.
         - Overall context in an economical format."""
     ),
-    agent=json_summary_agent
+    agent=json_summary_agent,
 )
 
 # Task 6: Summary Title Generation
@@ -178,8 +168,6 @@ summary_title_generation_task = Task(
         Input: {user_prompt}
         """
     ),
-    expected_output=(
-        """A concise and informative title for the user prompt."""
-    ),
-    agent=summary_title_agent
+    expected_output=("""A concise and informative title for the user prompt."""),
+    agent=summary_title_agent,
 )

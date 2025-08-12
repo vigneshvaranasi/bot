@@ -17,14 +17,39 @@ use_gemini_embeddings = os.getenv('USE_GEMINI_EMBEDDINGS', 'true').lower() == 't
 qdrant_data_tool = QdrantIncidentDataTool(use_gemini=use_gemini_embeddings)
 analysis_tool = IncidentAnalysisTool()
 
-# Agent 1: Researcher Agent
-researcher_agent = Agent(
-    role='Incident Research Specialist',
-    goal='Retrieve and analyze historical incident data to find similar issues and patterns.',
+# Manager Agent: SupportCoordinator
+support_coordinator_agent = Agent(
+    role='SupportCoordinator',
+    goal=(
+        "Efficiently coordinate support workflows: first check if the user's question can be answered from the given context; "
+        "otherwise determine intent (information-only vs. solution/action plan), craft an optimal search query, and delegate tasks."
+    ),
     backstory=(
-        """You are an expert incident researcher with deep knowledge of past support issues.
-        Your strength lies in quickly finding relevant historical incidents that match current problems
-        and extracting key information from incident reports."""
+        """You are the manager orchestrating a hierarchical crew for incident assistance.
+        Responsibilities:
+        - Perform a context-first pass: if the prompt can be answered using only the provided context, select route=context_only.
+        - Analyze intent: information-only (history/what/why) vs. solution/action plan (how to fix/steps).
+        - Formulate a precise search query for the HistoryResearcher (specific incident id if present, else broad nearest-neighbor query).
+        - Choose the minimal path:
+            - context_only → go straight to Responder using only the context.
+            - info_only → HistoryResearcher → Responder.
+            - solution_plan → HistoryResearcher → SolutionSynthesizer → Responder.
+        Output a short structured plan to guide downstream agents."""
+    ),
+    verbose=True,
+    allow_delegation=True,
+    llm=gemini_llm
+)
+
+# Agent 1: Researcher Agent (HistoryResearcher)
+researcher_agent = Agent(
+    role='HistoryResearcher',
+    goal='Query Qdrant for relevant historical incidents and return raw findings without interpretation.',
+    backstory=(
+        """You are an expert at searching incident knowledge bases. You follow the Manager plan strictly:
+        - Use the provided search_query to query Qdrant (or fallback JSON).
+        - Return raw incident hits with IDs, titles, summaries, and any available details.
+        - Do not synthesize an action plan; pass all raw data forward."""
     ),
     verbose=True,
     allow_delegation=False,
@@ -32,14 +57,13 @@ researcher_agent = Agent(
     llm=gemini_llm
 )
 
-# Agent 2: Synthesizer Agent
+# Agent 2: Synthesizer Agent (SolutionSynthesizer)
 synthesizer_agent = Agent(
-    role='Solution Synthesis Specialist',
-    goal='Generate practical resolution steps based on historical incident data and patterns.',
+    role='SolutionSynthesizer',
+    goal='Generate a structured Action Plan when a solution is needed, based on the researcher data and patterns.',
     backstory=(
-        """You are a seasoned technical problem solver who excels at synthesizing information
-        from past incidents to create actionable resolution steps. You understand root causes
-        and can translate historical solutions into current actionable recommendations."""
+        """You analyze research results to produce a concise, implementable Action Plan only when requested by the Manager.
+        Include mitigation strategies, clear resolution steps, and monitoring guidance inspired by what worked historically."""
     ),
     verbose=True,
     allow_delegation=False,
@@ -47,26 +71,11 @@ synthesizer_agent = Agent(
     llm=gemini_llm
 )
 
-# Agent 3: Expert Writer Agent
-expert_writer_agent = Agent(
-    role='Technical Report Writer',
-    goal='Create comprehensive incident analysis reports with clear explanations and solution strategies.',
-    backstory=(
-        """You are an expert technical writer specializing in incident analysis and resolution documentation.
-        You excel at explaining complex technical issues in clear terms, identifying root causes,
-        and presenting comprehensive solution strategies based on historical precedents."""
-    ),
-    verbose=True,
-    allow_delegation=False,
-    llm=gemini_llm
-)
-
-# Agent 4: User Query Responder Agent
+# Agent 3: User Query Responder Agent (Responder)
 user_query_responder_agent = Agent(
-    role='Incident Query Responder',
+    role='Responder',
     goal=(
-        "Answer user queries about technical incidents with **precise, markdown-formatted summaries** "
-        "based strictly on the provided analysis report. Optionally refer to the context: {context} if it is provided, but do not refer to it if no context is available."
+        "Answer user queries about incidents with precise, clean Markdown, using the chosen route and inputs (prompt + optional context + research/synthesis outputs)."
     ),
     backstory=(
         """You are a highly focused technical support responder for incident queries.
