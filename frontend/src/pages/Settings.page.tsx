@@ -250,24 +250,22 @@ const Settings: React.FC = () => {
                     variant="primary"
                     type="number"
                     className="
-                outline-none
-                border-b-1
-                border-gray-400 
-                rounded-[8px] 
-                px-0 py-0
-                text-medium 
-                text-gray-900
-                w-10
-                "
+                      outline-none
+                      border-b-1
+                      border-gray-400 
+                      rounded-[8px] 
+                      px-0 py-0
+                      text-medium 
+                      text-gray-900
+                      w-10
+                      "
                   />
                 </div>
               </div>
 
               {/* Data & Privacy */}
               <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-5">
-                <h2 className="text-lg text-gray-900 mb-4">
-                  Data & Privacy
-                </h2>
+                <h2 className="text-lg text-gray-900 mb-4">Data & Privacy</h2>
 
                 <div className="grid grid-cols-2 gap-4 items-center">
                   {/* Left col - PID Masking Rules */}
@@ -302,11 +300,11 @@ const Settings: React.FC = () => {
                     placeholder="Add fields to ignore"
                     variant="primary"
                     className="
-        w-[260px]
-        rounded-[5px]
-        border-gray-400
-        border-b-1
-      "
+                      w-[260px]
+                      rounded-[5px]
+                      border-gray-400
+                      border-b-1
+                    "
                   />
 
                   {/* Right col - Purge Trigger Days */}
@@ -319,7 +317,16 @@ const Settings: React.FC = () => {
                       onChange={setPurgeDays}
                       variant="primary"
                       type="number"
-                      className="w-16"
+                      className="
+                        outline-none
+                        border-b-1
+                        border-gray-400 
+                        rounded-[8px] 
+                        px-0 py-0
+                        text-medium 
+                        text-gray-900
+                        w-10
+                      "
                     />
                   </div>
                 </div>
