@@ -85,6 +85,7 @@ const Settings: React.FC = () => {
   const handleRollbackFile = (fileId: string) =>
     console.log("Rollback file:", fileId);
   const handleGoToChat = () => navigate("/");
+  const handleEditUsers = () => navigate("/user-management");
 
   return (
     <div className="min-h-screen h-full bg-gray-100">
@@ -341,6 +342,7 @@ const Settings: React.FC = () => {
                 <Button
                   variant="secondary"
                   className="ml-4 font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer"
+                  onClick={handleEditUsers}
                 >
                   EDIT USERS
                 </Button>
