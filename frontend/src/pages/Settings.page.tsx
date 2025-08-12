@@ -33,6 +33,7 @@ const Settings: React.FC = () => {
   const [rating, setRating] = useState(false);
   const [requestPastIncidents, setRequestPastIncidents] = useState(false);
   const [versionControl, setVersionControl] = useState(true);
+  const [purgeEnabled, setPurgeEnabled] = useState(true);
 
 
   const roleOptions = [
@@ -180,80 +181,84 @@ const Settings: React.FC = () => {
                 </div>
 
                 {/* Number with underline treatment (like search/upload) */}
-                <div>
-                  <label className="block text-medium text-gray-900">
-                    Number of versions tracked
-                  </label>
+                 <div className="flex items-center gap-2">
+                <label className="text-medium text-gray-900">
+                Number of versions tracked
+                </label>
 
-                  {/* input value + long underline */}
-                  <div className="flex items-end gap-4">
-                    <InputBox
-                      value={versionsTracked}
-                      onChange={setVersionsTracked}
-                      variant="primary"
-                      type="number"
-                      className="
-                        outline: none
-                        border-b-2 
-                        border-gray-400 
-                        rounded-[8px] 
-                        px-0 py-0
-                        text-medium 
-                        text-gray-900
-                      "/>
-                  </div>
-                </div>
+                <InputBox
+                value={versionsTracked}
+                onChange={setVersionsTracked}
+                variant="primary"
+                type="number"
+                className="
+                outline-none
+                border-b-1
+                border-gray-400 
+                rounded-[8px] 
+                px-0 py-0
+                text-medium 
+                text-gray-900
+                w-10
+                "
+                />
+
+              </div>
               </div>
 
-              {/* Data & Privacy */}
-              <div className="mt-8 bg-white rounded-lg border-2 border-gray-300 p-6">
-                <h2 className="text-lg text-gray-900 mb-4">Data & Privacy</h2>
+             
+             {/* Data & Privacy */}
+              <div className="bg-white rounded-lg border border-gray-300 p-3">
+  <h2 className="text-lg font-semibold text-gray-900 mb-4">Data & Privacy</h2>
 
-                <div className="flex items-center flex-wrap gap-6">
-                  {/* PID Masking Rules + Button */}
-                  <div className="flex items-center">
-                    <span className="text-medium text-black">PID Masking Rules</span>
-                    <Button
-                      variant="secondary"
-                      className="ml-4 font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer"
-                    >
-                      ADD RULE
-                    </Button>
-                  </div>
+  <div className="grid grid-cols-2 gap-4 items-center">
+    {/* Left col - PID Masking Rules */}
+    <div className="flex items-center gap-2">
+      <span className="text-sm font-medium text-gray-700">PID Masking Rules</span>
+      <Button
+        variant="secondary"
+        className="bg-gray-300 text-white hover:bg-gray-500 text-sm px-2 py-1"
+      >
+        ADD RULE
+      </Button>
+    </div>
 
-                  {/* Toggle for Purge Archived Clusters */}
-                  <label className="flex items-center gap-3">
-                    <span className="text-sm text-gray-700">Automatically Purge Archived Clusters</span>
-                    <Toggle
-                      id="purge-archived-clusters"
-                      enabled={true}
-                      onChange={() => {}}
-                    />
-                  </label>
+    {/* Right col - Automatically Purge */}
+    <label className="flex items-center gap-2">
+      <span className="text-sm text-gray-700">
+        Automatically Purge Archived Clusters
+      </span>
+      <Toggle
+        enabled={purgeEnabled}
+        onChange={setPurgeEnabled}
+        id="purgeToggle"
+      />
+    </label>
 
-                  {/* InputBox for Add fields */}
-                  <div className="min-w-[200px]">
-                    <InputBox
-                      value={pidMaskingFields}
-                      onChange={setPidMaskingFields}
-                      placeholder="Add fields to ignore"
-                      variant="primary"
-                    />
-                  </div>
+    {/* Left col - Add fields */}
+    <InputBox
+      value={pidMaskingFields}
+      onChange={setPidMaskingFields}
+      placeholder="Add fields to ignore"
+      variant="primary"
+      className="w-full"
+    />
 
-                  {/* Purge Days */}
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-gray-700">Choose Purge Trigger days</span>
-                    <InputBox
-                      value={purgeDays}
-                      onChange={setPurgeDays}
-                      variant="primary"
-                      type="number"
-                      className="w-16"
-                    />
-                  </div>
-                </div>
-              </div>
+    {/* Right col - Purge Trigger Days */}
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-gray-700">Choose Purge Trigger days</span>
+      <InputBox
+        value={purgeDays}
+        onChange={setPurgeDays}
+        variant="primary"
+        type="number"
+        className="w-16"
+      />
+    </div>
+  </div>
+</div>
+
+
 
               {/* User Management */}
               <div className="mt-8 bg-white rounded-lg border border-gray-300 p-6">

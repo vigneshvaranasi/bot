@@ -29,30 +29,31 @@ const InputBox = ({
 }: InputBoxProps) => {
   const variantClass = variantClasses[variant]
 
-  return (
-    <div className={`relative w-full ${className}`}>
-      {icon && (
-        <div className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-500'>
-          {typeof icon === 'string' ? (
-            <img src={icon} className='w-4' alt='' />
-          ) : (
-            icon
-          )}
-        </div>
-      )}
-      <input
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={e => onChange(e.target.value)}
-        onKeyDown={onKeyDown}
-        className={`w-full px-2 py-2 focus:outline-none transition ${
-          icon ? 'pl-10' : ''
-        } ${variantClass}`}
-        style={{ backgroundColor: `#${backgroundColor}` }}
-      />
-    </div>
-  )
+return (
+  <div className={`relative ${className || 'w-full'}`}>
+    {icon && (
+      <div className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-500'>
+        {typeof icon === 'string' ? (
+          <img src={icon} className='w-4' alt='' />
+        ) : (
+          icon
+        )}
+      </div>
+    )}
+    <input
+      type={type}
+      value={value}
+      placeholder={placeholder}
+      onChange={e => onChange(e.target.value)}
+      onKeyDown={onKeyDown}
+      className={`px-2 py-2 focus:outline-none transition ${
+        icon ? 'pl-10' : ''
+      } ${variantClass} ${className || 'w-full'}`}
+      style={{ backgroundColor: `#${backgroundColor}` }}
+    />
+  </div>
+)
+
 }
 
 export default InputBox

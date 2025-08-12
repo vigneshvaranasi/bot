@@ -11,6 +11,7 @@ interface UploadFilesProps {
   // <UploadFiles /> - No limit (unlimited files)
   // <UploadFiles maxFiles={5} /> - Limit to 5 files
   // <UploadFiles maxFiles={1} /> - Single file upload only
+  compact?: boolean;
 }
 
 const UploadFiles = ({
