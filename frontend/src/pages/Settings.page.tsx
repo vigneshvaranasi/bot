@@ -6,6 +6,7 @@ import Dropdown from "../components/ui/Dropdown";
 import UploadFiles from "../components/ui/UploadFiles";
 import Checkbox from "../components/ui/Checkbox";
 import Toggle from "../components/ui/Toggle";
+import { ConfigurableTable } from "../components/ui/Table";
 
 interface FileRecord {
   fileName: string;
@@ -346,71 +347,69 @@ const Settings: React.FC = () => {
           </div>
 
           {/* Knowledge Base Version Control Table */}
-          <div className="mt-8 bg-white rounded-lg border border-gray-300 p-6">
+          <div className="mt-5">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
               Knowledge Base Version Control
             </h2>
             <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
-                      File Name
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
-                      File Type
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
-                      Size
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
-                      Last Updated
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
-                      Rollback
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
-                      Delete
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {uploadedFiles.map((file) => (
-                    <tr key={file.id}>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {file.fileName}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {file.fileType}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {file.size}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {file.lastUpdated}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Button
-                          variant="secondary"
-                          className="bg-gray-400 text-white hover:bg-gray-500 text-xs px-3 py-1"
-                          onClick={() => handleRollbackFile(file.id)}
-                        >
-                          ROLLBACK
-                        </Button>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Button
-                          variant="secondary"
-                          className="bg-gray-400 text-white hover:bg-gray-500 text-xs px-3 py-1"
-                          onClick={() => handleDeleteFile(file.id)}
-                        >
-                          DELETE
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <ConfigurableTable
+                data={uploadedFiles}
+                keyExtractor={(row) => row.id}
+                columns={[
+                  {
+                    header: "File Name",
+                    accessor: "fileName",
+                    headerClassName: "font-medium text-gray-700",
+                    className: "text-sm text-gray-900"
+                  },
+                  {
+                    header: "File Type",
+                    accessor: "fileType",
+                    headerClassName: "font-medium text-gray-700",
+                    className: "text-sm text-gray-900"
+                  },
+                  {
+                    header: "Size",
+                    accessor: "size",
+                    headerClassName: "font-medium text-gray-700",
+                    className: "text-sm text-gray-900"
+                  },
+                  {
+                    header: "Last Updated",
+                    accessor: "lastUpdated",
+                    headerClassName: "font-medium text-gray-700",
+                    className: "text-sm text-gray-900"
+                  },
+                  {
+                    header: "Rollback",
+                    headerClassName: "font-medium text-gray-700",
+                    render: (file) => (
+                      <Button
+                        variant="secondary"
+                        className="bg-gray-400 text-white hover:bg-gray-500 text-xs px-3 py-1"
+                        onClick={() => handleRollbackFile(file.id)}
+                      >
+                        ROLLBACK
+                      </Button>
+                    )
+                  },
+                  {
+                    header: "Delete",
+                    headerClassName: "font-medium text-gray-700",
+                    render: (file) => (
+                      <Button
+                        variant="secondary"
+                        className="bg-gray-400 text-white hover:bg-gray-500 text-xs px-3 py-1"
+                        onClick={() => handleDeleteFile(file.id)}
+                      >
+                        DELETE
+                      </Button>
+                    )
+                  }
+                ]}
+                headerRowClassName="bg-gray-50"
+                rowClassName="bg-white border-t border-gray-200"
+              />
             </div>
           </div>
 
