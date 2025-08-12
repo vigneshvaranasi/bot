@@ -48,5 +48,505 @@
     "Incident ID": "PAYU-INC-2024-10-05-099",
     "Main Issue": "Report Generation Failure",
     "text": "incidentId: PAYU-INC-2024-10-05-099\nexecutiveSummary: On 05-Oct-2024, the merchant settlement report generation service failed to run because an internal service account password had expired and was not rotated.\nimpact: Daily settlement reports for all merchants were not generated. Increased support tickets. No impact on payment processing.\nimpactedTransactions: 0. Report generation was impacted, not transactions.\npsdiiReportable: False. Ancillary, non-payment service was affected.\nimpactedApplication: PayU Merchant Reporting Service\naccountableParty: PayU Platform Operations due to operational oversight.\nrepeatIncident: False.\nrootCause: The password for the 'svc_reportgen' service account expired and was not in the automated rotation system.\nmitigation: The password was manually reset, and the report job was re-triggered.\nclientRecommendations: A notification was sent to merchants about the delay.\ntimeline: 09:00 - Missing reports confirmed. 09:15 - Investigation started. 09:45 - Found 'Authentication Failed' errors in logs. 10:00 - Identified expired password. 10:30 - Password rotated and job re-run.\nproblemRecords: True. PRB-2024-211 created to onboard all service accounts to the credential management platform."
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-10-27-374",
+    "Main Issue": "HTTP 400",
+    "text": "incidentId: PAYU-INC-2024-10-27-374\nexecutiveSummary: On 27-Oct-2024, Bad Request responses due to missing or malformed fields.\nimpact: Approximately 2183 requests affected; core processing partially degraded.\nimpactedTransactions: 2183 for the 'FX Quote' endpoint.\npsdiiReportable: False.\nimpactedApplication: PayU Core Payments\naccountableParty: Security (SOC/WAF).\nrepeatIncident: False.\nrootCause: Mandatory field absent or wrong data type; validation working as designed.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 09:10 - Alert/Report via ServiceNow. 12:21 - Triage started. 18:44 - Cause identified. 15:10 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-10-01-546",
+    "Main Issue": "Circuit Breaker Open",
+    "text": "incidentId: PAYU-INC-2024-10-01-546\nexecutiveSummary: On 01-Oct-2024, Circuit breaker opened to protect downstream, causing fallbacks/5xx.\nimpact: Approximately 4895 requests affected; core processing unaffected.\nimpactedTransactions: 4895 for the 'Risk Scoring' endpoint.\npsdiiReportable: False.\nimpactedApplication: E-commerce Merchant Backend\naccountableParty: Client-side Integration.\nrepeatIncident: False.\nrootCause: Downstream error rate crossed threshold; breaker opened per policy.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 09:05 - Alert/Report via Monitoring. 12:08 - Triage started. 08:18 - Cause identified. 21:36 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-06-02-371",
+    "Main Issue": "Database Deadlock",
+    "text": "incidentId: PAYU-INC-2025-06-02-371\nexecutiveSummary: On 02-Jun-2025, Spike in DB deadlocks led to retries and transient failures.\nimpact: Approximately 2499 requests affected; core processing partially degraded.\nimpactedTransactions: 2499 for the 'Payments' endpoint.\npsdiiReportable: False.\nimpactedApplication: Webhook Delivery Service\naccountableParty: DevOps/CI-CD.\nrepeatIncident: True.\nrootCause: Contention on hot rows and missing index on a frequently updated table.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 20:57 - Alert/Report via PagerDuty. 21:43 - Triage started. 23:33 - Cause identified. 21:23 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-06-19-132",
+    "Main Issue": "Memory Leak",
+    "text": "incidentId: PAYU-INC-2025-06-19-132\nexecutiveSummary: On 19-Jun-2025, Service memory climbed leading to OOM restarts.\nimpact: Approximately 676 requests affected; core processing partially degraded.\nimpactedTransactions: 676 for the 'Webhook Worker' endpoint.\npsdiiReportable: False.\nimpactedApplication: API Gateway\naccountableParty: PayU Database Team.\nrepeatIncident: False.\nrootCause: Leaky object cache in new release; GC unable to reclaim.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 10:46 - Alert/Report via Monitoring. 22:24 - Triage started. 18:01 - Cause identified. 14:37 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-11-15-951",
+    "Main Issue": "DNS Misconfiguration",
+    "text": "incidentId: PAYU-INC-2024-11-15-951\nexecutiveSummary: On 15-Nov-2024, Intermittent failures after provider switch due to DNS TTL/record issues.\nimpact: Approximately 105 requests affected; core processing partially degraded.\nimpactedTransactions: 105 for the 'Webhook Target' endpoint.\npsdiiReportable: True.\nimpactedApplication: Settlement & Reporting\naccountableParty: Security (SOC/WAF).\nrepeatIncident: False.\nrootCause: Authoritative DNS not updated consistently across regions.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 23:48 - Alert/Report via PagerDuty. 15:34 - Triage started. 23:11 - Cause identified. 12:34 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-05-16-487",
+    "Main Issue": "Circuit Breaker Open",
+    "text": "incidentId: PAYU-INC-2025-05-16-487\nexecutiveSummary: On 16-May-2025, Circuit breaker opened to protect downstream, causing fallbacks/5xx.\nimpact: Approximately 361 requests affected; core processing partially degraded.\nimpactedTransactions: 361 for the 'Fraud Service' endpoint.\npsdiiReportable: True.\nimpactedApplication: Refund Automation Service\naccountableParty: DevOps/CI-CD.\nrepeatIncident: True.\nrootCause: Downstream error rate crossed threshold; breaker opened per policy.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 19:43 - Alert/Report via ServiceNow. 16:27 - Triage started. 21:00 - Cause identified. 11:39 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-11-02-622",
+    "Main Issue": "Report Generation Failure",
+    "text": "incidentId: PAYU-INC-2024-11-02-622\nexecutiveSummary: On 02-Nov-2024, Scheduled report job failed until credentials were rotated.\nimpact: Approximately 679 requests affected; core processing partially degraded.\nimpactedTransactions: 679 for the 'Merchant Settlement Report' endpoint.\npsdiiReportable: False.\nimpactedApplication: PayU Core Payments\naccountableParty: Security (SOC/WAF).\nrepeatIncident: True.\nrootCause: Expired service account credentials blocked scheduler job.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 18:16 - Alert/Report via Monitoring. 23:02 - Triage started. 18:26 - Cause identified. 19:01 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-12-23-529",
+    "Main Issue": "HTTP 400",
+    "text": "incidentId: PAYU-INC-2024-12-23-529\nexecutiveSummary: On 23-Dec-2024, Bad Request responses due to missing or malformed fields.\nimpact: Approximately 3048 requests affected; core processing unaffected.\nimpactedTransactions: 3048 for the 'Add Beneficiary' endpoint.\npsdiiReportable: False.\nimpactedApplication: E-commerce Merchant Backend\naccountableParty: Client-side Integration.\nrepeatIncident: False.\nrootCause: Mandatory field absent or wrong data type; validation working as designed.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 12:58 - Alert/Report via JIRA. 17:49 - Triage started. 20:23 - Cause identified. 12:34 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-03-22-629",
+    "Main Issue": "HTTP 400",
+    "text": "incidentId: PAYU-INC-2025-03-22-629\nexecutiveSummary: On 22-Mar-2025, Bad Request responses due to missing or malformed fields.\nimpact: Approximately 4827 requests affected; core processing unaffected.\nimpactedTransactions: 4827 for the 'Add Beneficiary' endpoint.\npsdiiReportable: False.\nimpactedApplication: Bank Acquirer Integration\naccountableParty: Client-side Integration.\nrepeatIncident: False.\nrootCause: Mandatory field absent or wrong data type; validation working as designed.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 08:22 - Alert/Report via Monitoring. 22:55 - Triage started. 22:19 - Cause identified. 21:50 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-10-15-262",
+    "Main Issue": "Kafka Lag",
+    "text": "incidentId: PAYU-INC-2024-10-15-262\nexecutiveSummary: On 15-Oct-2024, Consumer lag rose; downstream processors delayed status updates.\nimpact: Approximately 4233 requests affected; core processing partially degraded.\nimpactedTransactions: 4233 for the 'Risk Events' endpoint.\npsdiiReportable: True.\nimpactedApplication: Webhook Delivery Service\naccountableParty: PayU Database Team.\nrepeatIncident: False.\nrootCause: Under-provisioned consumer group and partition imbalance.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 15:57 - Alert/Report via Email. 18:05 - Triage started. 16:59 - Cause identified. 15:13 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Email"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-03-14-370",
+    "Main Issue": "Carding Attack",
+    "text": "incidentId: PAYU-INC-2025-03-14-370\nexecutiveSummary: On 14-Mar-2025, WAF blocked carding; a few legitimate calls impacted due to shared IPs.\nimpact: Approximately 4100 requests affected; core processing unaffected.\nimpactedTransactions: 4100 for the 'Card BIN Check' endpoint.\npsdiiReportable: False.\nimpactedApplication: Settlement & Reporting\naccountableParty: Third-party Partner.\nrepeatIncident: True.\nrootCause: Automated IP blocklist affected shared proxy IPs used by clients.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 15:05 - Alert/Report via ServiceNow. 18:05 - Triage started. 18:35 - Cause identified. 12:59 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-07-01-238",
+    "Main Issue": "Circuit Breaker Open",
+    "text": "incidentId: PAYU-INC-2025-07-01-238\nexecutiveSummary: On 01-Jul-2025, Circuit breaker opened to protect downstream, causing fallbacks/5xx.\nimpact: Approximately 4032 requests affected; core processing partially degraded.\nimpactedTransactions: 4032 for the 'Fraud Service' endpoint.\npsdiiReportable: False.\nimpactedApplication: PayU Core Payments\naccountableParty: Cloud Provider.\nrepeatIncident: False.\nrootCause: Downstream error rate crossed threshold; breaker opened per policy.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 20:58 - Alert/Report via Monitoring. 15:53 - Triage started. 12:39 - Cause identified. 08:57 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-08-04-723",
+    "Main Issue": "Database Deadlock",
+    "text": "incidentId: PAYU-INC-2025-08-04-723\nexecutiveSummary: On 04-Aug-2025, Spike in DB deadlocks led to retries and transient failures.\nimpact: Approximately 4789 requests affected; core processing partially degraded.\nimpactedTransactions: 4789 for the 'Ledger Write' endpoint.\npsdiiReportable: False.\nimpactedApplication: PayU Core Payments\naccountableParty: Internal Analytics Platform.\nrepeatIncident: False.\nrootCause: Contention on hot rows and missing index on a frequently updated table.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 18:22 - Alert/Report via ServiceNow. 14:49 - Triage started. 22:21 - Cause identified. 14:52 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-01-491",
+    "Main Issue": "Circuit Breaker Open",
+    "text": "incidentId: PAYU-INC-2025-01-01-491\nexecutiveSummary: On 01-Jan-2025, Circuit breaker opened to protect downstream, causing fallbacks/5xx.\nimpact: Approximately 3397 requests affected; core processing partially degraded.\nimpactedTransactions: 3397 for the 'Risk Scoring' endpoint.\npsdiiReportable: False.\nimpactedApplication: Webhook Delivery Service\naccountableParty: Cloud Provider.\nrepeatIncident: True.\nrootCause: Downstream error rate crossed threshold; breaker opened per policy.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 10:58 - Alert/Report via Monitoring. 17:07 - Triage started. 16:32 - Cause identified. 18:03 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-13-152",
+    "Main Issue": "TLS Certificate Expiry",
+    "text": "incidentId: PAYU-INC-2025-04-13-152\nexecutiveSummary: On 13-Apr-2025, Outbound calls failed due to an expired TLS certificate on a partner endpoint.\nimpact: Approximately 2445 requests affected; core processing partially degraded.\nimpactedTransactions: 2445 for the 'OAuth Introspection' endpoint.\npsdiiReportable: False.\nimpactedApplication: UPI/NetBanking Rail\naccountableParty: Internal Analytics Platform.\nrepeatIncident: True.\nrootCause: Missed certificate rotation on partner endpoint.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 22:36 - Alert/Report via ServiceNow. 19:15 - Triage started. 22:32 - Cause identified. 16:21 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-10-25-286",
+    "Main Issue": "HTTP 400",
+    "text": "incidentId: PAYU-INC-2024-10-25-286\nexecutiveSummary: On 25-Oct-2024, Bad Request responses due to missing or malformed fields.\nimpact: Approximately 3507 requests affected; core processing partially degraded.\nimpactedTransactions: 3507 for the 'Create Transaction' endpoint.\npsdiiReportable: True.\nimpactedApplication: Refund Automation Service\naccountableParty: DevOps/CI-CD.\nrepeatIncident: False.\nrootCause: Mandatory field absent or wrong data type; validation working as designed.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 12:20 - Alert/Report via Monitoring. 19:57 - Triage started. 15:38 - Cause identified. 09:29 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-06-16-715",
+    "Main Issue": "Circuit Breaker Open",
+    "text": "incidentId: PAYU-INC-2025-06-16-715\nexecutiveSummary: On 16-Jun-2025, Circuit breaker opened to protect downstream, causing fallbacks/5xx.\nimpact: Approximately 4752 requests affected; core processing partially degraded.\nimpactedTransactions: 4752 for the 'UPI PSP' endpoint.\npsdiiReportable: True.\nimpactedApplication: Risk & Fraud Platform\naccountableParty: Security (SOC/WAF).\nrepeatIncident: True.\nrootCause: Downstream error rate crossed threshold; breaker opened per policy.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 17:10 - Alert/Report via ServiceNow. 21:22 - Triage started. 21:02 - Cause identified. 08:31 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-12-24-302",
+    "Main Issue": "HTTP 499",
+    "text": "incidentId: PAYU-INC-2024-12-24-302\nexecutiveSummary: On 24-Dec-2024, Client closed requests due to aggressive timeouts at the caller/load balancer.\nimpact: Approximately 4298 requests affected; core processing unaffected.\nimpactedTransactions: 4298 for the 'Verify Payment' endpoint.\npsdiiReportable: False.\nimpactedApplication: Webhook Delivery Service\naccountableParty: Third-party Partner.\nrepeatIncident: False.\nrootCause: Caller closed connection before upstream completed; timeout below P99 latency.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 15:18 - Alert/Report via JIRA. 10:06 - Triage started. 22:39 - Cause identified. 16:51 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-08-633",
+    "Main Issue": "Clock Skew",
+    "text": "incidentId: PAYU-INC-2025-01-08-633\nexecutiveSummary: On 08-Jan-2025, Signed requests failed validation due to clock skew.\nimpact: Approximately 3214 requests affected; core processing partially degraded.\nimpactedTransactions: 3214 for the 'Auth Token' endpoint.\npsdiiReportable: False.\nimpactedApplication: UPI/NetBanking Rail\naccountableParty: PayU API Gateway Team.\nrepeatIncident: True.\nrootCause: NTP drift on a subset of nodes caused signature verification failures.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 19:09 - Alert/Report via Monitoring. 23:08 - Triage started. 14:59 - Cause identified. 14:15 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-10-20-350",
+    "Main Issue": "Clock Skew",
+    "text": "incidentId: PAYU-INC-2024-10-20-350\nexecutiveSummary: On 20-Oct-2024, Signed requests failed validation due to clock skew.\nimpact: Approximately 601 requests affected; core processing unaffected.\nimpactedTransactions: 601 for the 'Signed Webhook' endpoint.\npsdiiReportable: False.\nimpactedApplication: PayU Core Payments\naccountableParty: Client-side Integration.\nrepeatIncident: False.\nrootCause: NTP drift on a subset of nodes caused signature verification failures.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 09:59 - Alert/Report via Monitoring. 15:46 - Triage started. 21:44 - Cause identified. 17:59 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-04-411",
+    "Main Issue": "HTTP 400",
+    "text": "incidentId: PAYU-INC-2025-01-04-411\nexecutiveSummary: On 04-Jan-2025, Bad Request responses due to missing or malformed fields.\nimpact: Approximately 2660 requests affected; core processing unaffected.\nimpactedTransactions: 2660 for the 'Verify Payment' endpoint.\npsdiiReportable: False.\nimpactedApplication: Webhook Delivery Service\naccountableParty: Client-side Integration.\nrepeatIncident: False.\nrootCause: Mandatory field absent or wrong data type; validation working as designed.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 22:14 - Alert/Report via JIRA. 21:14 - Triage started. 21:25 - Cause identified. 14:24 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-11-09-608",
+    "Main Issue": "Memory Leak",
+    "text": "incidentId: PAYU-INC-2024-11-09-608\nexecutiveSummary: On 09-Nov-2024, Service memory climbed leading to OOM restarts.\nimpact: Approximately 2349 requests affected; core processing partially degraded.\nimpactedTransactions: 2349 for the 'Payment Orchestrator' endpoint.\npsdiiReportable: True.\nimpactedApplication: UPI/NetBanking Rail\naccountableParty: PayU API Gateway Team.\nrepeatIncident: True.\nrootCause: Leaky object cache in new release; GC unable to reclaim.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 19:35 - Alert/Report via JIRA. 08:28 - Triage started. 19:18 - Cause identified. 19:13 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-18-148",
+    "Main Issue": "HTTP 400",
+    "text": "incidentId: PAYU-INC-2025-04-18-148\nexecutiveSummary: On 18-Apr-2025, Bad Request responses due to missing or malformed fields.\nimpact: Approximately 4856 requests affected; core processing unaffected.\nimpactedTransactions: 4856 for the 'Create Transaction' endpoint.\npsdiiReportable: False.\nimpactedApplication: E-commerce Merchant Backend\naccountableParty: Third-party Partner.\nrepeatIncident: False.\nrootCause: Mandatory field absent or wrong data type; validation working as designed.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 12:56 - Alert/Report via PagerDuty. 23:08 - Triage started. 08:10 - Cause identified. 10:21 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-10-17-200",
+    "Main Issue": "HTTP 429",
+    "text": "incidentId: PAYU-INC-2024-10-17-200\nexecutiveSummary: On 17-Oct-2024, Too Many Requests returned after an unexpected rate-limit policy was applied.\nimpact: Approximately 3748 requests affected; core processing partially degraded.\nimpactedTransactions: 3748 for the 'Disputes' endpoint.\npsdiiReportable: True.\nimpactedApplication: Settlement & Reporting\naccountableParty: Security (SOC/WAF).\nrepeatIncident: True.\nrootCause: Misconfigured throttling at API Gateway.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 11:29 - Alert/Report via Monitoring. 10:08 - Triage started. 09:22 - Cause identified. 22:51 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-14-936",
+    "Main Issue": "Latency Issue",
+    "text": "incidentId: PAYU-INC-2025-01-14-936\nexecutiveSummary: On 14-Jan-2025, Elevated latencies triggered intermittent client timeouts.\nimpact: Approximately 3533 requests affected; core processing partially degraded.\nimpactedTransactions: 3533 for the 'Settlement' endpoint.\npsdiiReportable: True.\nimpactedApplication: Refund Automation Service\naccountableParty: PayU API Gateway Team.\nrepeatIncident: False.\nrootCause: Datastore/read replica contention raised P95/P99 latency.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 18:42 - Alert/Report via PagerDuty. 20:22 - Triage started. 15:52 - Cause identified. 09:03 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-07-09-166",
+    "Main Issue": "HTTP 400",
+    "text": "incidentId: PAYU-INC-2025-07-09-166\nexecutiveSummary: On 09-Jul-2025, Bad Request responses due to missing or malformed fields.\nimpact: Approximately 2359 requests affected; core processing unaffected.\nimpactedTransactions: 2359 for the 'Add Beneficiary' endpoint.\npsdiiReportable: False.\nimpactedApplication: Refund Automation Service\naccountableParty: Client-side Integration.\nrepeatIncident: False.\nrootCause: Mandatory field absent or wrong data type; validation working as designed.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 19:23 - Alert/Report via JIRA. 12:54 - Triage started. 21:56 - Cause identified. 09:38 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-02-26-458",
+    "Main Issue": "Report Generation Failure",
+    "text": "incidentId: PAYU-INC-2025-02-26-458\nexecutiveSummary: On 26-Feb-2025, Scheduled report job failed until credentials were rotated.\nimpact: Approximately 2871 requests affected; core processing partially degraded.\nimpactedTransactions: 2871 for the 'Merchant Settlement Report' endpoint.\npsdiiReportable: False.\nimpactedApplication: PayU Core Payments\naccountableParty: Cloud Provider.\nrepeatIncident: True.\nrootCause: Expired service account credentials blocked scheduler job.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 18:28 - Alert/Report via Email. 11:46 - Triage started. 14:25 - Cause identified. 10:12 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Email"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-14-839",
+    "Main Issue": "Report Generation Failure",
+    "text": "incidentId: PAYU-INC-2025-01-14-839\nexecutiveSummary: On 14-Jan-2025, Scheduled report job failed until credentials were rotated.\nimpact: Approximately 3939 requests affected; core processing partially degraded.\nimpactedTransactions: 3939 for the 'Tax Invoice' endpoint.\npsdiiReportable: True.\nimpactedApplication: Webhook Delivery Service\naccountableParty: PayU Database Team.\nrepeatIncident: False.\nrootCause: Expired service account credentials blocked scheduler job.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 08:48 - Alert/Report via PagerDuty. 13:49 - Triage started. 14:23 - Cause identified. 13:06 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-12-09-831",
+    "Main Issue": "TLS Certificate Expiry",
+    "text": "incidentId: PAYU-INC-2024-12-09-831\nexecutiveSummary: On 09-Dec-2024, Outbound calls failed due to an expired TLS certificate on a partner endpoint.\nimpact: Approximately 2215 requests affected; core processing partially degraded.\nimpactedTransactions: 2215 for the 'Bank Callback' endpoint.\npsdiiReportable: False.\nimpactedApplication: E-commerce Merchant Backend\naccountableParty: Internal Analytics Platform.\nrepeatIncident: True.\nrootCause: Missed certificate rotation on partner endpoint.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 12:16 - Alert/Report via ServiceNow. 21:05 - Triage started. 16:33 - Cause identified. 11:42 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-07-01-223",
+    "Main Issue": "Clock Skew",
+    "text": "incidentId: PAYU-INC-2025-07-01-223\nexecutiveSummary: On 01-Jul-2025, Signed requests failed validation due to clock skew.\nimpact: Approximately 2350 requests affected; core processing unaffected.\nimpactedTransactions: 2350 for the 'S3 Upload' endpoint.\npsdiiReportable: True.\nimpactedApplication: UPI/NetBanking Rail\naccountableParty: Third-party Partner.\nrepeatIncident: True.\nrootCause: NTP drift on a subset of nodes caused signature verification failures.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 11:59 - Alert/Report via PagerDuty. 22:53 - Triage started. 20:52 - Cause identified. 19:43 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-01-939",
+    "Main Issue": "Clock Skew",
+    "text": "incidentId: PAYU-INC-2025-01-01-939\nexecutiveSummary: On 01-Jan-2025, Signed requests failed validation due to clock skew.\nimpact: Approximately 3173 requests affected; core processing unaffected.\nimpactedTransactions: 3173 for the 'Signed Webhook' endpoint.\npsdiiReportable: True.\nimpactedApplication: Bank Acquirer Integration\naccountableParty: Third-party Partner.\nrepeatIncident: True.\nrootCause: NTP drift on a subset of nodes caused signature verification failures.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 12:51 - Alert/Report via ServiceNow. 10:11 - Triage started. 16:26 - Cause identified. 13:49 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-18-947",
+    "Main Issue": "Partner Outage",
+    "text": "incidentId: PAYU-INC-2025-04-18-947\nexecutiveSummary: On 18-Apr-2025, Third-party bank/acquirer outage; traffic auto-rerouted where possible.\nimpact: Approximately 195 requests affected; core processing partially degraded.\nimpactedTransactions: 195 for the 'Card Authorization' endpoint.\npsdiiReportable: True.\nimpactedApplication: Data Analytics Platform\naccountableParty: Security (SOC/WAF).\nrepeatIncident: False.\nrootCause: External dependency outage at partner network.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 17:19 - Alert/Report via ServiceNow. 18:01 - Triage started. 12:19 - Cause identified. 17:56 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-11-537",
+    "Main Issue": "Latency Issue",
+    "text": "incidentId: PAYU-INC-2025-01-11-537\nexecutiveSummary: On 11-Jan-2025, Elevated latencies triggered intermittent client timeouts.\nimpact: Approximately 368 requests affected; core processing partially degraded.\nimpactedTransactions: 368 for the 'Order Status' endpoint.\npsdiiReportable: True.\nimpactedApplication: E-commerce Merchant Backend\naccountableParty: PayU Database Team.\nrepeatIncident: True.\nrootCause: Datastore/read replica contention raised P95/P99 latency.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 10:28 - Alert/Report via Monitoring. 14:25 - Triage started. 21:45 - Cause identified. 19:04 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-19-191",
+    "Main Issue": "Database Deadlock",
+    "text": "incidentId: PAYU-INC-2025-01-19-191\nexecutiveSummary: On 19-Jan-2025, Spike in DB deadlocks led to retries and transient failures.\nimpact: Approximately 4382 requests affected; core processing unaffected.\nimpactedTransactions: 4382 for the 'Payments' endpoint.\npsdiiReportable: True.\nimpactedApplication: PayU Core Payments\naccountableParty: Third-party Partner.\nrepeatIncident: False.\nrootCause: Contention on hot rows and missing index on a frequently updated table.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 11:45 - Alert/Report via PagerDuty. 09:53 - Triage started. 21:51 - Cause identified. 23:39 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-15-441",
+    "Main Issue": "DNS Misconfiguration",
+    "text": "incidentId: PAYU-INC-2025-04-15-441\nexecutiveSummary: On 15-Apr-2025, Intermittent failures after provider switch due to DNS TTL/record issues.\nimpact: Approximately 3315 requests affected; core processing partially degraded.\nimpactedTransactions: 3315 for the 'Callback URL' endpoint.\npsdiiReportable: False.\nimpactedApplication: E-commerce Merchant Backend\naccountableParty: PayU API Gateway Team.\nrepeatIncident: True.\nrootCause: Authoritative DNS not updated consistently across regions.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 12:50 - Alert/Report via Monitoring. 17:23 - Triage started. 21:45 - Cause identified. 16:18 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-29-964",
+    "Main Issue": "HTTP 429",
+    "text": "incidentId: PAYU-INC-2025-04-29-964\nexecutiveSummary: On 29-Apr-2025, Too Many Requests returned after an unexpected rate-limit policy was applied.\nimpact: Approximately 19 requests affected; core processing partially degraded.\nimpactedTransactions: 19 for the 'Payments' endpoint.\npsdiiReportable: True.\nimpactedApplication: Data Analytics Platform\naccountableParty: PayU Database Team.\nrepeatIncident: False.\nrootCause: Misconfigured throttling at API Gateway.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 15:40 - Alert/Report via Email. 23:01 - Triage started. 19:18 - Cause identified. 22:23 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Email"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-02-23-953",
+    "Main Issue": "Kafka Lag",
+    "text": "incidentId: PAYU-INC-2025-02-23-953\nexecutiveSummary: On 23-Feb-2025, Consumer lag rose; downstream processors delayed status updates.\nimpact: Approximately 1627 requests affected; core processing partially degraded.\nimpactedTransactions: 1627 for the 'Risk Events' endpoint.\npsdiiReportable: True.\nimpactedApplication: PayU Core Payments\naccountableParty: Internal Analytics Platform.\nrepeatIncident: True.\nrootCause: Under-provisioned consumer group and partition imbalance.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 19:48 - Alert/Report via JIRA. 21:42 - Triage started. 13:57 - Cause identified. 11:42 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-11-07-337",
+    "Main Issue": "TLS Certificate Expiry",
+    "text": "incidentId: PAYU-INC-2024-11-07-337\nexecutiveSummary: On 07-Nov-2024, Outbound calls failed due to an expired TLS certificate on a partner endpoint.\nimpact: Approximately 1112 requests affected; core processing partially degraded.\nimpactedTransactions: 1112 for the 'OAuth Introspection' endpoint.\npsdiiReportable: False.\nimpactedApplication: E-commerce Merchant Backend\naccountableParty: DevOps/CI-CD.\nrepeatIncident: False.\nrootCause: Missed certificate rotation on partner endpoint.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 18:20 - Alert/Report via Email. 21:50 - Triage started. 16:21 - Cause identified. 23:11 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Email"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-29-204",
+    "Main Issue": "Cache Eviction",
+    "text": "incidentId: PAYU-INC-2025-01-29-204\nexecutiveSummary: On 29-Jan-2025, Sudden cache evictions increased DB load and latency.\nimpact: Approximately 4225 requests affected; core processing unaffected.\nimpactedTransactions: 4225 for the 'Merchant Config' endpoint.\npsdiiReportable: False.\nimpactedApplication: Risk & Fraud Platform\naccountableParty: Client-side Integration.\nrepeatIncident: True.\nrootCause: Aggressive TTL plus cache stampede on popular keys.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 20:47 - Alert/Report via JIRA. 13:49 - Triage started. 15:32 - Cause identified. 13:49 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-06-06-612",
+    "Main Issue": "DNS Misconfiguration",
+    "text": "incidentId: PAYU-INC-2025-06-06-612\nexecutiveSummary: On 06-Jun-2025, Intermittent failures after provider switch due to DNS TTL/record issues.\nimpact: Approximately 3855 requests affected; core processing partially degraded.\nimpactedTransactions: 3855 for the 'API Gateway' endpoint.\npsdiiReportable: False.\nimpactedApplication: API Gateway\naccountableParty: Internal Analytics Platform.\nrepeatIncident: False.\nrootCause: Authoritative DNS not updated consistently across regions.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 10:27 - Alert/Report via JIRA. 23:25 - Triage started. 18:03 - Cause identified. 21:55 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-05-02-813",
+    "Main Issue": "HTTP 400",
+    "text": "incidentId: PAYU-INC-2025-05-02-813\nexecutiveSummary: On 02-May-2025, Bad Request responses due to missing or malformed fields.\nimpact: Approximately 3632 requests affected; core processing partially degraded.\nimpactedTransactions: 3632 for the 'Verify Payment' endpoint.\npsdiiReportable: False.\nimpactedApplication: PayU Core Payments\naccountableParty: PayU API Gateway Team.\nrepeatIncident: True.\nrootCause: Mandatory field absent or wrong data type; validation working as designed.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 18:49 - Alert/Report via Monitoring. 15:44 - Triage started. 23:46 - Cause identified. 18:42 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-28-133",
+    "Main Issue": "HTTP 429",
+    "text": "incidentId: PAYU-INC-2025-01-28-133\nexecutiveSummary: On 28-Jan-2025, Too Many Requests returned after an unexpected rate-limit policy was applied.\nimpact: Approximately 3676 requests affected; core processing partially degraded.\nimpactedTransactions: 3676 for the 'Disputes' endpoint.\npsdiiReportable: True.\nimpactedApplication: UPI/NetBanking Rail\naccountableParty: Security (SOC/WAF).\nrepeatIncident: False.\nrootCause: Misconfigured throttling at API Gateway.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 12:17 - Alert/Report via JIRA. 19:34 - Triage started. 17:43 - Cause identified. 10:22 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-14-914",
+    "Main Issue": "HTTP 499",
+    "text": "incidentId: PAYU-INC-2025-01-14-914\nexecutiveSummary: On 14-Jan-2025, Client closed requests due to aggressive timeouts at the caller/load balancer.\nimpact: Approximately 4574 requests affected; core processing unaffected.\nimpactedTransactions: 4574 for the 'Create Transaction' endpoint.\npsdiiReportable: False.\nimpactedApplication: Webhook Delivery Service\naccountableParty: Client-side Integration.\nrepeatIncident: False.\nrootCause: Caller closed connection before upstream completed; timeout below P99 latency.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 20:45 - Alert/Report via JIRA. 23:04 - Triage started. 14:11 - Cause identified. 19:14 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-03-18-814",
+    "Main Issue": "Carding Attack",
+    "text": "incidentId: PAYU-INC-2025-03-18-814\nexecutiveSummary: On 18-Mar-2025, WAF blocked carding; a few legitimate calls impacted due to shared IPs.\nimpact: Approximately 958 requests affected; core processing partially degraded.\nimpactedTransactions: 958 for the 'Tokenization' endpoint.\npsdiiReportable: False.\nimpactedApplication: E-commerce Merchant Backend\naccountableParty: Internal Analytics Platform.\nrepeatIncident: False.\nrootCause: Automated IP blocklist affected shared proxy IPs used by clients.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 14:16 - Alert/Report via Monitoring. 10:44 - Triage started. 11:23 - Cause identified. 13:12 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-11-12-986",
+    "Main Issue": "HTTP 400",
+    "text": "incidentId: PAYU-INC-2024-11-12-986\nexecutiveSummary: On 12-Nov-2024, Bad Request responses due to missing or malformed fields.\nimpact: Approximately 3674 requests affected; core processing unaffected.\nimpactedTransactions: 3674 for the 'FX Quote' endpoint.\npsdiiReportable: True.\nimpactedApplication: UPI/NetBanking Rail\naccountableParty: Client-side Integration.\nrepeatIncident: False.\nrootCause: Mandatory field absent or wrong data type; validation working as designed.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 17:32 - Alert/Report via Monitoring. 20:24 - Triage started. 18:23 - Cause identified. 19:04 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-03-20-720",
+    "Main Issue": "HTTP 429",
+    "text": "incidentId: PAYU-INC-2025-03-20-720\nexecutiveSummary: On 20-Mar-2025, Too Many Requests returned after an unexpected rate-limit policy was applied.\nimpact: Approximately 220 requests affected; core processing partially degraded.\nimpactedTransactions: 220 for the 'Payments' endpoint.\npsdiiReportable: False.\nimpactedApplication: Bank Acquirer Integration\naccountableParty: Internal Analytics Platform.\nrepeatIncident: True.\nrootCause: Misconfigured throttling at API Gateway.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 18:44 - Alert/Report via Monitoring. 17:09 - Triage started. 18:38 - Cause identified. 23:23 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-24-647",
+    "Main Issue": "Circuit Breaker Open",
+    "text": "incidentId: PAYU-INC-2025-01-24-647\nexecutiveSummary: On 24-Jan-2025, Circuit breaker opened to protect downstream, causing fallbacks/5xx.\nimpact: Approximately 3857 requests affected; core processing partially degraded.\nimpactedTransactions: 3857 for the 'Risk Scoring' endpoint.\npsdiiReportable: False.\nimpactedApplication: Settlement & Reporting\naccountableParty: Internal Analytics Platform.\nrepeatIncident: True.\nrootCause: Downstream error rate crossed threshold; breaker opened per policy.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 17:58 - Alert/Report via JIRA. 13:12 - Triage started. 22:30 - Cause identified. 18:30 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-05-17-574",
+    "Main Issue": "Circuit Breaker Open",
+    "text": "incidentId: PAYU-INC-2025-05-17-574\nexecutiveSummary: On 17-May-2025, Circuit breaker opened to protect downstream, causing fallbacks/5xx.\nimpact: Approximately 3574 requests affected; core processing partially degraded.\nimpactedTransactions: 3574 for the 'UPI PSP' endpoint.\npsdiiReportable: True.\nimpactedApplication: E-commerce Merchant Backend\naccountableParty: Security (SOC/WAF).\nrepeatIncident: False.\nrootCause: Downstream error rate crossed threshold; breaker opened per policy.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 20:36 - Alert/Report via PagerDuty. 12:14 - Triage started. 09:10 - Cause identified. 21:50 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-06-18-554",
+    "Main Issue": "DNS Misconfiguration",
+    "text": "incidentId: PAYU-INC-2025-06-18-554\nexecutiveSummary: On 18-Jun-2025, Intermittent failures after provider switch due to DNS TTL/record issues.\nimpact: Approximately 4975 requests affected; core processing partially degraded.\nimpactedTransactions: 4975 for the 'Webhook Target' endpoint.\npsdiiReportable: False.\nimpactedApplication: API Gateway\naccountableParty: PayU Database Team.\nrepeatIncident: False.\nrootCause: Authoritative DNS not updated consistently across regions.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 10:37 - Alert/Report via JIRA. 20:35 - Triage started. 10:23 - Cause identified. 22:44 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-12-09-272",
+    "Main Issue": "Report Generation Failure",
+    "text": "incidentId: PAYU-INC-2024-12-09-272\nexecutiveSummary: On 09-Dec-2024, Scheduled report job failed until credentials were rotated.\nimpact: Approximately 1144 requests affected; core processing partially degraded.\nimpactedTransactions: 1144 for the 'Payout Reconciliation' endpoint.\npsdiiReportable: False.\nimpactedApplication: Bank Acquirer Integration\naccountableParty: PayU Database Team.\nrepeatIncident: True.\nrootCause: Expired service account credentials blocked scheduler job.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 15:39 - Alert/Report via PagerDuty. 14:18 - Triage started. 14:37 - Cause identified. 09:48 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-03-08-886",
+    "Main Issue": "Latency Issue",
+    "text": "incidentId: PAYU-INC-2025-03-08-886\nexecutiveSummary: On 08-Mar-2025, Elevated latencies triggered intermittent client timeouts.\nimpact: Approximately 210 requests affected; core processing partially degraded.\nimpactedTransactions: 210 for the 'Order Status' endpoint.\npsdiiReportable: False.\nimpactedApplication: Refund Automation Service\naccountableParty: Internal Analytics Platform.\nrepeatIncident: False.\nrootCause: Datastore/read replica contention raised P95/P99 latency.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 09:06 - Alert/Report via JIRA. 15:02 - Triage started. 19:13 - Cause identified. 10:11 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-05-25-545",
+    "Main Issue": "HTTP 429",
+    "text": "incidentId: PAYU-INC-2025-05-25-545\nexecutiveSummary: On 25-May-2025, Too Many Requests returned after an unexpected rate-limit policy was applied.\nimpact: Approximately 4556 requests affected; core processing unaffected.\nimpactedTransactions: 4556 for the 'Payments' endpoint.\npsdiiReportable: True.\nimpactedApplication: PayU Core Payments\naccountableParty: Third-party Partner.\nrepeatIncident: False.\nrootCause: Misconfigured throttling at API Gateway.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 12:15 - Alert/Report via Email. 17:10 - Triage started. 22:48 - Cause identified. 12:37 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Email"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-07-855",
+    "Main Issue": "Carding Attack",
+    "text": "incidentId: PAYU-INC-2025-04-07-855\nexecutiveSummary: On 07-Apr-2025, WAF blocked carding; a few legitimate calls impacted due to shared IPs.\nimpact: Approximately 3993 requests affected; core processing partially degraded.\nimpactedTransactions: 3993 for the 'Card BIN Check' endpoint.\npsdiiReportable: False.\nimpactedApplication: Bank Acquirer Integration\naccountableParty: Security (SOC/WAF).\nrepeatIncident: False.\nrootCause: Automated IP blocklist affected shared proxy IPs used by clients.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 14:14 - Alert/Report via PagerDuty. 17:47 - Triage started. 22:32 - Cause identified. 12:43 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-07-28-819",
+    "Main Issue": "Circuit Breaker Open",
+    "text": "incidentId: PAYU-INC-2025-07-28-819\nexecutiveSummary: On 28-Jul-2025, Circuit breaker opened to protect downstream, causing fallbacks/5xx.\nimpact: Approximately 1301 requests affected; core processing unaffected.\nimpactedTransactions: 1301 for the '3DS Rails' endpoint.\npsdiiReportable: True.\nimpactedApplication: Refund Automation Service\naccountableParty: Third-party Partner.\nrepeatIncident: False.\nrootCause: Downstream error rate crossed threshold; breaker opened per policy.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 17:40 - Alert/Report via Email. 13:44 - Triage started. 08:31 - Cause identified. 20:14 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Email"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-07-10-753",
+    "Main Issue": "Circuit Breaker Open",
+    "text": "incidentId: PAYU-INC-2025-07-10-753\nexecutiveSummary: On 10-Jul-2025, Circuit breaker opened to protect downstream, causing fallbacks/5xx.\nimpact: Approximately 3537 requests affected; core processing partially degraded.\nimpactedTransactions: 3537 for the '3DS Rails' endpoint.\npsdiiReportable: False.\nimpactedApplication: API Gateway\naccountableParty: Cloud Provider.\nrepeatIncident: False.\nrootCause: Downstream error rate crossed threshold; breaker opened per policy.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 15:09 - Alert/Report via ServiceNow. 14:12 - Triage started. 08:42 - Cause identified. 10:26 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-06-20-409",
+    "Main Issue": "Database Deadlock",
+    "text": "incidentId: PAYU-INC-2025-06-20-409\nexecutiveSummary: On 20-Jun-2025, Spike in DB deadlocks led to retries and transient failures.\nimpact: Approximately 1519 requests affected; core processing partially degraded.\nimpactedTransactions: 1519 for the 'Payments' endpoint.\npsdiiReportable: False.\nimpactedApplication: Risk & Fraud Platform\naccountableParty: PayU API Gateway Team.\nrepeatIncident: False.\nrootCause: Contention on hot rows and missing index on a frequently updated table.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 22:40 - Alert/Report via Monitoring. 08:09 - Triage started. 16:21 - Cause identified. 12:28 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-05-28-971",
+    "Main Issue": "Partner Outage",
+    "text": "incidentId: PAYU-INC-2025-05-28-971\nexecutiveSummary: On 28-May-2025, Third-party bank/acquirer outage; traffic auto-rerouted where possible.\nimpact: Approximately 4055 requests affected; core processing partially degraded.\nimpactedTransactions: 4055 for the 'Card Authorization' endpoint.\npsdiiReportable: False.\nimpactedApplication: Risk & Fraud Platform\naccountableParty: Internal Analytics Platform.\nrepeatIncident: True.\nrootCause: External dependency outage at partner network.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 16:17 - Alert/Report via Monitoring. 10:06 - Triage started. 08:41 - Cause identified. 19:23 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-05-19-558",
+    "Main Issue": "Carding Attack",
+    "text": "incidentId: PAYU-INC-2025-05-19-558\nexecutiveSummary: On 19-May-2025, WAF blocked carding; a few legitimate calls impacted due to shared IPs.\nimpact: Approximately 1461 requests affected; core processing partially degraded.\nimpactedTransactions: 1461 for the 'Authorization' endpoint.\npsdiiReportable: False.\nimpactedApplication: Refund Automation Service\naccountableParty: Internal Analytics Platform.\nrepeatIncident: True.\nrootCause: Automated IP blocklist affected shared proxy IPs used by clients.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 15:47 - Alert/Report via JIRA. 21:23 - Triage started. 20:10 - Cause identified. 16:36 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-06-955",
+    "Main Issue": "Clock Skew",
+    "text": "incidentId: PAYU-INC-2025-04-06-955\nexecutiveSummary: On 06-Apr-2025, Signed requests failed validation due to clock skew.\nimpact: Approximately 4379 requests affected; core processing unaffected.\nimpactedTransactions: 4379 for the 'Bank Callback' endpoint.\npsdiiReportable: False.\nimpactedApplication: PayU Core Payments\naccountableParty: Third-party Partner.\nrepeatIncident: False.\nrootCause: NTP drift on a subset of nodes caused signature verification failures.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 12:38 - Alert/Report via Monitoring. 19:28 - Triage started. 18:45 - Cause identified. 08:41 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-05-27-444",
+    "Main Issue": "Database Deadlock",
+    "text": "incidentId: PAYU-INC-2025-05-27-444\nexecutiveSummary: On 27-May-2025, Spike in DB deadlocks led to retries and transient failures.\nimpact: Approximately 1945 requests affected; core processing partially degraded.\nimpactedTransactions: 1945 for the 'Payments' endpoint.\npsdiiReportable: False.\nimpactedApplication: API Gateway\naccountableParty: PayU Database Team.\nrepeatIncident: False.\nrootCause: Contention on hot rows and missing index on a frequently updated table.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 13:42 - Alert/Report via ServiceNow. 13:15 - Triage started. 12:11 - Cause identified. 16:50 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-24-660",
+    "Main Issue": "Database Deadlock",
+    "text": "incidentId: PAYU-INC-2025-04-24-660\nexecutiveSummary: On 24-Apr-2025, Spike in DB deadlocks led to retries and transient failures.\nimpact: Approximately 3126 requests affected; core processing partially degraded.\nimpactedTransactions: 3126 for the 'Payments' endpoint.\npsdiiReportable: False.\nimpactedApplication: Bank Acquirer Integration\naccountableParty: Cloud Provider.\nrepeatIncident: False.\nrootCause: Contention on hot rows and missing index on a frequently updated table.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 10:14 - Alert/Report via Email. 22:41 - Triage started. 17:57 - Cause identified. 10:58 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Email"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-06-271",
+    "Main Issue": "Carding Attack",
+    "text": "incidentId: PAYU-INC-2025-04-06-271\nexecutiveSummary: On 06-Apr-2025, WAF blocked carding; a few legitimate calls impacted due to shared IPs.\nimpact: Approximately 3746 requests affected; core processing unaffected.\nimpactedTransactions: 3746 for the 'AVS/CVV Verify' endpoint.\npsdiiReportable: False.\nimpactedApplication: UPI/NetBanking Rail\naccountableParty: Client-side Integration.\nrepeatIncident: True.\nrootCause: Automated IP blocklist affected shared proxy IPs used by clients.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 22:49 - Alert/Report via Email. 21:14 - Triage started. 11:33 - Cause identified. 23:02 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Email"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-10-965",
+    "Main Issue": "HTTP 429",
+    "text": "incidentId: PAYU-INC-2025-04-10-965\nexecutiveSummary: On 10-Apr-2025, Too Many Requests returned after an unexpected rate-limit policy was applied.\nimpact: Approximately 1819 requests affected; core processing partially degraded.\nimpactedTransactions: 1819 for the 'Disputes' endpoint.\npsdiiReportable: False.\nimpactedApplication: E-commerce Merchant Backend\naccountableParty: PayU API Gateway Team.\nrepeatIncident: False.\nrootCause: Misconfigured throttling at API Gateway.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 17:40 - Alert/Report via ServiceNow. 14:20 - Triage started. 20:51 - Cause identified. 14:33 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-18-946",
+    "Main Issue": "Latency Issue",
+    "text": "incidentId: PAYU-INC-2025-01-18-946\nexecutiveSummary: On 18-Jan-2025, Elevated latencies triggered intermittent client timeouts.\nimpact: Approximately 4233 requests affected; core processing partially degraded.\nimpactedTransactions: 4233 for the 'Payments' endpoint.\npsdiiReportable: False.\nimpactedApplication: API Gateway\naccountableParty: Cloud Provider.\nrepeatIncident: False.\nrootCause: Datastore/read replica contention raised P95/P99 latency.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 20:20 - Alert/Report via JIRA. 12:15 - Triage started. 12:04 - Cause identified. 19:40 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-28-473",
+    "Main Issue": "HTTP 400",
+    "text": "incidentId: PAYU-INC-2025-01-28-473\nexecutiveSummary: On 28-Jan-2025, Bad Request responses due to missing or malformed fields.\nimpact: Approximately 460 requests affected; core processing unaffected.\nimpactedTransactions: 460 for the 'FX Quote' endpoint.\npsdiiReportable: False.\nimpactedApplication: Risk & Fraud Platform\naccountableParty: Client-side Integration.\nrepeatIncident: False.\nrootCause: Mandatory field absent or wrong data type; validation working as designed.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 11:10 - Alert/Report via ServiceNow. 14:52 - Triage started. 17:41 - Cause identified. 21:15 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-05-15-702",
+    "Main Issue": "DNS Misconfiguration",
+    "text": "incidentId: PAYU-INC-2025-05-15-702\nexecutiveSummary: On 15-May-2025, Intermittent failures after provider switch due to DNS TTL/record issues.\nimpact: Approximately 1660 requests affected; core processing partially degraded.\nimpactedTransactions: 1660 for the 'Webhook Target' endpoint.\npsdiiReportable: False.\nimpactedApplication: Risk & Fraud Platform\naccountableParty: Cloud Provider.\nrepeatIncident: False.\nrootCause: Authoritative DNS not updated consistently across regions.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 19:32 - Alert/Report via Email. 19:10 - Triage started. 22:31 - Cause identified. 10:41 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Email"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-12-08-247",
+    "Main Issue": "DNS Misconfiguration",
+    "text": "incidentId: PAYU-INC-2024-12-08-247\nexecutiveSummary: On 08-Dec-2024, Intermittent failures after provider switch due to DNS TTL/record issues.\nimpact: Approximately 405 requests affected; core processing partially degraded.\nimpactedTransactions: 405 for the 'S3 Endpoint' endpoint.\npsdiiReportable: False.\nimpactedApplication: Bank Acquirer Integration\naccountableParty: DevOps/CI-CD.\nrepeatIncident: False.\nrootCause: Authoritative DNS not updated consistently across regions.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 18:01 - Alert/Report via PagerDuty. 14:41 - Triage started. 15:10 - Cause identified. 12:16 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-02-04-545",
+    "Main Issue": "HTTP 429",
+    "text": "incidentId: PAYU-INC-2025-02-04-545\nexecutiveSummary: On 04-Feb-2025, Too Many Requests returned after an unexpected rate-limit policy was applied.\nimpact: Approximately 3100 requests affected; core processing partially degraded.\nimpactedTransactions: 3100 for the 'Auth Token' endpoint.\npsdiiReportable: False.\nimpactedApplication: PayU Core Payments\naccountableParty: PayU API Gateway Team.\nrepeatIncident: False.\nrootCause: Misconfigured throttling at API Gateway.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 15:03 - Alert/Report via JIRA. 23:21 - Triage started. 18:13 - Cause identified. 20:25 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-07-15-166",
+    "Main Issue": "Kafka Lag",
+    "text": "incidentId: PAYU-INC-2025-07-15-166\nexecutiveSummary: On 15-Jul-2025, Consumer lag rose; downstream processors delayed status updates.\nimpact: Approximately 3115 requests affected; core processing partially degraded.\nimpactedTransactions: 3115 for the 'Risk Events' endpoint.\npsdiiReportable: False.\nimpactedApplication: Data Analytics Platform\naccountableParty: Security (SOC/WAF).\nrepeatIncident: True.\nrootCause: Under-provisioned consumer group and partition imbalance.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 19:34 - Alert/Report via JIRA. 09:11 - Triage started. 21:40 - Cause identified. 18:49 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-05-23-900",
+    "Main Issue": "Cache Eviction",
+    "text": "incidentId: PAYU-INC-2025-05-23-900\nexecutiveSummary: On 23-May-2025, Sudden cache evictions increased DB load and latency.\nimpact: Approximately 151 requests affected; core processing unaffected.\nimpactedTransactions: 151 for the 'Merchant Config' endpoint.\npsdiiReportable: True.\nimpactedApplication: PayU Core Payments\naccountableParty: Client-side Integration.\nrepeatIncident: False.\nrootCause: Aggressive TTL plus cache stampede on popular keys.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 11:08 - Alert/Report via Monitoring. 18:41 - Triage started. 14:56 - Cause identified. 16:15 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-06-869",
+    "Main Issue": "Latency Issue",
+    "text": "incidentId: PAYU-INC-2025-01-06-869\nexecutiveSummary: On 06-Jan-2025, Elevated latencies triggered intermittent client timeouts.\nimpact: Approximately 188 requests affected; core processing unaffected.\nimpactedTransactions: 188 for the 'Order Status' endpoint.\npsdiiReportable: False.\nimpactedApplication: E-commerce Merchant Backend\naccountableParty: Third-party Partner.\nrepeatIncident: False.\nrootCause: Datastore/read replica contention raised P95/P99 latency.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 13:47 - Alert/Report via ServiceNow. 23:47 - Triage started. 23:37 - Cause identified. 15:07 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-05-05-211",
+    "Main Issue": "Database Deadlock",
+    "text": "incidentId: PAYU-INC-2025-05-05-211\nexecutiveSummary: On 05-May-2025, Spike in DB deadlocks led to retries and transient failures.\nimpact: Approximately 2875 requests affected; core processing partially degraded.\nimpactedTransactions: 2875 for the 'Payments' endpoint.\npsdiiReportable: False.\nimpactedApplication: Refund Automation Service\naccountableParty: DevOps/CI-CD.\nrepeatIncident: False.\nrootCause: Contention on hot rows and missing index on a frequently updated table.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 15:14 - Alert/Report via ServiceNow. 15:10 - Triage started. 10:55 - Cause identified. 16:49 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-03-06-197",
+    "Main Issue": "Latency Issue",
+    "text": "incidentId: PAYU-INC-2025-03-06-197\nexecutiveSummary: On 06-Mar-2025, Elevated latencies triggered intermittent client timeouts.\nimpact: Approximately 33 requests affected; core processing partially degraded.\nimpactedTransactions: 33 for the 'Settlement' endpoint.\npsdiiReportable: False.\nimpactedApplication: Risk & Fraud Platform\naccountableParty: Internal Analytics Platform.\nrepeatIncident: True.\nrootCause: Datastore/read replica contention raised P95/P99 latency.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 08:51 - Alert/Report via PagerDuty. 10:44 - Triage started. 16:05 - Cause identified. 20:15 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-07-971",
+    "Main Issue": "Report Generation Failure",
+    "text": "incidentId: PAYU-INC-2025-04-07-971\nexecutiveSummary: On 07-Apr-2025, Scheduled report job failed until credentials were rotated.\nimpact: Approximately 1714 requests affected; core processing partially degraded.\nimpactedTransactions: 1714 for the 'Tax Invoice' endpoint.\npsdiiReportable: True.\nimpactedApplication: Bank Acquirer Integration\naccountableParty: DevOps/CI-CD.\nrepeatIncident: True.\nrootCause: Expired service account credentials blocked scheduler job.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 11:06 - Alert/Report via Email. 23:25 - Triage started. 14:33 - Cause identified. 08:58 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: Email"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-07-09-842",
+    "Main Issue": "DNS Misconfiguration",
+    "text": "incidentId: PAYU-INC-2025-07-09-842\nexecutiveSummary: On 09-Jul-2025, Intermittent failures after provider switch due to DNS TTL/record issues.\nimpact: Approximately 2842 requests affected; core processing partially degraded.\nimpactedTransactions: 2842 for the 'Callback URL' endpoint.\npsdiiReportable: False.\nimpactedApplication: Refund Automation Service\naccountableParty: PayU Database Team.\nrepeatIncident: False.\nrootCause: Authoritative DNS not updated consistently across regions.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 10:59 - Alert/Report via JIRA. 22:01 - Triage started. 10:17 - Cause identified. 10:16 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-29-781",
+    "Main Issue": "Cache Eviction",
+    "text": "incidentId: PAYU-INC-2025-04-29-781\nexecutiveSummary: On 29-Apr-2025, Sudden cache evictions increased DB load and latency.\nimpact: Approximately 2773 requests affected; core processing partially degraded.\nimpactedTransactions: 2773 for the 'Auth Session' endpoint.\npsdiiReportable: False.\nimpactedApplication: Refund Automation Service\naccountableParty: DevOps/CI-CD.\nrepeatIncident: False.\nrootCause: Aggressive TTL plus cache stampede on popular keys.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 18:56 - Alert/Report via ServiceNow. 23:40 - Triage started. 17:10 - Cause identified. 14:49 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-23-902",
+    "Main Issue": "DNS Misconfiguration",
+    "text": "incidentId: PAYU-INC-2025-01-23-902\nexecutiveSummary: On 23-Jan-2025, Intermittent failures after provider switch due to DNS TTL/record issues.\nimpact: Approximately 2577 requests affected; core processing partially degraded.\nimpactedTransactions: 2577 for the 'S3 Endpoint' endpoint.\npsdiiReportable: False.\nimpactedApplication: E-commerce Merchant Backend\naccountableParty: DevOps/CI-CD.\nrepeatIncident: True.\nrootCause: Authoritative DNS not updated consistently across regions.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 15:44 - Alert/Report via ServiceNow. 20:19 - Triage started. 18:34 - Cause identified. 16:42 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-07-09-705",
+    "Main Issue": "Kafka Lag",
+    "text": "incidentId: PAYU-INC-2025-07-09-705\nexecutiveSummary: On 09-Jul-2025, Consumer lag rose; downstream processors delayed status updates.\nimpact: Approximately 4322 requests affected; core processing partially degraded.\nimpactedTransactions: 4322 for the 'Status Stream' endpoint.\npsdiiReportable: False.\nimpactedApplication: UPI/NetBanking Rail\naccountableParty: PayU Database Team.\nrepeatIncident: True.\nrootCause: Under-provisioned consumer group and partition imbalance.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 12:42 - Alert/Report via ServiceNow. 22:46 - Triage started. 11:55 - Cause identified. 16:08 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-02-04-187",
+    "Main Issue": "HTTP 400",
+    "text": "incidentId: PAYU-INC-2025-02-04-187\nexecutiveSummary: On 04-Feb-2025, Bad Request responses due to missing or malformed fields.\nimpact: Approximately 2767 requests affected; core processing partially degraded.\nimpactedTransactions: 2767 for the 'Verify Payment' endpoint.\npsdiiReportable: True.\nimpactedApplication: Risk & Fraud Platform\naccountableParty: Security (SOC/WAF).\nrepeatIncident: False.\nrootCause: Mandatory field absent or wrong data type; validation working as designed.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 09:56 - Alert/Report via JIRA. 20:23 - Triage started. 21:49 - Cause identified. 09:16 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-23-401",
+    "Main Issue": "Database Deadlock",
+    "text": "incidentId: PAYU-INC-2025-01-23-401\nexecutiveSummary: On 23-Jan-2025, Spike in DB deadlocks led to retries and transient failures.\nimpact: Approximately 3743 requests affected; core processing unaffected.\nimpactedTransactions: 3743 for the 'Settlement' endpoint.\npsdiiReportable: False.\nimpactedApplication: Settlement & Reporting\naccountableParty: Third-party Partner.\nrepeatIncident: False.\nrootCause: Contention on hot rows and missing index on a frequently updated table.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 12:20 - Alert/Report via ServiceNow. 13:18 - Triage started. 10:25 - Cause identified. 19:52 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-29-528",
+    "Main Issue": "Cache Eviction",
+    "text": "incidentId: PAYU-INC-2025-01-29-528\nexecutiveSummary: On 29-Jan-2025, Sudden cache evictions increased DB load and latency.\nimpact: Approximately 1300 requests affected; core processing unaffected.\nimpactedTransactions: 1300 for the 'Auth Session' endpoint.\npsdiiReportable: False.\nimpactedApplication: API Gateway\naccountableParty: Client-side Integration.\nrepeatIncident: False.\nrootCause: Aggressive TTL plus cache stampede on popular keys.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 21:10 - Alert/Report via ServiceNow. 17:19 - Triage started. 17:49 - Cause identified. 09:46 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-29-552",
+    "Main Issue": "Latency Issue",
+    "text": "incidentId: PAYU-INC-2025-01-29-552\nexecutiveSummary: On 29-Jan-2025, Elevated latencies triggered intermittent client timeouts.\nimpact: Approximately 326 requests affected; core processing partially degraded.\nimpactedTransactions: 326 for the 'Payments' endpoint.\npsdiiReportable: True.\nimpactedApplication: API Gateway\naccountableParty: PayU Database Team.\nrepeatIncident: False.\nrootCause: Datastore/read replica contention raised P95/P99 latency.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 22:53 - Alert/Report via PagerDuty. 13:01 - Triage started. 12:07 - Cause identified. 12:11 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-07-11-974",
+    "Main Issue": "Kafka Lag",
+    "text": "incidentId: PAYU-INC-2025-07-11-974\nexecutiveSummary: On 11-Jul-2025, Consumer lag rose; downstream processors delayed status updates.\nimpact: Approximately 485 requests affected; core processing partially degraded.\nimpactedTransactions: 485 for the 'Status Stream' endpoint.\npsdiiReportable: False.\nimpactedApplication: Settlement & Reporting\naccountableParty: DevOps/CI-CD.\nrepeatIncident: False.\nrootCause: Under-provisioned consumer group and partition imbalance.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 21:55 - Alert/Report via ServiceNow. 23:06 - Triage started. 08:54 - Cause identified. 16:13 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-15-714",
+    "Main Issue": "DNS Misconfiguration",
+    "text": "incidentId: PAYU-INC-2025-04-15-714\nexecutiveSummary: On 15-Apr-2025, Intermittent failures after provider switch due to DNS TTL/record issues.\nimpact: Approximately 4128 requests affected; core processing partially degraded.\nimpactedTransactions: 4128 for the 'Webhook Target' endpoint.\npsdiiReportable: False.\nimpactedApplication: PayU Core Payments\naccountableParty: PayU Database Team.\nrepeatIncident: True.\nrootCause: Authoritative DNS not updated consistently across regions.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 13:31 - Alert/Report via Email. 08:25 - Triage started. 12:20 - Cause identified. 23:50 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Email"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-07-03-570",
+    "Main Issue": "Cache Eviction",
+    "text": "incidentId: PAYU-INC-2025-07-03-570\nexecutiveSummary: On 03-Jul-2025, Sudden cache evictions increased DB load and latency.\nimpact: Approximately 1162 requests affected; core processing partially degraded.\nimpactedTransactions: 1162 for the 'Feature Flags' endpoint.\npsdiiReportable: False.\nimpactedApplication: Settlement & Reporting\naccountableParty: DevOps/CI-CD.\nrepeatIncident: False.\nrootCause: Aggressive TTL plus cache stampede on popular keys.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 14:23 - Alert/Report via ServiceNow. 08:13 - Triage started. 17:31 - Cause identified. 21:02 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-08-02-937",
+    "Main Issue": "Circuit Breaker Open",
+    "text": "incidentId: PAYU-INC-2025-08-02-937\nexecutiveSummary: On 02-Aug-2025, Circuit breaker opened to protect downstream, causing fallbacks/5xx.\nimpact: Approximately 3719 requests affected; core processing partially degraded.\nimpactedTransactions: 3719 for the 'Fraud Service' endpoint.\npsdiiReportable: False.\nimpactedApplication: Settlement & Reporting\naccountableParty: Security (SOC/WAF).\nrepeatIncident: True.\nrootCause: Downstream error rate crossed threshold; breaker opened per policy.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 11:41 - Alert/Report via JIRA. 14:12 - Triage started. 09:14 - Cause identified. 14:11 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-02-10-522",
+    "Main Issue": "Partner Outage",
+    "text": "incidentId: PAYU-INC-2025-02-10-522\nexecutiveSummary: On 10-Feb-2025, Third-party bank/acquirer outage; traffic auto-rerouted where possible.\nimpact: Approximately 4788 requests affected; core processing partially degraded.\nimpactedTransactions: 4788 for the 'NetBanking Redirect' endpoint.\npsdiiReportable: False.\nimpactedApplication: PayU Core Payments\naccountableParty: Cloud Provider.\nrepeatIncident: False.\nrootCause: External dependency outage at partner network.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 10:00 - Alert/Report via ServiceNow. 18:42 - Triage started. 20:26 - Cause identified. 19:36 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-03-08-578",
+    "Main Issue": "Circuit Breaker Open",
+    "text": "incidentId: PAYU-INC-2025-03-08-578\nexecutiveSummary: On 08-Mar-2025, Circuit breaker opened to protect downstream, causing fallbacks/5xx.\nimpact: Approximately 3177 requests affected; core processing partially degraded.\nimpactedTransactions: 3177 for the 'Fraud Service' endpoint.\npsdiiReportable: True.\nimpactedApplication: Refund Automation Service\naccountableParty: PayU API Gateway Team.\nrepeatIncident: False.\nrootCause: Downstream error rate crossed threshold; breaker opened per policy.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 14:57 - Alert/Report via JIRA. 09:44 - Triage started. 08:58 - Cause identified. 21:11 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-08-07-767",
+    "Main Issue": "Clock Skew",
+    "text": "incidentId: PAYU-INC-2025-08-07-767\nexecutiveSummary: On 07-Aug-2025, Signed requests failed validation due to clock skew.\nimpact: Approximately 1816 requests affected; core processing partially degraded.\nimpactedTransactions: 1816 for the 'Auth Token' endpoint.\npsdiiReportable: False.\nimpactedApplication: Risk & Fraud Platform\naccountableParty: Cloud Provider.\nrepeatIncident: False.\nrootCause: NTP drift on a subset of nodes caused signature verification failures.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 13:33 - Alert/Report via PagerDuty. 23:54 - Triage started. 09:19 - Cause identified. 17:18 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-18-130",
+    "Main Issue": "DNS Misconfiguration",
+    "text": "incidentId: PAYU-INC-2025-04-18-130\nexecutiveSummary: On 18-Apr-2025, Intermittent failures after provider switch due to DNS TTL/record issues.\nimpact: Approximately 4427 requests affected; core processing partially degraded.\nimpactedTransactions: 4427 for the 'API Gateway' endpoint.\npsdiiReportable: True.\nimpactedApplication: Risk & Fraud Platform\naccountableParty: PayU API Gateway Team.\nrepeatIncident: False.\nrootCause: Authoritative DNS not updated consistently across regions.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 09:34 - Alert/Report via ServiceNow. 22:33 - Triage started. 09:08 - Cause identified. 17:16 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-03-21-659",
+    "Main Issue": "Carding Attack",
+    "text": "incidentId: PAYU-INC-2025-03-21-659\nexecutiveSummary: On 21-Mar-2025, WAF blocked carding; a few legitimate calls impacted due to shared IPs.\nimpact: Approximately 1477 requests affected; core processing unaffected.\nimpactedTransactions: 1477 for the 'AVS/CVV Verify' endpoint.\npsdiiReportable: False.\nimpactedApplication: Settlement & Reporting\naccountableParty: Third-party Partner.\nrepeatIncident: False.\nrootCause: Automated IP blocklist affected shared proxy IPs used by clients.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 15:01 - Alert/Report via Email. 13:59 - Triage started. 16:26 - Cause identified. 23:03 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Email"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-03-23-391",
+    "Main Issue": "Kafka Lag",
+    "text": "incidentId: PAYU-INC-2025-03-23-391\nexecutiveSummary: On 23-Mar-2025, Consumer lag rose; downstream processors delayed status updates.\nimpact: Approximately 1616 requests affected; core processing partially degraded.\nimpactedTransactions: 1616 for the 'Status Stream' endpoint.\npsdiiReportable: False.\nimpactedApplication: Refund Automation Service\naccountableParty: Internal Analytics Platform.\nrepeatIncident: False.\nrootCause: Under-provisioned consumer group and partition imbalance.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 18:55 - Alert/Report via Monitoring. 19:55 - Triage started. 09:07 - Cause identified. 13:57 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-03-17-360",
+    "Main Issue": "Latency Issue",
+    "text": "incidentId: PAYU-INC-2025-03-17-360\nexecutiveSummary: On 17-Mar-2025, Elevated latencies triggered intermittent client timeouts.\nimpact: Approximately 2047 requests affected; core processing unaffected.\nimpactedTransactions: 2047 for the 'Statement Download' endpoint.\npsdiiReportable: False.\nimpactedApplication: API Gateway\naccountableParty: Third-party Partner.\nrepeatIncident: False.\nrootCause: Datastore/read replica contention raised P95/P99 latency.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 21:44 - Alert/Report via Monitoring. 19:48 - Triage started. 23:31 - Cause identified. 09:37 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-11-21-488",
+    "Main Issue": "Kafka Lag",
+    "text": "incidentId: PAYU-INC-2024-11-21-488\nexecutiveSummary: On 21-Nov-2024, Consumer lag rose; downstream processors delayed status updates.\nimpact: Approximately 4360 requests affected; core processing partially degraded.\nimpactedTransactions: 4360 for the 'Webhook Dispatcher' endpoint.\npsdiiReportable: False.\nimpactedApplication: UPI/NetBanking Rail\naccountableParty: PayU API Gateway Team.\nrepeatIncident: False.\nrootCause: Under-provisioned consumer group and partition imbalance.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 11:11 - Alert/Report via PagerDuty. 23:22 - Triage started. 12:43 - Cause identified. 19:45 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: PagerDuty"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-11-05-745",
+    "Main Issue": "Circuit Breaker Open",
+    "text": "incidentId: PAYU-INC-2024-11-05-745\nexecutiveSummary: On 05-Nov-2024, Circuit breaker opened to protect downstream, causing fallbacks/5xx.\nimpact: Approximately 2918 requests affected; core processing partially degraded.\nimpactedTransactions: 2918 for the '3DS Rails' endpoint.\npsdiiReportable: False.\nimpactedApplication: Bank Acquirer Integration\naccountableParty: PayU API Gateway Team.\nrepeatIncident: False.\nrootCause: Downstream error rate crossed threshold; breaker opened per policy.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 22:44 - Alert/Report via ServiceNow. 13:32 - Triage started. 15:03 - Cause identified. 14:33 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: ServiceNow"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-12-21-283",
+    "Main Issue": "HTTP 499",
+    "text": "incidentId: PAYU-INC-2024-12-21-283\nexecutiveSummary: On 21-Dec-2024, Client closed requests due to aggressive timeouts at the caller/load balancer.\nimpact: Approximately 4483 requests affected; core processing unaffected.\nimpactedTransactions: 4483 for the 'Create Transaction' endpoint.\npsdiiReportable: True.\nimpactedApplication: E-commerce Merchant Backend\naccountableParty: Third-party Partner.\nrepeatIncident: False.\nrootCause: Caller closed connection before upstream completed; timeout below P99 latency.\nmitigation: Tuned timeouts/retries; updated runbook and alerts; coordinated with stakeholders for permanent fix.\ntimeline: 23:51 - Alert/Report via JIRA. 20:22 - Triage started. 13:20 - Cause identified. 09:08 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: JIRA"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-05-08-342",
+    "Main Issue": "Memory Leak",
+    "text": "incidentId: PAYU-INC-2025-05-08-342\nexecutiveSummary: On 08-May-2025, Service memory climbed leading to OOM restarts.\nimpact: Approximately 2233 requests affected; core processing partially degraded.\nimpactedTransactions: 2233 for the 'Payment Orchestrator' endpoint.\npsdiiReportable: True.\nimpactedApplication: E-commerce Merchant Backend\naccountableParty: PayU API Gateway Team.\nrepeatIncident: True.\nrootCause: Leaky object cache in new release; GC unable to reclaim.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 12:43 - Alert/Report via Email. 22:52 - Triage started. 21:29 - Cause identified. 09:03 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Email"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-01-25-167",
+    "Main Issue": "DNS Misconfiguration",
+    "text": "incidentId: PAYU-INC-2025-01-25-167\nexecutiveSummary: On 25-Jan-2025, Intermittent failures after provider switch due to DNS TTL/record issues.\nimpact: Approximately 146 requests affected; core processing unaffected.\nimpactedTransactions: 146 for the 'Callback URL' endpoint.\npsdiiReportable: True.\nimpactedApplication: Settlement & Reporting\naccountableParty: Third-party Partner.\nrepeatIncident: False.\nrootCause: Authoritative DNS not updated consistently across regions.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 09:25 - Alert/Report via Monitoring. 22:49 - Triage started. 22:30 - Cause identified. 17:05 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Monitoring"
+  },
+  {
+    "Incident Id": "PAYU-INC-2024-12-07-530",
+    "Main Issue": "Database Deadlock",
+    "text": "incidentId: PAYU-INC-2024-12-07-530\nexecutiveSummary: On 07-Dec-2024, Spike in DB deadlocks led to retries and transient failures.\nimpact: Approximately 908 requests affected; core processing partially degraded.\nimpactedTransactions: 908 for the 'Settlement' endpoint.\npsdiiReportable: False.\nimpactedApplication: Bank Acquirer Integration\naccountableParty: Internal Analytics Platform.\nrepeatIncident: False.\nrootCause: Contention on hot rows and missing index on a frequently updated table.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 18:22 - Alert/Report via Email. 12:22 - Triage started. 11:40 - Cause identified. 09:48 - Mitigation applied.\nproblemRecords: False.\nsourceSystem: Email"
+  },
+  {
+    "Incident Id": "PAYU-INC-2025-04-14-861",
+    "Main Issue": "HTTP 400",
+    "text": "incidentId: PAYU-INC-2025-04-14-861\nexecutiveSummary: On 14-Apr-2025, Bad Request responses due to missing or malformed fields.\nimpact: Approximately 4251 requests affected; core processing partially degraded.\nimpactedTransactions: 4251 for the 'FX Quote' endpoint.\npsdiiReportable: False.\nimpactedApplication: Webhook Delivery Service\naccountableParty: Internal Analytics Platform.\nrepeatIncident: False.\nrootCause: Mandatory field absent or wrong data type; validation working as designed.\nmitigation: Applied config fix/rollback; added guardrails and monitoring.\ntimeline: 18:57 - Alert/Report via PagerDuty. 08:11 - Triage started. 21:26 - Cause identified. 20:46 - Mitigation applied.\nproblemRecords: True.\nsourceSystem: PagerDuty"
   }
 ]
