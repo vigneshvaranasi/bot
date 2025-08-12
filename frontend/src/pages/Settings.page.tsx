@@ -54,9 +54,9 @@ const Settings: React.FC = () => {
   const handleGoToChat = () => navigate('/');
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen h-full bg-gray-100">
       {/* Header */}
-      <div className="px-6 py-4">
+      <div className="px-6 py-4 bg-gray-100">
         <div className="max-w-screen-2xl mx-auto grid grid-cols-[1.5fr_1.5fr] items-center">
           {/* Logo (unchanged) */}
           <div className="bg-white px-8 py-2 rounded-[10px] text-lg font-low text-gray-900 w-fit">Logo</div>
@@ -100,7 +100,7 @@ const Settings: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="p-6">
+      <div className="p-6 bg-gray-100">
         <div className="max-w-screen-2xl mx-auto">
           <div className="grid gap-8" style={{ gridTemplateColumns: '1.44fr 1.5fr' }}>
             {/* Left Column */}
@@ -318,7 +318,7 @@ const Settings: React.FC = () => {
           </div>
 
           {/* Bottom Actions */}
-          <div className="mt-6 flex items-center justify-between">
+          <div className="mt-6 flex items-center justify-between mb-1">
             <Button
               variant="secondary"
               onClick={handleGoToChat}
