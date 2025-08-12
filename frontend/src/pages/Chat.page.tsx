@@ -79,23 +79,38 @@ function ChatPage() {
       <div className={`flex-1 ${isSidebarOpen && "hidden md:block"}`}>
         <div className="flex flex-col h-screen">
           <Navbar />
-          <Outlet />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <Outlet />
+          </div>
           {/* Prompt Box */}
-          <div className="flex p-5 gap-x-2 bg-gray-50 w-full">
+          <div className="flex items-end p-5 gap-x-3 bg-gray-50 w-full">
             <InputBox
+              className="flex-1"
               onChange={(value) => {
                 setChatInput(value);
               }}
               value={chatInput}
               placeholder="Type your message..."
-              variant="primary"
+              variant="multiline"
               backgroundColor="f9fafb"
+              rows={1}
+              maxHeight={180}
+              // Enter -> Send
+              // onKeyDown={(e) => {
+              //   if (e.key === 'Enter' && !e.shiftKey) {
+              //     e.preventDefault();
+              //     if (!isLoading && chatInput.trim()) {
+              //       handlePromptSend();
+              //     }
+              //   }
+              // }}
             />
             <Button
               ref={sendBtnRef}
               variant="secondary"
               onClick={handlePromptSend}
               disabled={isLoading || !chatInput.trim()}
+              className="flex-none h-11 py-0 px-4 rounded-xl"
             >
               Send
             </Button>
