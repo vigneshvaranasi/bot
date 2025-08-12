@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import caretDownIcon from "../../assets/caretDown.svg";
 
 type DropdownOption = {
@@ -20,7 +20,25 @@ const Dropdown = ({
   onChange,
 }: DropdownProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const selectedOption = options.find((option) => option.value === value);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const handleSelect = (optionValue: string) => {
     onChange?.(optionValue);
@@ -28,7 +46,7 @@ const Dropdown = ({
   };
 
   return (
-    <div className="relative inline-block">
+    <div ref={dropdownRef} className="relative inline-block">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
