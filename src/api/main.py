@@ -6,7 +6,7 @@ from src.api.db.database import engine
 from src.api.db_models import Base
 
 # app init
-app = FastAPI(title="Support Bot API", version="1.0.0")
+app = FastAPI(title="Support Bot API", version="1.0.0", redirect_slashes=False)
 
 # CORS middleware setup
 app.add_middleware(
@@ -16,9 +16,12 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:3000",
     ],
+    allow_origin_regex=r"https://.*\.devtunnels\.ms$",
     allow_credentials=True,
-    allow_methods=["POST","OPTIONS","GET","PUT","*"],
+    # allow_methods=["POST","OPTIONS","GET","PUT","*"],
+    allow_methods=["*"],
     allow_headers=["*"],
+    max_age=86400
 )
 
 # routing setup
@@ -27,11 +30,6 @@ app.include_router(roles.router, prefix="/roles", tags=["Roles"])
 app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(chats.router, prefix="/chats", tags=["Chats"])
 app.include_router(support.router, prefix="/support", tags=["Support"])
-
-
-@app.options("/{rest_of_path:path}")
-async def preflight_handler(rest_of_path: str):
-    return JSONResponse(content={"message": "Preflight OK"})
 
 # startup event
 @app.on_event("startup")
