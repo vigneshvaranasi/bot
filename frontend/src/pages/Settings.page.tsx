@@ -77,7 +77,7 @@ const Settings: React.FC = () => {
               <div className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-0" />
             </div>
 
-            <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center relative left-4">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2"/>
                 <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
@@ -90,7 +90,7 @@ const Settings: React.FC = () => {
       {/* Main Content */}
       <div className="p-6">
         <div className="max-w-screen-2xl mx-auto">
-          <div className="grid gap-8" style={{ gridTemplateColumns: '1.5fr 1.5fr' }}>
+          <div className="grid gap-8" style={{ gridTemplateColumns: '1.44fr 1.5fr' }}>
             {/* Left Column */}
             <div className="space-y-6">
               {/* Upload Files (compact to remove extra white space) */}
@@ -128,7 +128,7 @@ const Settings: React.FC = () => {
             </div>
 
             {/* Right Column */}
-            <div className="space-y-6">
+            <div className="space-y-6 pr-13">
               {/* Knowledge Base Management */}
               <div className="bg-white rounded-lg border border-gray-300 p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Knowledge Base Management</h2>
