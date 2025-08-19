@@ -9,11 +9,21 @@ class IncidentAnalysisTool(BaseTool):
         "and successful resolution strategies. Useful for identifying "
         "trends and building comprehensive solution strategies.")
 
+    def __init__(self, emitter=None):
+        super().__init__()
+        self._emit = emitter
+
     def _run(self, incident_data: str) -> str:
         """
         Analyze incident data to extract key insights
         """
-        print(f"--- Analyzing incident data patterns ---")
+        if self._emit:
+            try:
+                self._emit("tool:start", {"tool": "analysis"})
+            except Exception:
+                pass
+        else:
+            print(f"--- Analyzing incident data patterns ---")
         
         try:
             # Extract incident IDs
@@ -58,10 +68,18 @@ RECOMMENDATIONS BASED ON PATTERNS:
 - Create automated detection for similar incident patterns
 """
             
-            return analysis
+            result = analysis
             
         except Exception as e:
-            return f"Error analyzing incident data: {str(e)}"
+            result = f"Error analyzing incident data: {str(e)}"
+        finally:
+            if self._emit:
+                try:
+                    self._emit("tool:end", {"tool": "analysis"})
+                except Exception:
+                    pass
+
+        return result
     
     def _get_most_common(self, items: List[str]) -> List[str]:
         """Get most common items from a list"""

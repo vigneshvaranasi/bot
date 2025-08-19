@@ -1,6 +1,7 @@
 from sqlalchemy import asc
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from src.api.schemas.chat_schemas import ChatPromptResponse, ChatPromptRequest
@@ -10,8 +11,11 @@ from src.api.schemas import ChatCreate, ChatResponse, ChatListItem, ChatListResp
 from src.api.utils.auth import get_current_user
 from src.support_bot.crew import support_crew, conversation_summary_crew,conversation_title_generation_crew
 from src.support_bot.utils.formatting import sanitize_markdown_output
+from src.support_bot.runner import run_support_with_emitter
 from typing import List
 import re
+import asyncio
+import json
 
 router = APIRouter()
 
@@ -58,112 +62,173 @@ async def get_user_chats(
     return ChatListResponse(chats=chat_items)
 
 # new message
-@router.post("/prompt", response_model=ChatPromptResponse)
+@router.post("/prompt")
 async def get_chat_prompt(
-    request: ChatPromptRequest, 
+    request: ChatPromptRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """
-    Process a chat prompt and return the response.
-    If chatId is None, creates a new chat.
-    If chatId is provided, continues existing conversation.
+    Process a chat prompt and stream SSE status updates while working.
+    Emits events: status (Thinking/Researching/Processing) and result (final payload).
     """
     user_id = current_user["user_id"]
-    
-    try:
-        chat_id = request.chatId
-        if chat_id is not None and isinstance(chat_id, str) and chat_id.strip() == "":
-            chat_id = None
-        if chat_id is None:
-            # NEW CONVERSATION FLOW
-            # 1. Kickoff Crew with just prompt and empty context
-            inputs = {
-                'user_prompt': request.prompt,
-                'context': ""
-            }
-            
-            # 2. Retrieve Output from support crew
-            result = support_crew.kickoff(inputs=inputs)
-            bot_response = sanitize_markdown_output(str(result))
-            
-            # 3. Generate Summary and Title based on output
-            title = await generate_title_from_prompt(request.prompt)
-            summary = await generate_summary_from_content(request.prompt, bot_response)
-            
-            # 4. Create New Chat in DB
-            new_chat = Chat(
-                user_id=user_id, 
-                title=title, 
-                summary=summary
-            )
-            session.add(new_chat)
-            await session.commit()
-            await session.refresh(new_chat)
-            
-            # 5. Create Message in DB
-            new_message = Message(
-                chat_id=new_chat.id,
-                user_query=request.prompt,
-                bot_solution=bot_response
-            )
-            session.add(new_message)
-            await session.commit()
-            
-            return ChatPromptResponse(
-                chatId=str(new_chat.id),
-                chatTitle=title,
-                new_message=bot_response
-            )
-            
-        else:
-            # EXISTING CONVERSATION FLOW
-            # 1. Get the existing chat and its summary
-            result = await session.execute(
-                select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id)
-            )
-            existing_chat = result.scalar_one_or_none()
-            
-            if not existing_chat:
-                raise HTTPException(status_code=404, detail="Chat not found")
-            
-            # 2. Kickoff crew with prompt and context=summary
-            inputs = {
-                'user_prompt': request.prompt,
-                'context': existing_chat.summary or ""
-            }
-            
-            # 3. Get crew response
-            result = support_crew.kickoff(inputs=inputs)
-            bot_response = sanitize_markdown_output(str(result))
-            
-            # 4. Create new Message in DB
-            new_message = Message(
-                chat_id=existing_chat.id,
-                user_query=request.prompt,
-                bot_solution=bot_response
-            )
-            session.add(new_message)
-            
-            # 5. Update summary with new conversation context
-            updated_summary = await update_chat_summary(
-                existing_chat.summary or "",
-                request.prompt,
-                bot_response
-            )
-            existing_chat.summary = updated_summary
-            
-            await session.commit()
-            
-            return ChatPromptResponse(
-                chatId=str(existing_chat.id),
-                chatTitle=existing_chat.title,
-                new_message=bot_response
-            )
-            
-    except Exception as e:
-        await session.rollback()
-        raise HTTPException(status_code=500, detail=f"Error processing prompt: {str(e)}")
+
+    def sse(event: str, data: str) -> str:
+        return f"event: {event}\ndata: {data}\n\n"
+
+    async def kickoff_support_with_events(inputs: dict, emit):
+        result = await run_support_with_emitter(inputs, emit)
+        return sanitize_markdown_output(str(result))
+
+    async def event_stream():
+        try:
+            yield sse("status", "Thinking")
+            await asyncio.sleep(0)
+
+            chat_id = request.chatId
+            if chat_id is not None and isinstance(chat_id, str) and chat_id.strip() == "":
+                chat_id = None
+
+            if chat_id is None:
+                yield sse("status", "Researching")
+                inputs = {"user_prompt": request.prompt, "context": ""}
+
+                async def emit(event: str, data):
+                    try:
+                        if not isinstance(data, str):
+                            data_json = json.dumps(data)
+                        else:
+                            data_json = data
+                        yield sse(event, data_json)
+                    except Exception:
+                        pass
+
+                queue: asyncio.Queue = asyncio.Queue()
+
+                def emitter(event: str, data):
+                    try:
+                        queue.put_nowait((event, data))
+                    except Exception:
+                        pass
+
+                async def pump_events(task: asyncio.Task):
+                    while True:
+                        if task.done() and queue.empty():
+                            break
+                        try:
+                            event, data = await asyncio.wait_for(queue.get(), timeout=0.1)
+                            if not isinstance(data, str):
+                                data = json.dumps(data)
+                            yield sse(event, data)
+                        except asyncio.TimeoutError:
+                            continue
+
+                crew_task = asyncio.create_task(kickoff_support_with_events(inputs, emitter))
+                async for chunk in pump_events(crew_task):
+                    yield chunk
+                bot_response = await crew_task
+
+                yield sse("status", "Processing")
+                title = await generate_title_from_prompt(request.prompt)
+                summary = await generate_summary_from_content(request.prompt, bot_response)
+
+                new_chat = Chat(user_id=user_id, title=title, summary=summary)
+                session.add(new_chat)
+                await session.commit()
+                await session.refresh(new_chat)
+
+                new_message = Message(
+                    chat_id=new_chat.id,
+                    user_query=request.prompt,
+                    bot_solution=bot_response,
+                )
+                session.add(new_message)
+                await session.commit()
+
+                payload = {
+                    "chatId": str(new_chat.id),
+                    "chatTitle": title,
+                    "new_message": bot_response,
+                }
+                yield sse("result", json.dumps(payload))
+
+            else:
+                result = await session.execute(
+                    select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id)
+                )
+                existing_chat = result.scalar_one_or_none()
+
+                if not existing_chat:
+                    yield sse("error", "Chat not found")
+                    return
+
+                yield sse("status", "Researching")
+                inputs = {
+                    "user_prompt": request.prompt,
+                    "context": existing_chat.summary or "",
+                }
+
+                queue: asyncio.Queue = asyncio.Queue()
+
+                def emitter(event: str, data):
+                    try:
+                        queue.put_nowait((event, data))
+                    except Exception:
+                        pass
+
+                async def pump_events(task: asyncio.Task):
+                    while True:
+                        if task.done() and queue.empty():
+                            break
+                        try:
+                            event, data = await asyncio.wait_for(queue.get(), timeout=0.1)
+                            if not isinstance(data, str):
+                                data = json.dumps(data)
+                            yield sse(event, data)
+                        except asyncio.TimeoutError:
+                            continue
+
+                crew_task = asyncio.create_task(kickoff_support_with_events(inputs, emitter))
+                async for chunk in pump_events(crew_task):
+                    yield chunk
+                bot_response = await crew_task
+
+                yield sse("status", "Processing")
+
+                new_message = Message(
+                    chat_id=existing_chat.id,
+                    user_query=request.prompt,
+                    bot_solution=bot_response,
+                )
+                session.add(new_message)
+
+                updated_summary = await update_chat_summary(
+                    existing_chat.summary or "", request.prompt, bot_response
+                )
+                existing_chat.summary = updated_summary
+
+                await session.commit()
+
+                payload = {
+                    "chatId": str(existing_chat.id),
+                    "chatTitle": existing_chat.title,
+                    "new_message": bot_response,
+                }
+                yield sse("result", json.dumps(payload))
+
+            yield sse("end", "bye")
+
+        except Exception as e:
+            await session.rollback()
+            yield sse("error", f"Error processing prompt: {str(e)}")
+
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+    return StreamingResponse(event_stream(), media_type="text/event-stream", headers=headers)
 
 
 async def generate_title_from_prompt(prompt: str) -> str:

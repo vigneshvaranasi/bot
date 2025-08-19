@@ -25,7 +25,6 @@ class QdrantIncidentDataTool(BaseTool):
         "issue types (latency, outage, carding), or any natural language query. "
         "Returns the most relevant incident information including root cause and mitigation steps.")
 
-    # Allow flexible input from the agent by accepting any type for the single argument.
     class ArgsSchema(BaseModel):
         argument: Any = Field(
             ..., description="Search query text (plain string). If a dict is provided, the tool will attempt to extract a text field."
@@ -33,8 +32,9 @@ class QdrantIncidentDataTool(BaseTool):
 
     args_schema = ArgsSchema
 
-    def __init__(self, use_gemini=False):
+    def __init__(self, use_gemini=False, emitter=None):
         super().__init__()
+        self._emit = emitter
         load_dotenv()
         
         # Initialize client and embedding generator without setting as instance attributes
@@ -93,16 +93,29 @@ class QdrantIncidentDataTool(BaseTool):
         """
         # Normalize input into a plain string query
         query = self._normalize_argument(argument)
-        print(f"--- Searching for incidents matching: {query} ---")
+        if self._emit:
+            try:
+                self._emit("tool:start", {"tool": "qdrant", "query": query})
+            except Exception:
+                pass
+        else:
+            print(f"--- Searching for incidents matching: {query} ---")
 
         if not query:
             return "Error: No valid search query provided to Qdrant Incident Data Retriever."
 
         # Use Qdrant if available, otherwise fall back to JSON search
         if self._use_qdrant and self._client and self._embedding_generator:
-            return self._search_qdrant(query)
+            result = self._search_qdrant(query)
         else:
-            return self._search_json_fallback(query)
+            result = self._search_json_fallback(query)
+
+        if self._emit:
+            try:
+                self._emit("tool:end", {"tool": "qdrant"})
+            except Exception:
+                pass
+        return result
 
     def _normalize_argument(self, argument: Any) -> str:
         """
@@ -207,6 +220,11 @@ class QdrantIncidentDataTool(BaseTool):
 
             # Keep most recent top 4
             top_hits = search_results_sorted[:4]
+            if self._emit:
+                try:
+                    self._emit("tool:results", {"tool": "qdrant", "count": len(top_hits)})
+                except Exception:
+                    pass
 
             result = f"Found {len(top_hits)} relevant incident(s) for '{argument}' (Vector Search):\n\n"
             
@@ -265,6 +283,12 @@ class QdrantIncidentDataTool(BaseTool):
                 matching_incidents = sorted(matching_incidents, key=_date, reverse=True)[:4]
             except Exception:
                 matching_incidents = matching_incidents[:4]
+
+            if self._emit:
+                try:
+                    self._emit("tool:results", {"tool": "json_fallback", "count": len(matching_incidents)})
+                except Exception:
+                    pass
 
             result = f"Found {len(matching_incidents)} incident(s) matching '{argument}' (JSON Search):\n\n"
             
