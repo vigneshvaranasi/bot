@@ -6,6 +6,7 @@ import { Button } from "../components/ui/Button";
 import { useSidebarContext } from "../hooks/useSidebarContext";
 import { Outlet, useNavigate, useParams } from "react-router-dom";
 import { newMessageHandler } from "../handlers/chatHandler";
+import type { ChatSSEEvent } from "../handlers/chatHandler";
 import { useAuthContext } from "../hooks/useAuthContext";
 
 function ChatPage() {
@@ -31,7 +32,7 @@ function ChatPage() {
       let currChatId = chatId || "";
       const newMessageId = Date.now().toString();
 
-      setCurrentChat((prevChat:any) => ({
+  setCurrentChat((prevChat:any) => ({
         chatId: currChatId,
         allMessages: [
           ...(prevChat?.allMessages ?? []),
@@ -45,8 +46,17 @@ function ChatPage() {
 
       setIsLoading(true);
 
-      // Fetch the bot's response
-      const res = await newMessageHandler(currChatId, prompt, user?.token);
+      const res = await newMessageHandler(currChatId, prompt, user?.token, (evt: ChatSSEEvent) => {
+        if (!evt) return;
+        if (evt.label) {
+          setCurrentChat((prevChat:any) => ({
+            ...prevChat,
+            allMessages: prevChat?.allMessages?.map((m:any) =>
+              m.id === newMessageId ? { ...m, botMessage: evt.label } : m
+            ),
+          }));
+        }
+      });
       console.log("res: ", res);
 
       if (currChatId === "") {
@@ -54,7 +64,6 @@ function ChatPage() {
         return;
       }
 
-      // Update the "Thinking..." message with the bot's response
       setCurrentChat((prevChat:any) => ({
         chatId: res.chatId,
         allMessages: prevChat?.allMessages.map((message:any) =>
