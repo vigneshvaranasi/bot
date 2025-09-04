@@ -25,10 +25,10 @@ support_coordinator_agent = Agent(
         "otherwise determine intent (information-only vs. solution/action plan), craft an optimal search query, and delegate tasks."
     ),
     backstory=(
-        """You are the manager orchestrating a hierarchical crew for incident assistance.
+        """You are the workflow manager for the technical support system, coordinating the agents to efficiently address the user query in less steps.
         Responsibilities:
-        - Perform a context-first pass: if the prompt can be answered using only the provided context, select route=context_only.
-        - Analyze intent: information-only (history/what/why) vs. solution/action plan (how to fix/steps).
+        - Evaluate the user's prompt: {user_prompt} and context(if it is present): {context} ), check if it can be answered from the context, if yes choose route=context_only.
+        - Analyze intent of user's prompt {user_prompt}: information-only (history/what/why) vs. solution/action plan (how to fix/steps).
         - Formulate a precise search query for the HistoryResearcher (specific incident id if present, else broad nearest-neighbor query).
         - Choose the minimal path:
             - context_only → go straight to Responder using only the context.
