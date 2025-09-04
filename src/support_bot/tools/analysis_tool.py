@@ -29,9 +29,6 @@ class IncidentAnalysisTool(BaseTool):
             # Extract incident IDs
             incident_ids = re.findall(r'PAYU-INC-\d{4}-\d{2}-\d{2}-\d+', incident_data)
             
-            # Extract HTTP codes
-            http_codes = re.findall(r'HTTP (\d{3})', incident_data)
-            
             # Extract root causes
             root_causes = re.findall(r'rootCause: ([^.]+\.)', incident_data)
             
@@ -47,10 +44,6 @@ INCIDENT PATTERN ANALYSIS
 ========================
 
 INCIDENTS FOUND: {len(incident_ids)}
-Incident IDs: {', '.join(incident_ids)}
-
-HTTP ERROR CODES: {list(set(http_codes))}
-Most common codes: {self._get_most_common(http_codes)}
 
 ROOT CAUSE PATTERNS:
 {self._format_list(root_causes)}
@@ -60,12 +53,6 @@ SUCCESSFUL MITIGATION STRATEGIES:
 
 TYPICAL RESOLUTION TIMELINE PATTERNS:
 {self._format_list(timelines[:3])}  # Show first 3 timelines
-
-RECOMMENDATIONS BASED ON PATTERNS:
-- Monitor for recurring HTTP {self._get_most_common(http_codes)[0] if http_codes else 'error'} patterns
-- Implement proactive timeout monitoring
-- Establish client communication protocols for configuration changes
-- Create automated detection for similar incident patterns
 """
             
             result = analysis
