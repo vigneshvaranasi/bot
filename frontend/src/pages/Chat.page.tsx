@@ -119,7 +119,7 @@ function ChatPage() {
               variant="secondary"
               onClick={handlePromptSend}
               disabled={isLoading || !chatInput.trim()}
-              className="flex-none h-11 py-0 px-4 rounded-xl"
+              className="flex-none py-0 px-4 h-11 rounded-xl mb-1.5"
             >
               Send
             </Button>
