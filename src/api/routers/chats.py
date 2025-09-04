@@ -17,6 +17,8 @@ import re
 import asyncio
 import json
 
+from src.support_bot.prompt_guardrail import PromptGuardrail
+
 router = APIRouter()
 
 
@@ -76,6 +78,25 @@ async def get_chat_prompt(
 
     def sse(event: str, data: str) -> str:
         return f"event: {event}\ndata: {data}\n\n"
+    
+    guard = PromptGuardrail()
+    is_valid, reject_msg = guard.validate_or_reject(request.prompt)
+    if not is_valid:
+        # Stream an immediate SSE error so the client receives events instead of a plain string
+        async def immediate_reject_stream():
+            try:
+                yield sse("status", "Thinking")
+                yield sse("error", reject_msg)
+                yield sse("end", "bye")
+            except Exception:
+                return
+
+        headers = {
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+        return StreamingResponse(immediate_reject_stream(), media_type="text/event-stream", headers=headers)
 
     async def kickoff_support_with_events(inputs: dict, emit):
         result = await run_support_with_emitter(inputs, emit)
