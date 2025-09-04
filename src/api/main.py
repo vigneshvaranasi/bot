@@ -12,13 +12,13 @@ app = FastAPI(title="Support Bot API", version="1.0.0", redirect_slashes=False)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "http://127.0.0.1:5173",
         "https://dth5w8dq-5173.inc1.devtunnels.ms",
         "http://localhost:5173",
         "http://localhost:3000",
     ],
     allow_origin_regex=r"https://.*\.devtunnels\.ms$",
     allow_credentials=True,
-    # allow_methods=["POST","OPTIONS","GET","PUT","*"],
     allow_methods=["*"],
     allow_headers=["*"],
     max_age=86400

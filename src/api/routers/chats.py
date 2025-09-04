@@ -242,7 +242,10 @@ async def get_chat_prompt(
 
         except Exception as e:
             await session.rollback()
-            yield sse("error", f"Error processing prompt: {str(e)}")
+            # to do: report to admin
+            print(f"Prompt error: {str(e)}")
+            user_message = "Sorry, the AI service is currently unavailable. Please try again later."
+            yield sse("error", user_message)
 
     headers = {
         "Cache-Control": "no-cache",
