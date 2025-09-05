@@ -2,6 +2,30 @@
 from support_bot.crew import support_crew
 from support_bot.utils.formatting import sanitize_markdown_output
 from support_bot.prompt_guardrail import PromptGuardrail
+last_user_query = None
+last_context = None
+
+def handle_query(user_query: str, context: str):
+    global last_user_query, last_context
+    retry_phrases = ["retry", "search again", "try again", "better answer"]
+
+    if any(p in user_query.lower() for p in retry_phrases):
+        if last_user_query:
+            # Re-run using the last query + context
+            return support_crew.kickoff(inputs={
+                "user_prompt": last_user_query,
+                "context": last_context or ""
+            })
+        else:
+            return "⚠️ No previous query found to retry."
+    else:
+        # Save new query + context
+        last_user_query = user_query
+        last_context = context
+        return support_crew.kickoff(inputs={
+            "user_prompt": user_query,
+            "context": context
+        })
 
 def run():
     """
@@ -35,7 +59,8 @@ def run():
         return reject_msg
 
     # Kick off Crew
-    result = support_crew.kickoff(inputs=inputs)
+    # result = support_crew.kickoff(inputs=inputs)
+    result = handle_query(user_query, context)
     # Ensure clean markdown without fenced code blocks
     try:
         cleaned = sanitize_markdown_output(str(result))
