@@ -6,10 +6,15 @@ from .tools.qdrant_tool import QdrantIncidentDataTool
 from .tools.analysis_tool import IncidentAnalysisTool
 
 # Gemini 2.0 Flash Lite
+# gemini_llm = LLM(
+#     model='gemini/gemini-2.0-flash-lite-001',
+#     api_key=os.getenv("GEMINI_API_KEY"),
+#     temperature=0.7
+# )
 gemini_llm = LLM(
-    model='gemini/gemini-2.0-flash-lite-001',
-    api_key=os.getenv("GEMINI_API_KEY"),
-    temperature=0.7
+    model='ollama/gemma3:1b',
+    base_url='http://localhost:11434',
+    temperature=0
 )
 
 # Check if Gemini embeddings should be used - default to true since we use Gemini
