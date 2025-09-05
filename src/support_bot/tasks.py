@@ -171,3 +171,21 @@ summary_title_generation_task = Task(
     expected_output=("""A concise and informative title for the user prompt."""),
     agent=summary_title_agent,
 )
+# Task 7: Retry / Search Again Handling
+retry_task = Task(
+    description=(
+        """If the user requests to 'retry', 'search again', 'try again', or 'find a better answer',
+        re-execute the research process with the previous search_query from SupportCoordinator.
+        - Always reuse the original {user_prompt} and {context}.
+        - Trigger research_task again to fetch updated results.
+        - If route=solution_plan, also trigger synthesis_task again.
+        - Pass results back to user_query_response_task for a new final answer.
+        Output must clearly indicate that this is a refined answer."""
+    ),
+    expected_output=(
+        """Re-run of research (and synthesis if applicable), producing updated raw results that will be consumed
+        by the responder for a better/refined answer."""
+    ),
+    agent=researcher_agent,
+    context=[manager_plan_task],  # reuses the same plan
+)
