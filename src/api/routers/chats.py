@@ -79,10 +79,11 @@ async def get_chat_prompt(
     def sse(event: str, data: str) -> str:
         return f"event: {event}\ndata: {data}\n\n"
     
+    isContextPresent = bool(request.chatId)
     guard = PromptGuardrail()
-    is_valid, reject_msg = guard.validate_or_reject(request.prompt)
+    is_valid, reject_msg = guard.validate_or_reject(prompt=request.prompt, isContext=isContextPresent)
     if not is_valid:
-        # Stream an immediate SSE error so the client receives events instead of a plain string
+        # Stream an immediate SSE error so the client receives Reject Event
         async def immediate_reject_stream():
             try:
                 yield sse("status", "Thinking")
@@ -183,8 +184,9 @@ async def get_chat_prompt(
                 if not existing_chat:
                     yield sse("error", "Chat not found")
                     return
+                
+                
 
-                yield sse("status", "Researching")
                 inputs = {
                     "user_prompt": request.prompt,
                     "context": existing_chat.summary or "",
