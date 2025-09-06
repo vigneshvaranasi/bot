@@ -17,122 +17,85 @@ Workflow contract
 - Responder output: final markdown answer as per formatting rules
 """
 
-# Task 0: Manager planning with context-first optimization and routing
+# Task 0: Manager planning
 manager_plan_task = Task(
     description=(
-        """As SupportCoordinator, determine the minimal workflow to answer the user's prompt.
+        """Analyze the user query and context to determine the optimal workflow route.
 
-1) Context-first optimization: If the answer can be produced from {context} alone with high confidence, select route=context_only.
-2) Intent analysis: Determine if the user asks for information-only (what/why/history) or a solution/action plan (how/steps/mitigation).
-3) Routing:
-   - context_only → Responder only
-   - info_only → HistoryResearcher → Responder
-   - solution_plan → HistoryResearcher → SolutionSynthesizer → Responder
-4) Build search_query: If a specific incident id/code is present, craft a targeted query; else craft a broad nearest-neighbor query.
+Evaluate if context:{context} can answer prompt:{user_prompt} directly. Detect user intent: information-seeking vs solution-seeking.
+Choose route: context_only (sufficient context) | info_only (need research) | solution_plan (need research + action plan).
 
-Produce a compact JSON plan with fields: route, search_query, rationale.
-Input prompt: {user_prompt}
+Output JSON with: route, detected_intent, rationale.
+
+User prompt: {user_prompt}
 Context: {context}
 """
     ),
     expected_output=(
-        """A compact JSON object: {\"route\": \"context_only|info_only|solution_plan\", \"search_query\": \"...\", \"rationale\": \"...\"}"""
+        """JSON: {\"route\": \"context_only|info_only|solution_plan\", \"detected_intent\": \"information|solution\", \"rationale\": \"...\"}"""
     ),
     agent=support_coordinator_agent,
 )
 
-# Task 1: Research historical incidents per manager plan
+# Task 1: Research - Generate search query and retrieve incidents
 research_task = Task(
     description=(
-        """Follow the SupportCoordinator plan from the context. Steps:
-1) Parse the plan JSON from SupportCoordinator output in your context to get: route and search_query.
-2) If route=context_only → DO NOT use any tools. Output exactly: 'SKIP: context_only'.
-3) Otherwise → use the Qdrant tool to run the search using the extracted search_query.
-4) Return raw incident data (IDs, titles, summaries/details, scores if any) without interpretation.
+        """Generate an optimal search query for the incident database and retrieve relevant incidents.
+
+Based on coordinator's routing decision:
+- If route=context_only → Output: 'SKIP_RESEARCH'
+- Otherwise → Analyze {user_prompt} to create targeted search query focusing on:
+  * Error codes (HTTP 499, 500, timeout, etc.)
+  * Service names (PayU, specific APIs)
+  * Symptoms (connection issues, slow response)
+  
+Then use Qdrant tool to search and return raw incident data.
+
+User prompt: {user_prompt}
 """
     ),
     expected_output=(
-        """Raw incident hits including IDs, titles, summaries/details, and any scores available. Provide up to 5 results, or 'SKIP: context_only'."""
+        """Raw incident data (IDs, titles, details, scores) up to 5 results, or 'SKIP_RESEARCH'"""
     ),
     agent=researcher_agent,
     context=[manager_plan_task],
 )
 
-# Task 2: Synthesize resolution steps (only when needed by route)
+# Task 2: Synthesis - Create Solution Statergy
 synthesis_task = Task(
     description=(
-        """If route=solution_plan, transform the research raw results into an Action Plan:
-- Immediate Resolution Steps (prioritized)
-- Mitigation strategies linked to likely causes
-- Monitoring and Validation guidance
-- Escalation Path if initial steps fail
-If route is not solution_plan, output 'SKIP: no_synthesis'.
+        """Transform research results into actionable resolution plans.
+
+Check coordinator's route: if route != solution_plan → Output: 'SKIP_SYNTHESIS'
+Otherwise, create structured action plan with: Immediate Steps, Root Cause Mitigation, Monitoring, Escalation Path.
 """
     ),
     expected_output=(
-        """Action Plan with sections: Immediate Steps, Root Cause Mitigation, Monitoring and Validation, Escalation Path; or 'SKIP: no_synthesis'."""
+        """Structured Action Plan with clear sections, or 'SKIP_SYNTHESIS'"""
     ),
     agent=synthesizer_agent,
     context=[manager_plan_task, research_task],
 )
 
-# Removed the monolithic report task; the Responder consumes research/synthesis directly.
-
-# Task 3: User Query Response
+# Task 3: User Response - Format based on routing and data
 user_query_response_task = Task(
     description=(
-        """Produce the final answer for the user in Markdown.
-Use this routing logic from SupportCoordinator plan:
-- If route=context_only → answer using only {context}, do not perform research/synthesis.
-- If route=info_only → use research results to answer information requests (root causes, nearest incidents), skip synthesis.
-- If route=solution_plan → use research + action plan to answer with Solution Strategy and Monitoring and Validation.
-
-Always consider the original prompt: {user_prompt} and the provided context: {context}.
-Your response must be **clear, concise, and strictly formatted in Markdown**.
-Do NOT wrap the entire response in any fenced code block (no ``` or ```markdown). Use headings and lists directly.
-
----
-
-### INTENT DETECTION:
-
-- **If the user asks for a solution** → Provide:
-  - `Solution Strategy`
-    - `Monitoring and Validation`
-
-- **If the user asks for a cause or explanation** → Provide:
-    - `Root Cause Analysis`
-
-- **If the exact incident is found**:
-  - Mention the matched incident title.
-  - Return only the relevant section(s) based on user intent.
-
- - **If the exact incident is not found**:
-  - Do not block the answer. Retrieve and summarize the 3-4 most recent, nearest incidents based on:
-    - API name or error type (e.g., HTTP 499, timeout).
-    - Client-side vs server-side nature.
-    - Similar symptoms or misconfigurations.
-    - For each incident (3-4), provide:
-    - Title.
-    - 1-2 sentence summary.
-  - If a solution or cause is requested, adapt and provide that section from the closest match.
-
-- **If the query is unrelated to incidents**:
-  - Respond politely: "This system is designed only to handle incident-related queries."
-
----
-
-### RESPONSE GUIDELINES:
-
-- Use a **friendly and helpful tone**.
-- Avoid mentioning the report or system behavior.
-- Minimize technical jargon unless necessary.
-- Format responses in **Markdown**:
-        - Use bold headers, bullet points, and spacing for readability.
-        - Never include triple backticks in the output.
-"""
+        """Respond directly and conversationally to the user's query, using coordinator's routing decisions and available data.
+    
+    Do not reference or mention 'context' or sources. Answer as an expert advisor, providing guidance and information as if speaking to the user.
+    
+    Use coordinator's detected_intent and route to format appropriately:
+    - **information intent** → Explain root causes or incident details clearly and helpfully.
+    - **solution intent** → Offer actionable guidance, solution strategies, and monitoring advice.
+    
+    Handle data availability: mention exact incident titles when found, list similar incidents when not.
+    Format in clean Markdown without triple backticks.
+    
+    User prompt: {user_prompt}
+    """
     ),
     expected_output=(
-        """A markdown-formatted response that includes relevant sections based on the selected route and user intent; cites matched incident titles when appropriate; and if no exact match exists, lists 3-4 most recent nearest incidents (title + short summary) and adapts content as needed. Avoid triple backticks."""
+        """Clean, conversational Markdown response matching detected intent, using available research/synthesis data appropriately and never referencing context or sources."""
     ),
     agent=user_query_responder_agent,
     context=[manager_plan_task, research_task, synthesis_task],
@@ -166,6 +129,7 @@ summary_title_generation_task = Task(
         The title should capture the essence of the user prompt while being concise and informative.
 
         Input: {user_prompt}
+        Output: Just Title, nothing else and unformatted.
         """
     ),
     expected_output=("""A concise and informative title for the user prompt."""),

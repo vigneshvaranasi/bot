@@ -180,8 +180,9 @@ class PromptGuardrail:
             return False
         return False
 
-    def validate_or_reject(self, prompt: str, isContext:bool) -> Tuple[bool, str]:
-        """Return (True, "") when allowed, or (False, message) when rejected."""
+    def validate_or_reject(self, prompt: str, isContext: bool = False) -> Tuple[bool, str]:
+        """Return (True, "") when allowed, or (False, message) when rejected.
+        """
         # 1) Fast regex heuristics for programming prompts
         try:
             if self._matches_programming_regex(prompt):
