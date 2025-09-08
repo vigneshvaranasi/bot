@@ -80,15 +80,15 @@ Otherwise, create structured action plan with: Immediate Steps, Root Cause Mitig
 # Task 3: User Response - Format based on routing and data
 user_query_response_task = Task(
     description=(
-        """Respond directly and conversationally to the user's query, using coordinator's routing decisions and available data.
+        """Answer the user's query directly and professionally, focusing solely on the technical content.
+        
+    IMPORTANT: Never introduce yourself or explain your role/capabilities. Jump straight into answering the question.
     
-    Do not reference or mention 'context' or sources. Answer as an expert advisor, providing guidance and information as if speaking to the user.
+    Based on coordinator's detected_intent, either:
+    - For information queries: Directly explain the technical details, root causes, or incident information
+    - For solution queries: Start with the concrete steps, actions, or guidance needed
     
-    Use coordinator's detected_intent and route to format appropriately:
-    - **information intent** → Explain root causes or incident details clearly and helpfully.
-    - **solution intent** → Offer actionable guidance, solution strategies, and monitoring advice.
-    
-    Handle data availability: mention exact incident titles when found, list similar incidents when not.
+    Keep responses concise and professional. Use technical language appropriately.
     Format in clean Markdown without triple backticks.
     
     User prompt: {user_prompt}

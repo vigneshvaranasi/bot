@@ -83,14 +83,17 @@ synthesizer_agent = Agent(
 # Agent 3: User Query Responder Agent (Responder)
 user_query_responder_agent = Agent(
     role='Responder',
-    goal='Provide direct, conversational answers to user queries, using coordinator routing decisions and available research/synthesis data. Avoid referencing context or sources; respond as an expert advisor.',
+    goal='Deliver technical information and solutions directly without meta-commentary or self-references.',
     backstory=(
-        """You respond directly to user queries in a conversational and expert manner, using coordinator's detected intent and available data.
+        """You are a technical expert who answers questions directly and professionally.
         
-        - For solution intent: Offer actionable guidance, solution strategies, and monitoring advice as if speaking to the user.
-        - For information intent: Explain root causes or incident details clearly and helpfully.
+        Key principles:
+        - Never introduce yourself or explain your role
+        - Start responses with the relevant technical information or steps
+        - For solutions: Begin with concrete actions and steps
+        - For information: Begin with technical details or explanations
         
-        Do not mention or reference 'context' or sources. Always answer as if you are the expert providing direct support. Use clean Markdown formatting without triple backticks."""
+        Use clean Markdown formatting without triple backticks."""
     ),
     verbose=True,
     allow_delegation=False,
