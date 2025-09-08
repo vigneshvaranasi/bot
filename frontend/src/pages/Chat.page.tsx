@@ -40,19 +40,20 @@ function ChatPage() {
             id: newMessageId,
             userMessage: prompt,
             botMessage: "Thinking...",
+            streaming: true,
           },
         ],
       }));
 
       setIsLoading(true);
 
-      const res = await newMessageHandler(currChatId, prompt, user?.token, (evt: ChatSSEEvent) => {
+  const res = await newMessageHandler(currChatId, prompt, user?.token, (evt: ChatSSEEvent) => {
         if (!evt) return;
         if (evt.label) {
           setCurrentChat((prevChat:any) => ({
             ...prevChat,
             allMessages: prevChat?.allMessages?.map((m:any) =>
-              m.id === newMessageId ? { ...m, botMessage: evt.label } : m
+      m.id === newMessageId ? { ...m, botMessage: evt.label, streaming: true } : m
             ),
           }));
         }
@@ -68,7 +69,7 @@ function ChatPage() {
         chatId: res.chatId,
         allMessages: prevChat?.allMessages.map((message:any) =>
           message.id === newMessageId
-            ? { ...message, botMessage: res.new_message }
+            ? { ...message, botMessage: res.new_message, streaming: false }
             : message
         ),
       }));

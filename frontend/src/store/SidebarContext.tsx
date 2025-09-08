@@ -7,6 +7,7 @@ type currentChatType = {
     id: string;
     userMessage: string;
     botMessage: string;
+    streaming?: boolean;
   }[];
 };
 

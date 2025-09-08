@@ -19,7 +19,10 @@ class IncidentAnalysisTool(BaseTool):
         """
         if self._emit:
             try:
-                self._emit("tool:start", {"tool": "analysis"})
+                self._emit("tool:start", {
+                    "tool": "analysis",
+                    "label": "Analyzing incident data patterns and trends..."
+                })
             except Exception:
                 pass
         else:
@@ -37,6 +40,12 @@ class IncidentAnalysisTool(BaseTool):
             
             # Extract timelines
             timelines = re.findall(r'timeline: ([^.]+\.)', incident_data)
+            
+            if self._emit:
+                try:
+                    self._emit("tool:results", {"tool": "analysis", "count": len(incident_ids)})
+                except Exception:
+                    pass
             
             # Build analysis report
             analysis = f"""
@@ -62,7 +71,12 @@ TYPICAL RESOLUTION TIMELINE PATTERNS:
         finally:
             if self._emit:
                 try:
-                    self._emit("tool:end", {"tool": "analysis"})
+                    pattern_count = len(root_causes) + len(mitigations) + len(timelines)
+                    self._emit("tool:end", {
+                        "tool": "analysis",
+                        "count": len(incident_ids),
+                        "label": f"Pattern analysis complete. Analyzed {len(incident_ids)} incident{'s' if len(incident_ids) != 1 else ''}."
+                    })
                 except Exception:
                     pass
 

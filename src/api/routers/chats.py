@@ -79,14 +79,13 @@ async def get_chat_prompt(
     def sse(event: str, data: str) -> str:
         return f"event: {event}\ndata: {data}\n\n"
     
-    isContextPresent = bool(request.chatId)
     guard = PromptGuardrail()
-    is_valid, reject_msg = guard.validate_or_reject(prompt=request.prompt, isContext=isContextPresent)
+    is_valid, reject_msg = guard.validate_or_reject(request.prompt)
     if not is_valid:
-        # Stream an immediate SSE error so the client receives Reject Event
+        # Stream an immediate SSE error so the client receives events instead of plain response
         async def immediate_reject_stream():
             try:
-                yield sse("status", "Thinking")
+                yield sse("status", json.dumps({"phase": "prompt:rejected", "label": "Couldn't use that prompt."}))
                 yield sse("error", reject_msg)
                 yield sse("end", "bye")
             except Exception:
@@ -105,7 +104,8 @@ async def get_chat_prompt(
 
     async def event_stream():
         try:
-            yield sse("status", "Thinking")
+            # Prompt accepted
+            yield sse("status", json.dumps({"phase": "prompt:accepted", "label": "Analyzing your request and planning the best approach..."}))
             await asyncio.sleep(0)
 
             chat_id = request.chatId
@@ -113,18 +113,8 @@ async def get_chat_prompt(
                 chat_id = None
 
             if chat_id is None:
-                yield sse("status", "Researching")
+                # New chat flow
                 inputs = {"user_prompt": request.prompt, "context": ""}
-
-                async def emit(event: str, data):
-                    try:
-                        if not isinstance(data, str):
-                            data_json = json.dumps(data)
-                        else:
-                            data_json = data
-                        yield sse(event, data_json)
-                    except Exception:
-                        pass
 
                 queue: asyncio.Queue = asyncio.Queue()
 
@@ -151,10 +141,15 @@ async def get_chat_prompt(
                     yield chunk
                 bot_response = await crew_task
 
-                yield sse("status", "Processing")
+                yield sse("status", json.dumps({"phase": "title:generating", "label": "Creating a descriptive title for this conversation..."}))
                 title = await generate_title_from_prompt(request.prompt)
-                summary = await generate_summary_from_content(request.prompt, bot_response)
+                yield sse("status", json.dumps({"phase": "title:done", "label": "Title created successfully."}))
 
+                yield sse("status", json.dumps({"phase": "summary:generating", "label": "Summarizing the conversation for future reference..."}))
+                summary = await generate_summary_from_content(request.prompt, bot_response)
+                yield sse("status", json.dumps({"phase": "summary:done", "label": "Summary saved."}))
+
+                yield sse("status", json.dumps({"phase": "persistence:saving", "label": "Saving conversation to your history..."}))
                 new_chat = Chat(user_id=user_id, title=title, summary=summary)
                 session.add(new_chat)
                 await session.commit()
@@ -167,6 +162,7 @@ async def get_chat_prompt(
                 )
                 session.add(new_message)
                 await session.commit()
+                yield sse("status", json.dumps({"phase": "persistence:done", "label": "Conversation saved successfully."}))
 
                 payload = {
                     "chatId": str(new_chat.id),
@@ -184,9 +180,8 @@ async def get_chat_prompt(
                 if not existing_chat:
                     yield sse("error", "Chat not found")
                     return
-                
-                
 
+                # Existing chat flow
                 inputs = {
                     "user_prompt": request.prompt,
                     "context": existing_chat.summary or "",
@@ -217,21 +212,22 @@ async def get_chat_prompt(
                     yield chunk
                 bot_response = await crew_task
 
-                yield sse("status", "Processing")
+                yield sse("status", json.dumps({"phase": "summary:generating", "label": "Summarizing the conversation for future reference..."}))
+                updated_summary = await update_chat_summary(
+                    existing_chat.summary or "", request.prompt, bot_response
+                )
+                yield sse("status", json.dumps({"phase": "summary:done", "label": "Summary saved."}))
 
+                yield sse("status", json.dumps({"phase": "persistence:saving", "label": "Saving conversation to your history..."}))
                 new_message = Message(
                     chat_id=existing_chat.id,
                     user_query=request.prompt,
                     bot_solution=bot_response,
                 )
                 session.add(new_message)
-
-                updated_summary = await update_chat_summary(
-                    existing_chat.summary or "", request.prompt, bot_response
-                )
                 existing_chat.summary = updated_summary
-
                 await session.commit()
+                yield sse("status", json.dumps({"phase": "persistence:done", "label": "Conversation saved successfully."}))
 
                 payload = {
                     "chatId": str(existing_chat.id),
