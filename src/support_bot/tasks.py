@@ -19,119 +19,152 @@ Workflow contract
 
 # Task 0: Manager planning
 manager_plan_task = Task(
-    description=(
-        """Analyze the user query and context to determine the optimal workflow route.
-
-Evaluate if context:{context} can answer prompt:{user_prompt} directly. Detect user intent: information-seeking vs solution-seeking.
-Choose route: context_only (sufficient context) | info_only (need research) | solution_plan (need research + action plan).
-
-Output JSON with: route, detected_intent, rationale.
-
-User prompt: {user_prompt}
-Context: {context}
-"""
-    ),
-    expected_output=(
-        """JSON: {\"route\": \"context_only|info_only|solution_plan\", \"detected_intent\": \"information|solution\", \"rationale\": \"...\"}"""
-    ),
+    description="""
+Description:
+Analyze the user query and context to determine the optimal workflow route.
+Evaluate if context:{context} can answer prompt:{user_prompt} directly. Detect user intent: information-seeking vs solution-seeking. Choose route: context_only (sufficient context) | info_only (need research) | solution_plan (need research + action plan).
+Rules to Output:
+- Output JSON with: route, detected_intent, rationale.
+Chain of Thought:
+- Consider if the context is sufficient for a direct answer
+- Detect if the user wants information or a solution
+- Choose the minimal workflow path
+Examples:
+User prompt: Why did the PayU API return HTTP 500?
+Context: Incident logs show repeated 500 errors for PayU API.
+Output: {"route": "context_only", "detected_intent": "information", "rationale": "Context provides direct answer."}
+""",
+    expected_output="""
+JSON: {"route": "context_only|info_only|solution_plan", "detected_intent": "information|solution", "rationale": "..."}
+""",
     agent=support_coordinator_agent,
 )
 
 # Task 1: Research - Generate search query and retrieve incidents
 research_task = Task(
-    description=(
-        """Generate an optimal search query for the incident database and retrieve relevant incidents.
-
-Based on coordinator's routing decision:
-- If route=context_only → Output: 'SKIP_RESEARCH'
-- Otherwise → Analyze {user_prompt} to create targeted search query focusing on:
-  * Error codes (HTTP 499, 500, timeout, etc.)
-  * Service names (PayU, specific APIs)
-  * Symptoms (connection issues, slow response)
-  
-Then use Qdrant tool to search and return raw incident data.
-
-User prompt: {user_prompt}
-"""
-    ),
-    expected_output=(
-        """Raw incident data (IDs, titles, details, scores) up to 5 results, or 'SKIP_RESEARCH'"""
-    ),
+    description="""
+Description:
+Generate an optimal search query for the incident database and retrieve relevant incidents.
+Chain of Thought Description:
+- If route=context_only, output 'SKIP_RESEARCH'.
+- Otherwise, analyze {user_prompt} to create a targeted search query focusing on error codes, service names, and symptoms.
+- Use Qdrant tool to search and return raw incident data.
+Rules to Output:
+- Output up to 5 results or 'SKIP_RESEARCH'.
+Examples:
+User prompt: What caused the timeout in PayU?
+Route: info_only
+Output: [ {id:..., title:..., details:..., score:...}, ... ]
+""",
+    expected_output="""
+Raw incident data (IDs, titles, details, scores) up to 5 results, or 'SKIP_RESEARCH'
+""",
     agent=researcher_agent,
     context=[manager_plan_task],
 )
 
-# Task 2: Synthesis - Create Solution Statergy
-synthesis_task = Task(
-    description=(
-        """Transform research results into actionable resolution plans.
+# Task 2: Synthesis - Create Solution Strategy
 
-Check coordinator's route: if route != solution_plan → Output: 'SKIP_SYNTHESIS'
-Otherwise, create structured action plan with: Immediate Steps, Root Cause Mitigation, Monitoring, Escalation Path.
-"""
-    ),
-    expected_output=(
-        """Structured Action Plan with clear sections, or 'SKIP_SYNTHESIS'"""
-    ),
+synthesis_task = Task(
+    description="""
+Description:
+Transform research results into actionable resolution plans for issues.
+
+Rules to Output:
+- If the route is 'context_only', do not synthesize or search for new information—answer strictly from the provided context.
+- Do not introduce yourself or mention your role.
+- Start with the most relevant technical steps or explanations.
+- Use clean Markdown formatting (h1, h2, h3, numbered/bullet lists), but do not use triple backticks.
+- For solution queries, begin with concrete actions and steps (Immediate Steps, Root Cause Mitigation, Monitoring, Escalation Path).
+- Keep responses concise, direct, and professional.
+- Never reference the context, sources, or your own capabilities.
+- If escalation is needed, clearly state the escalation path.
+- If monitoring is requested, provide only the monitoring steps and tools.
+
+Chain of Thought:
+- If route is 'context_only', use only the provided context for the answer.
+- Identify if the user is seeking information or a solution.
+- For solutions, break down the response into Immediate Steps, Root Cause Mitigation, Monitoring, and Escalation Path.
+- For monitoring, list only the relevant metrics, tools, and alerting strategies.
+- For information, explain the error, common causes, and debugging steps.
+""",
+    expected_output="""
+Structured Action Plan with clear sections, or 'SKIP_SYNTHESIS'
+""",
     agent=synthesizer_agent,
     context=[manager_plan_task, research_task],
 )
 
 # Task 3: User Response - Format based on routing and data
+
 user_query_response_task = Task(
-    description=(
-        """Answer the user's query directly and professionally, focusing solely on the technical content.
-        
-    IMPORTANT: Never introduce yourself or explain your role/capabilities. Jump straight into answering the question.
-    
-    Based on coordinator's detected_intent, either:
-    - For information queries: Directly explain the technical details, root causes, or incident information
-    - For solution queries: Start with the concrete steps, actions, or guidance needed
-    
-    Keep responses concise and professional. Use technical language appropriately.
-    Format in clean Markdown without triple backticks.
-    
-    User prompt: {user_prompt}
-    """
-    ),
-    expected_output=(
-        """Clean, conversational Markdown response matching detected intent, using available research/synthesis data appropriately and never referencing context or sources."""
-    ),
+    description="""
+Description:
+Answer the user's query directly and professionally, focusing solely on the technical content for {user_prompt}.
+
+Rules to Output:
+- If the route is 'context_only', answer strictly from the provided context—do not search, synthesize, or add new information.
+- Never introduce yourself or explain your role/capabilities. Jump straight into answering the question.
+- For information queries: Directly explain the technical details, root causes, or incident information.
+- For solution queries: Start with the concrete steps, actions, or guidance needed.
+- Keep responses concise and professional. Use technical language appropriately.
+- Format in clean Markdown, using h1, h2, h3, numbered lists, bullet list without triple backticks.
+- Never reference the context, sources, or your own capabilities.
+
+Chain of Thought:
+- If route is 'context_only', use only the provided context for the answer.
+- Use detected_intent to decide response structure.
+- For solutions, break down into Immediate Steps, Root Cause Mitigation, Monitoring, and Escalation Path.
+- For monitoring, list only the relevant metrics, tools, and alerting strategies.
+- For information, explain the error, common causes, and debugging steps.
+""",
+    expected_output="""
+Clean, conversational Markdown response matching detected intent, using available research/synthesis data appropriately and never referencing context or sources.
+""",
     agent=user_query_responder_agent,
     context=[manager_plan_task, research_task, synthesis_task],
 )
 
 # Task 5: JSON Summary Generation
 json_summary_task = Task(
-    description=(
-        """Process a JSON thread of conversations between a user and a chatbot. Extract the key context and generate a concise summary that is optimized for token usage.
-        The summary should:
-        - Capture the main intent of the user.
-        - Highlight key responses from the chatbot.
-        - Provide a clear and economical context for further processing.
-        
-        Input: {conversation_json}
-        """
-    ),
-    expected_output=(
-        """A concise text summary of the conversation thread, capturing:
-        - User's main intent.
-        - Key chatbot responses.
-        - Overall context in an economical format."""
-    ),
+    description="""
+Description:
+Process a JSON thread of conversations between a user and a chatbot. Extract the key context and generate a concise summary that is optimized for token usage.
+Rules to Output:
+- Capture the main intent of the user.
+- Highlight key responses from the chatbot.
+- Provide a clear and economical context for further processing.
+Chain of Thought:
+- Summarize only the most relevant information
+Examples:
+Input: {conversation_json}
+Output: User asked about PayU errors, chatbot explained HTTP 500 causes, user confirmed resolution.
+""",
+    expected_output="""
+A concise text summary of the conversation thread, capturing:
+- User's main intent.
+- Key chatbot responses.
+- Overall context in an economical format.
+""",
     agent=json_summary_agent,
 )
 
 # Task 6: Summary Title Generation
 summary_title_generation_task = Task(
-    description=(
-        """Generate a concise and informative title for a user prompt.
-        The title should capture the essence of the user prompt while being concise and informative.
-
-        Input: {user_prompt}
-        Output: Just Title, nothing else and unformatted.
-        """
-    ),
-    expected_output=("""A concise and informative title for the user prompt."""),
+    description="""
+Description:
+Generate a concise and informative title for a user prompt.
+Rules to Output:
+- The title should capture the essence of the user prompt while being concise and informative.
+- Output just the title, nothing else and unformatted.
+Chain of Thought:
+- Focus on the main subject of the prompt - {user_prompt}
+Examples:
+Input: How to resolve HTTP 500 in PayU?
+Output: PayU HTTP 500 Resolution
+""",
+    expected_output="""
+A concise and informative title for the user prompt.
+""",
     agent=summary_title_agent,
 )
