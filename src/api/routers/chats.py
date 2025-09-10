@@ -15,7 +15,10 @@ from src.support_bot.runner import run_support_with_emitter
 from typing import List
 import re
 import asyncio
+from pydantic import BaseModel 
 import json
+from datetime import datetime
+
 
 from src.support_bot.prompt_guardrail import PromptGuardrail
 
@@ -363,3 +366,112 @@ async def get_chat_with_messages(chat_id: str, session: AsyncSession = Depends(g
         "updated_at": chat.updated_at.isoformat() if chat.updated_at else None,
         "messages": messages_data
     }
+    
+
+# Request model
+class RetryRequest(BaseModel):
+    chat_id: str
+    message_id: str
+    prompt: str
+
+@router.post("/retry")
+async def retry_chat_message(
+    request: RetryRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user)
+):
+    """Retry a previous bot message by researching from scratch."""
+
+    chat_id = request.chat_id
+    message_id = request.message_id
+    user_id = current_user["user_id"]
+
+    def sse(event: str, data: str) -> str:
+        return f"event: {event}\ndata: {data}\n\n"
+
+    # Fetch chat
+    result = await session.execute(
+        select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id)
+    )
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    # Fetch old message
+    message_result = await session.execute(
+        select(Message).where(Message.id == message_id, Message.chat_id == chat_id)
+    )
+    old_message = message_result.scalar_one_or_none()
+    if not old_message:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    async def event_stream():
+        try:
+            yield sse("status", "Retrying from scratch...")
+
+            inputs = {
+                "user_prompt": request.prompt or old_message.user_query,
+                "context": ""  
+            }
+
+            queue: asyncio.Queue = asyncio.Queue()
+
+            def emitter(event: str, data):
+                try:
+                    queue.put_nowait((event, data))
+                except Exception:
+                    pass
+
+            async def pump_events(task: asyncio.Task):
+                while True:
+                    if task.done() and queue.empty():
+                        break
+                    try:
+                        event, data = await asyncio.wait_for(queue.get(), timeout=0.1)
+                        if not isinstance(data, str):
+                            data = json.dumps(data)
+                        yield sse(event, data)
+                    except asyncio.TimeoutError:
+                        continue
+
+            # Run support crew with emitter
+            crew_task = asyncio.create_task(run_support_with_emitter(inputs, emitter))
+
+            async for chunk in pump_events(crew_task):
+                yield chunk
+
+            # Final bot response
+            bot_response = await crew_task
+
+            # Update message with new response
+            old_message.bot_solution = bot_response
+            old_message.updated_at = datetime.utcnow()
+            await session.commit()
+
+            # Update chat summary (with fresh retry)
+            chat.summary = await update_chat_summary(chat.summary or "", old_message.user_query, bot_response)
+            await session.commit()
+
+            # Send final result to frontend
+            payload = {
+                "chatId": str(chat.id),
+                "chatTitle": chat.title,
+                "new_message": bot_response,
+            }
+            yield sse("result", json.dumps(payload))
+            yield sse("end", "bye")
+
+        except Exception as e:
+            await session.rollback()
+            print(f"Retry error: {str(e)}")
+            yield sse("error", "Failed to retry the message")
+
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream", headers=headers)
+
+
