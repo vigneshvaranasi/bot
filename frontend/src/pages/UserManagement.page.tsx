@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { ConfigurableTable } from '../components/ui/Table';
+import SettingsNavbar from '../components/SettingsNavbar';
 
 interface UserRecord {
   id: string;
@@ -101,50 +102,11 @@ const UserManagement: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <div className="bg-gray-100">
-        <div className="p-4 md:p-6">
-          <div className="max-w-screen-2xl mx-auto flex flex-col md:grid md:grid-cols-[1.5fr_1.5fr] items-center gap-4 md:gap-0">
-            <div className="bg-white px-6 md:px-8 py-2 rounded-[10px] text-lg font-low text-gray-900 w-fit">Logo</div>
-
-            <div className="flex items-center gap-4 justify-end w-full">
-              
-              <div className="relative w-full max-w-md md:max-w-none">
-                <input
-                  type="text"
-                  placeholder="Search"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="
-                      w-full h-11 pr-12 pl-11
-                      bg-white rounded-[5px]
-                      border-0 border-b-2 border-gray-400
-                      placeholder-gray-500
-                      focus:outline-none focus:ring-0
-                      hover:border-gray-400 focus:border-gray-400 active:border-gray-400
-                      "
-                />
-                
-                <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none"
-                  viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-0 " />
-              </div>
-
-              <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2"/>
-                  <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <SettingsNavbar 
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search users..."
+      />
 
       
       <div className="p-4 md:p-6">
@@ -167,12 +129,13 @@ const UserManagement: React.FC = () => {
           </div>
           {/* Bottom Actions */}
             <div className="flex items-center justify-center mt-6 px-4">
-            <div 
+            <Button
+              variant="default"
               onClick={handleBackToSettings}
-              className="bg-white px-6 md:px-8 py-2 rounded-xl text-base md:text-lg font-low text-gray-800 w-full sm:w-fit cursor-pointer hover:bg-gray-100 text-center"
+              className="bg-white hover:bg-gray-100 text-gray-800 px-6 md:px-8 py-2 rounded-xl text-base md:text-lg font-low w-full sm:w-fit text-center border border-gray-200"
             >
               ← Back
-            </div>
+            </Button>
             </div>
         </div>
       </div>

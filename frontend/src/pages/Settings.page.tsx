@@ -8,6 +8,8 @@ import Checkbox from "../components/ui/Checkbox";
 import Toggle from "../components/ui/Toggle";
 import { ConfigurableTable } from "../components/ui/Table";
 import ButtonGroup from "../components/ui/ButtonGroup";
+import SettingsNavbar from "../components/SettingsNavbar";
+import SettingsCard from "../components/ui/SettingsCard";
 import arrowLeftIcon from "../assets/arrow-left.svg";
 
 interface FileRecord {
@@ -90,64 +92,7 @@ const Settings: React.FC = () => {
   return (
     <div className="min-h-screen h-full bg-gray-100">
       {/* Header */}
-      <div className="px-4 md:px-6 py-4 bg-gray-100">
-        <div className="max-w-screen-2xl mx-auto flex flex-col md:grid md:grid-cols-[1.5fr_1.5fr] items-center gap-4 md:gap-0">
-          {/* Logo */}
-          <div className="bg-white px-6 md:px-8 py-2 rounded-[10px] text-lg font-low text-gray-900 w-fit">
-            Logo
-          </div>
-
-          {/* Right cell: search + avatar */}
-          <div className="flex items-center gap-4 justify-end w-full">
-            {/* Search */}
-            <div className="relative w-full max-w-md md:max-w-none">
-              <InputBox
-                placeholder="Search"
-                variant="primary"
-                onChange={() => {}}
-                value=""
-                icon={
-                  <svg
-                    className="h-5 w-5 text-gray-500"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <circle cx="11" cy="11" r="7" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                }
-                backgroundColor="fff"
-                className="border-0 border-b-2 border-gray-400 hover:border-gray-400 focus:border-gray-400 rounded-[5px]"
-              />
-            </div>
-
-            <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                className="text-white"
-              >
-                <path
-                  d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-                <circle
-                  cx="12"
-                  cy="7"
-                  r="4"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
+      <SettingsNavbar />
 
       {/* Main Content */}
       <div className="p-4 md:p-6 bg-gray-100">
@@ -159,9 +104,7 @@ const Settings: React.FC = () => {
               <UploadFiles compact />
 
               {/* Role Management */}
-              <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-3 md:p-4">
-                <h2 className="text-lg md:text-xl text-black mb-4">Role Management</h2>
-
+              <SettingsCard title="Role Management" className="p-3 md:p-4">
                 <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <label className="text-sm md:text-base text-gray-800 min-w-fit">
                     Role Permissions
@@ -196,17 +139,13 @@ const Settings: React.FC = () => {
                     onChange={setRequestPastIncidents}
                   />
                 </div>
-              </div>
+              </SettingsCard>
             </div>
 
             {/* Right Column */}
             <div className="space-y-6 order-1 lg:order-2">
               {/* Knowledge Base Management */}
-              <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-4 md:p-5">
-                <h2 className="text-lg md:text-xl text-black mb-4">
-                  Knowledge Base Management
-                </h2>
-
+              <SettingsCard title="Knowledge Base Management">
                 {/* Description + REFRESH */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
                   <span className="text-sm md:text-medium text-black flex-1">
@@ -256,12 +195,10 @@ const Settings: React.FC = () => {
                       "
                   />
                 </div>
-              </div>
+              </SettingsCard>
 
               {/* Data & Privacy */}
-              <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-4 md:p-5">
-                <h2 className="text-lg md:text-lg text-gray-900 mb-4">Data & Privacy</h2>
-
+              <SettingsCard title="Data & Privacy">
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:gap-6">
                   {/* PID Masking Rules */}
                   <div className="space-y-3">
@@ -327,11 +264,10 @@ const Settings: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </div>
+              </SettingsCard>
 
               {/* User Management */}
-              <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-4 md:p-5">
-                <h2 className="text-lg md:text-lg text-gray-900 mb-4">User Management</h2>
+              <SettingsCard title="User Management">
                 <Button
                   variant="secondary"
                   className="font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer w-full sm:w-auto"
@@ -339,7 +275,7 @@ const Settings: React.FC = () => {
                 >
                   EDIT USERS
                 </Button>
-              </div>
+              </SettingsCard>
             </div>
           </div>
 
