@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import InputBox from "../components/ui/InputBox";
-import { Button } from "../components/ui/Button";
+import { SendStopButton } from "../components/ui/SendStopButton";
 import { useSidebarContext } from "../hooks/useSidebarContext";
 import { Outlet, useNavigate, useParams } from "react-router-dom";
 import { newMessageHandler } from "../handlers/chatHandler";
@@ -13,26 +13,29 @@ function ChatPage() {
   const { isSidebarOpen, setCurrentChat } = useSidebarContext();
   const [chatInput, setChatInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const sendBtnRef = useRef<HTMLButtonElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const { chatId } = useParams<{ chatId: string }>();
   const { user } = useAuthContext();
   const navigate = useNavigate();
 
   const handlePromptSend = async () => {
     console.log("Sending prompt...");
-    sendBtnRef.current?.setAttribute("disabled", "true");
     const prompt = chatInput;
     console.log("Prompt:", prompt);
     if (!prompt || !user) {
       console.error("Invalid prompt or user");
       return;
     }
-    setChatInput("");
-    try {
-      let currChatId = chatId || "";
-      const newMessageId = Date.now().toString();
 
-  setCurrentChat((prevChat:any) => ({
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+    
+    setChatInput("");
+    const currChatId = chatId || "";
+    const newMessageId = Date.now().toString();
+
+    try {
+      setCurrentChat((prevChat:any) => ({
         chatId: currChatId,
         allMessages: [
           ...(prevChat?.allMessages ?? []),
@@ -46,8 +49,12 @@ function ChatPage() {
 
       setIsLoading(true);
 
-      const res = await newMessageHandler(currChatId, prompt, user?.token, (evt: ChatSSEEvent) => {
-        if (!evt) return;
+      const res = await newMessageHandler(
+        currChatId, 
+        prompt, 
+        user?.token, 
+        (evt: ChatSSEEvent) => {
+          if (!evt) return;
         if (evt.label) {
           setCurrentChat((prevChat:any) => ({
             ...prevChat,
@@ -56,7 +63,9 @@ function ChatPage() {
             ),
           }));
         }
-      });
+      },
+      abortControllerRef.current
+      );
       console.log("res: ", res);
 
       if (currChatId === "") {
@@ -74,11 +83,34 @@ function ChatPage() {
       }));
 
       setIsLoading(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error sending prompt:", err);
       setIsLoading(false);
+      
+      // Handle aborted request
+      if (err.name === 'AbortError' || err.message === 'Request aborted') {
+        console.log("Request was aborted");
+        // Optionally update the UI to show the request was stopped
+        setCurrentChat((prevChat:any) => ({
+          ...prevChat,
+          allMessages: prevChat?.allMessages.map((message:any) =>
+            message.id === newMessageId 
+              ? { ...message, botMessage: "Request stopped by user" }
+              : message
+          ),
+        }));
+      }
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
+    }
+  };
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setIsLoading(false);
+      console.log("Request aborted by user");
     }
   };
 
@@ -114,15 +146,14 @@ function ChatPage() {
               //   }
               // }}
             />
-            <Button
-              ref={sendBtnRef}
-              variant="secondary"
-              onClick={handlePromptSend}
-              disabled={isLoading || !chatInput.trim()}
+            <SendStopButton
+              isLoading={isLoading}
+              onSend={handlePromptSend}
+              onStop={handleStop}
+              disabled={false}
+              inputValue={chatInput}
               className="flex-none py-0 px-4 h-11 rounded-xl mb-1.5"
-            >
-              Send
-            </Button>
+            />
           </div>
         </div>
       </div>

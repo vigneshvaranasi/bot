@@ -6,7 +6,8 @@ export const newMessageHandler = async (
   chatId: string | null,
   prompt: string,
   token: string,
-  onEvent?: (evt: ChatSSEEvent) => void
+  onEvent?: (evt: ChatSSEEvent) => void,
+  abortController?: AbortController
 ) => {
   console.log(JSON.stringify({ chatId, prompt }));
   const headers = new Headers();
@@ -16,6 +17,7 @@ export const newMessageHandler = async (
     method: "POST",
     headers,
     body: JSON.stringify({ chatId, prompt }),
+    signal: abortController?.signal,
   });
 
   if (!response.ok) {
@@ -97,6 +99,12 @@ export const newMessageHandler = async (
     };
 
     while (true) {
+      // Check if the request was aborted
+      if (abortController?.signal.aborted) {
+        reader.cancel();
+        throw new Error('Request aborted');
+      }
+      
       const { value, done } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
