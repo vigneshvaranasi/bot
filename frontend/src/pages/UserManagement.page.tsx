@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { ConfigurableTable } from '../components/ui/Table';
 import SettingsNavbar from '../components/SettingsNavbar';
+import ButtonGroup from '../components/ui/ButtonGroup';
+import arrowLeftIcon from "../assets/arrow-left.svg";
 
 interface UserRecord {
   id: string;
@@ -67,19 +69,19 @@ const UserManagement: React.FC = () => {
     {
       header: 'Permissions',
       accessor: 'permissions' as keyof UserRecord,
-      className: 'text-xs md:text-sm text-gray-900 hidden sm:table-cell',
+      className: 'text-xs md:text-sm text-gray-900 sm:table-cell',
       headerClassName: 'text-xs md:text-sm font-medium text-gray-700 hidden sm:table-cell'
     },
     {
       header: 'Last Updated',
       accessor: 'lastUpdated' as keyof UserRecord,
-      className: 'text-xs md:text-sm text-gray-900 hidden lg:table-cell',
+      className: 'text-xs md:text-sm text-gray-900 lg:table-cell',
       headerClassName: 'text-xs md:text-sm font-medium text-gray-700 hidden lg:table-cell'
     },
     {
       header: 'Actions',
       render: (user: UserRecord) => (
-        <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+        <div className="flex flex-row gap-1 sm:gap-2">
           <Button
             variant="secondary"
             className="bg-gray-400 text-white hover:bg-gray-500 text-xs md:text-sm px-2 py-1 w-full sm:w-auto"
@@ -129,13 +131,17 @@ const UserManagement: React.FC = () => {
           </div>
           {/* Bottom Actions */}
             <div className="flex items-center justify-center mt-6 px-4">
-            <Button
-              variant="default"
-              onClick={handleBackToSettings}
-              className="bg-white hover:bg-gray-100 text-gray-800 px-6 md:px-8 py-2 rounded-xl text-base md:text-lg font-low w-full sm:w-fit text-center border border-gray-200"
-            >
-              ← Back
-            </Button>
+              <ButtonGroup>
+                <Button
+                  variant="default"
+                  onClick={handleBackToSettings}
+                  className='flex gap-4'
+                  // className="bg-white hover:bg-gray-100 text-gray-800 px-6 md:px-8 py-2 rounded-xl text-base md:text-lg font-low w-full sm:w-fit text-center border border-gray-200"
+                  >
+                    <img src={arrowLeftIcon}  alt="" />
+                    Back
+                </Button>
+            </ButtonGroup>
             </div>
         </div>
       </div>

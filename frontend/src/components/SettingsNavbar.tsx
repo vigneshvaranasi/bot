@@ -14,7 +14,7 @@ const SettingsNavbar: React.FC<SettingsNavbarProps> = ({
 }) => {
   return (
     <div className="px-4 md:px-6 py-4 bg-gray-100">
-      <div className="max-w-screen-2xl mx-auto flex flex-col md:grid md:grid-cols-[1.5fr_1.5fr] items-center gap-4 md:gap-0">
+      <div className="max-w-screen-2xl mx-auto flex flex-col md:grid md:grid-cols-[1.5fr_1.5fr] gap-4 md:gap-0">
         {/* Logo */}
         <div className="bg-white px-6 md:px-8 py-2 rounded-[10px] text-lg font-low text-gray-900 w-fit">
           Logo

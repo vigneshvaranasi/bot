@@ -317,7 +317,7 @@ const Settings: React.FC = () => {
                     header: "Actions",
                     headerClassName: "font-medium text-gray-700 text-xs md:text-sm",
                     render: (file) => (
-                      <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                      <div className="flex flex-row gap-1 sm:gap-2">
                         <Button
                           variant="secondary"
                           className="bg-gray-400 text-white hover:bg-gray-500 text-xs px-2 md:px-3 py-1"
@@ -344,7 +344,7 @@ const Settings: React.FC = () => {
 
           {/* Bottom Actions */}
           <div className="mt-6 flex items-center justify-center mb-4 px-4">
-            <ButtonGroup className="border border-gray-300 bg-white rounded-full shadow-sm p-1 w-full sm:w-auto">
+            <ButtonGroup className="border border-gray-300 bg-white rounded-full shadow-sm p-1 sm:w-auto">
               <Button
                 variant="default"
                 onClick={handleGoToChat}
@@ -357,7 +357,7 @@ const Settings: React.FC = () => {
 
               <Button
                 variant="primary"
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 md:px-6 py-2 ml-1 mr-1 rounded-full flex-1 sm:flex-none"
+                rounded="full"
               >
                 SAVE
               </Button>
