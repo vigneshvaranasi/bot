@@ -90,17 +90,17 @@ const Settings: React.FC = () => {
   return (
     <div className="min-h-screen h-full bg-gray-100">
       {/* Header */}
-      <div className="px-6 py-4 bg-gray-100">
-        <div className="max-w-screen-2xl mx-auto grid grid-cols-[1.5fr_1.5fr] items-center">
-          {/* Logo (unchanged) */}
-          <div className="bg-white px-8 py-2 rounded-[10px] text-lg font-low text-gray-900 w-fit">
+      <div className="px-4 md:px-6 py-4 bg-gray-100">
+        <div className="max-w-screen-2xl mx-auto flex flex-col md:grid md:grid-cols-[1.5fr_1.5fr] items-center gap-4 md:gap-0">
+          {/* Logo */}
+          <div className="bg-white px-6 md:px-8 py-2 rounded-[10px] text-lg font-low text-gray-900 w-fit">
             Logo
           </div>
 
-          {/* Right cell: full-width search + avatar (unchanged) */}
+          {/* Right cell: search + avatar */}
           <div className="flex items-center gap-4 justify-end w-full">
-            {/* Full-width search with gray bottom and icon */}
-            <div className="relative w-full">
+            {/* Search */}
+            <div className="relative w-full max-w-md md:max-w-none">
               <input
                 type="text"
                 placeholder="Search"
@@ -124,11 +124,10 @@ const Settings: React.FC = () => {
                 <circle cx="11" cy="11" r="7" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
-              {/* Right padding icon spacer (optional) */}
               <div className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-0" />
             </div>
 
-            <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center relative left-4">
+            <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
               <svg
                 width="20"
                 height="20"
@@ -155,34 +154,33 @@ const Settings: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="p-6 bg-gray-100">
+      <div className="p-4 md:p-6 bg-gray-100">
         <div className="max-w-screen-2xl mx-auto">
-          <div
-            className="grid gap-8"
-            style={{ gridTemplateColumns: "1.44fr 1.5fr" }}
-          >
+          <div className="grid gap-6 md:gap-8 grid-cols-1 lg:grid-cols-[1.44fr_1.5fr]">
             {/* Left Column */}
-            <div className="space-y-6">
-              {/* Upload Files (compact to remove extra white space) */}
+            <div className="space-y-6 order-2 lg:order-1">
+              {/* Upload Files */}
               <UploadFiles compact />
 
               {/* Role Management */}
-              <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-3">
-                <h2 className="text-xl text-black mb-4">Role Management</h2>
+              <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-3 md:p-4">
+                <h2 className="text-lg md:text-xl text-black mb-4">Role Management</h2>
 
-                <div className="mb-4 flex items-center gap-3">
-                  <label className="text-base text-gray-800">
+                <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  <label className="text-sm md:text-base text-gray-800 min-w-fit">
                     Role Permissions
                   </label>
-                  <Dropdown
-                    options={roleOptions}
-                    value={selectedRole}
-                    onChange={setSelectedRole}
-                    placeholder="Select role"
-                  />
+                  <div className="w-full sm:w-auto">
+                    <Dropdown
+                      options={roleOptions}
+                      value={selectedRole}
+                      onChange={setSelectedRole}
+                      placeholder="Select role"
+                    />
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap gap-6">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-4 md:gap-6">
                   <Checkbox
                     id="perm-access-chat"
                     label="Access Chat"
@@ -206,34 +204,32 @@ const Settings: React.FC = () => {
             </div>
 
             {/* Right Column */}
-            <div className="space-y-6 pr-13">
-              {/* Knowledge Base Management — redesigned */}
-              <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-5">
-                {/* Big, clean title like the mock */}
-                <h2 className="text-xl text-black mb-4">
+            <div className="space-y-6 order-1 lg:order-2">
+              {/* Knowledge Base Management */}
+              <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-4 md:p-5">
+                <h2 className="text-lg md:text-xl text-black mb-4">
                   Knowledge Base Management
                 </h2>
 
-                {/* Description + REFRESH on the same row */}
-                <div className="flex items-center mb-2">
-                  <span className="text-medium text-black">
+                {/* Description + REFRESH */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
+                  <span className="text-sm md:text-medium text-black flex-1">
                     Re-train the knowledge base &amp; put the app on maintenance
                   </span>
                   <Button
                     variant="secondary"
-                    className="ml-4 font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer"
+                    className="font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer w-full sm:w-auto"
                   >
                     REFRESH
                   </Button>
                 </div>
 
-                {/* Toggle row (uses your Toggle component) */}
-                <div className="mb-3">
-                  <label className="flex items-center gap-4">
-                    <span className="text-medium text-gray-900">
+                {/* Toggle row */}
+                <div className="mb-4">
+                  <label className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <span className="text-sm md:text-medium text-gray-900">
                       Version Control
                     </span>
-                    {/* keep the Toggle exactly as your component defines it */}
                     <Toggle
                       id="kb-version-control"
                       enabled={versionControl}
@@ -242,12 +238,11 @@ const Settings: React.FC = () => {
                   </label>
                 </div>
 
-                {/* Number with underline treatment (like search/upload) */}
-                <div className="flex items-center gap-2">
-                  <label className="text-medium text-gray-900">
+                {/* Number of versions */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  <label className="text-sm md:text-medium text-gray-900 min-w-fit">
                     Number of versions tracked
                   </label>
-
                   <InputBox
                     value={versionsTracked}
                     onChange={setVersionsTracked}
@@ -261,87 +256,89 @@ const Settings: React.FC = () => {
                       px-0 py-0
                       text-medium 
                       text-gray-900
-                      w-10
+                      w-16
                       "
                   />
                 </div>
               </div>
 
               {/* Data & Privacy */}
-              <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-5">
-                <h2 className="text-lg text-gray-900 mb-4">Data & Privacy</h2>
+              <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-4 md:p-5">
+                <h2 className="text-lg md:text-lg text-gray-900 mb-4">Data & Privacy</h2>
 
-                <div className="grid grid-cols-2 gap-4 items-center">
-                  {/* Left col - PID Masking Rules */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-medium text-black">
-                      PID Masking Rules
-                    </span>
-                    <Button
-                      variant="secondary"
-                      className="ml-4 font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer"
-                    >
-                      ADD RULE
-                    </Button>
-                  </div>
-
-                  {/* Right col - Automatically Purge */}
-                  <label className="flex items-center gap-2">
-                    <span className="text-medium text-black">
-                      Automatically Purge Archived Clusters
-                    </span>
-                    <Toggle
-                      enabled={purgeEnabled}
-                      onChange={setPurgeEnabled}
-                      id="purgeToggle"
-                    />
-                  </label>
-
-                  {/* Left col - Add fields */}
-                  <InputBox
-                    value={pidMaskingFields}
-                    onChange={setPidMaskingFields}
-                    placeholder="Add fields to ignore"
-                    variant="primary"
-                    className="
-                      w-[260px]
-                      rounded-[5px]
-                      border-gray-400
-                      border-b-1
-                    "
-                  />
-
-                  {/* Right col - Purge Trigger Days */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-medium text-black">
-                      Choose Purge Trigger days
-                    </span>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:gap-6">
+                  {/* PID Masking Rules */}
+                  <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                      <span className="text-sm md:text-medium text-black min-w-fit">
+                        PID Masking Rules
+                      </span>
+                      <Button
+                        variant="secondary"
+                        className="font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer w-full sm:w-auto"
+                      >
+                        ADD RULE
+                      </Button>
+                    </div>
+                    
                     <InputBox
-                      value={purgeDays}
-                      onChange={setPurgeDays}
+                      value={pidMaskingFields}
+                      onChange={setPidMaskingFields}
+                      placeholder="Add fields to ignore"
                       variant="primary"
-                      type="number"
                       className="
-                        outline-none
+                        w-full
+                        rounded-[5px]
+                        border-gray-400
                         border-b-1
-                        border-gray-400 
-                        rounded-[8px] 
-                        px-0 py-0
-                        text-medium 
-                        text-gray-900
-                        w-10
                       "
                     />
+                  </div>
+
+                  {/* Automatically Purge */}
+                  <div className="space-y-3">
+                    <label className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                      <span className="text-sm md:text-medium text-black min-w-fit">
+                        Automatically Purge Archived Clusters
+                      </span>
+                      <Toggle
+                        enabled={purgeEnabled}
+                        onChange={setPurgeEnabled}
+                        id="purgeToggle"
+                      />
+                    </label>
+
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                      <span className="text-sm md:text-medium text-black min-w-fit">
+                        Choose Purge Trigger days
+                      </span>
+                      <InputBox
+                        value={purgeDays}
+                        onChange={setPurgeDays}
+                        variant="primary"
+                        type="number"
+                        className="
+                          outline-none
+                          border-b-1
+                          border-gray-400 
+                          rounded-[8px] 
+                          px-0 py-0
+                          text-medium 
+                          text-gray-900
+                          w-16
+                        "
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* User Management */}
-              <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-5 h-36">
-                <h2 className="text-lg text-gray-900 mb-4">User Management</h2>
+              <div className="bg-white rounded-lg shadow-lg border-2 border-gray-300 p-4 md:p-5">
+                <h2 className="text-lg md:text-lg text-gray-900 mb-4">User Management</h2>
                 <Button
                   variant="secondary"
-                  className="ml-4 font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer"
+                  className="font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer w-full sm:w-auto"
                   onClick={handleEditUsers}
                 >
                   EDIT USERS
@@ -351,11 +348,11 @@ const Settings: React.FC = () => {
           </div>
 
           {/* Knowledge Base Version Control Table */}
-          <div className="mt-5">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="mt-6 md:mt-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 px-2">
               Knowledge Base Version Control
             </h2>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto bg-white rounded-lg shadow-lg border border-gray-300">
               <ConfigurableTable
                 data={uploadedFiles}
                 keyExtractor={(row) => row.id}
@@ -363,51 +360,47 @@ const Settings: React.FC = () => {
                   {
                     header: "File Name",
                     accessor: "fileName",
-                    headerClassName: "font-medium text-gray-700",
-                    className: "text-sm text-gray-900"
+                    headerClassName: "font-medium text-gray-700 text-xs md:text-sm",
+                    className: "text-xs md:text-sm text-gray-900"
                   },
                   {
                     header: "File Type",
                     accessor: "fileType",
-                    headerClassName: "font-medium text-gray-700",
-                    className: "text-sm text-gray-900"
+                    headerClassName: "font-medium text-gray-700 text-xs md:text-sm",
+                    className: "text-xs md:text-sm text-gray-900"
                   },
                   {
                     header: "Size",
                     accessor: "size",
-                    headerClassName: "font-medium text-gray-700",
-                    className: "text-sm text-gray-900"
+                    headerClassName: "font-medium text-gray-700 text-xs md:text-sm",
+                    className: "text-xs md:text-sm text-gray-900"
                   },
                   {
                     header: "Last Updated",
                     accessor: "lastUpdated",
-                    headerClassName: "font-medium text-gray-700",
-                    className: "text-sm text-gray-900"
+                    headerClassName: "font-medium text-gray-700 text-xs md:text-sm hidden sm:table-cell",
+                    className: "text-xs md:text-sm text-gray-900 hidden sm:table-cell"
                   },
                   {
-                    header: "Rollback",
-                    headerClassName: "font-medium text-gray-700",
+                    header: "Actions",
+                    headerClassName: "font-medium text-gray-700 text-xs md:text-sm",
                     render: (file) => (
-                      <Button
-                        variant="secondary"
-                        className="bg-gray-400 text-white hover:bg-gray-500 text-xs px-3 py-1"
-                        onClick={() => handleRollbackFile(file.id)}
-                      >
-                        ROLLBACK
-                      </Button>
-                    )
-                  },
-                  {
-                    header: "Delete",
-                    headerClassName: "font-medium text-gray-700",
-                    render: (file) => (
-                      <Button
-                        variant="secondary"
-                        className="bg-gray-400 text-white hover:bg-gray-500 text-xs px-3 py-1"
-                        onClick={() => handleDeleteFile(file.id)}
-                      >
-                        DELETE
-                      </Button>
+                      <div className="flex flex-col sm:flex-row gap-1 sm:gap-2">
+                        <Button
+                          variant="secondary"
+                          className="bg-gray-400 text-white hover:bg-gray-500 text-xs px-2 md:px-3 py-1"
+                          onClick={() => handleRollbackFile(file.id)}
+                        >
+                          ROLLBACK
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          className="bg-gray-400 text-white hover:bg-gray-500 text-xs px-2 md:px-3 py-1"
+                          onClick={() => handleDeleteFile(file.id)}
+                        >
+                          DELETE
+                        </Button>
+                      </div>
                     )
                   }
                 ]}
@@ -418,24 +411,24 @@ const Settings: React.FC = () => {
           </div>
 
           {/* Bottom Actions */}
-          <div className="mt-6 flex items-center justify-center mb-1">
-            <ButtonGroup className="border border-gray-300 bg-white rounded-full shadow-sm p-1">
+          <div className="mt-6 flex items-center justify-center mb-4 px-4">
+            <ButtonGroup className="border border-gray-300 bg-white rounded-full shadow-sm p-1 w-full sm:w-auto">
               <Button
                 variant="default"
                 onClick={handleGoToChat}
-                className="bg-transparent hover:bg-gray-50 hover:rounded-full text-gray-900 px-6 py-2 rounded-full flex items-center gap-2"
+                className="bg-transparent hover:bg-gray-50 hover:rounded-full text-gray-900 px-4 md:px-6 py-2 rounded-full flex items-center justify-center gap-2 flex-1 sm:flex-none"
               >
                 <img src={arrowLeftIcon} alt="arrow left" className="w-4 h-4" />
-                Go to Chat
+                <span className="hidden sm:inline">Go to Chat</span>
+                <span className="sm:hidden">Back</span>
               </Button>
 
               <Button
                 variant="primary"
-                className="bg-blue-500 hover:bg-blue-600 text-white px-[20px] py-[6px] ml-[6px] mr-[6px]"
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 md:px-6 py-2 ml-1 mr-1 rounded-full flex-1 sm:flex-none"
               >
                 SAVE
               </Button>
-
             </ButtonGroup>
           </div>
         </div>
