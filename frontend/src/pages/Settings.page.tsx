@@ -101,30 +101,26 @@ const Settings: React.FC = () => {
           <div className="flex items-center gap-4 justify-end w-full">
             {/* Search */}
             <div className="relative w-full max-w-md md:max-w-none">
-              <input
-                type="text"
+              <InputBox
                 placeholder="Search"
-                className="
-                    w-full h-11 pr-12 pl-11
-                    bg-white rounded-[5px]
-                    border-0 border-b-2 border-gray-400
-                    placeholder-gray-500
-                    focus:outline-none focus:ring-0
-                    hover:border-gray-400 focus:border-gray-400 active:border-gray-400
-                    "
+                variant="primary"
+                onChange={() => {}}
+                value=""
+                icon={
+                  <svg
+                    className="h-5 w-5 text-gray-500"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                }
+                backgroundColor="fff"
+                className="border-0 border-b-2 border-gray-400 hover:border-gray-400 focus:border-gray-400 rounded-[5px]"
               />
-              {/* Search icon */}
-              <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-0" />
             </div>
 
             <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center flex-shrink-0">
