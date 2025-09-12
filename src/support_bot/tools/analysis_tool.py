@@ -9,18 +9,25 @@ class IncidentAnalysisTool(BaseTool):
         "and successful resolution strategies. Useful for identifying "
         "trends and building comprehensive solution strategies.")
 
+    def __init__(self, emitter=None):
+        super().__init__()
+        self._emit = emitter
+
     def _run(self, incident_data: str) -> str:
         """
         Analyze incident data to extract key insights
         """
-        print(f"--- Analyzing incident data patterns ---")
+        if self._emit:
+            try:
+                self._emit("tool:start", {"tool": "analysis"})
+            except Exception:
+                pass
+        else:
+            print(f"--- Analyzing incident data patterns ---")
         
         try:
             # Extract incident IDs
             incident_ids = re.findall(r'PAYU-INC-\d{4}-\d{2}-\d{2}-\d+', incident_data)
-            
-            # Extract HTTP codes
-            http_codes = re.findall(r'HTTP (\d{3})', incident_data)
             
             # Extract root causes
             root_causes = re.findall(r'rootCause: ([^.]+\.)', incident_data)
@@ -37,10 +44,6 @@ INCIDENT PATTERN ANALYSIS
 ========================
 
 INCIDENTS FOUND: {len(incident_ids)}
-Incident IDs: {', '.join(incident_ids)}
-
-HTTP ERROR CODES: {list(set(http_codes))}
-Most common codes: {self._get_most_common(http_codes)}
 
 ROOT CAUSE PATTERNS:
 {self._format_list(root_causes)}
@@ -50,18 +53,20 @@ SUCCESSFUL MITIGATION STRATEGIES:
 
 TYPICAL RESOLUTION TIMELINE PATTERNS:
 {self._format_list(timelines[:3])}  # Show first 3 timelines
-
-RECOMMENDATIONS BASED ON PATTERNS:
-- Monitor for recurring HTTP {self._get_most_common(http_codes)[0] if http_codes else 'error'} patterns
-- Implement proactive timeout monitoring
-- Establish client communication protocols for configuration changes
-- Create automated detection for similar incident patterns
 """
             
-            return analysis
+            result = analysis
             
         except Exception as e:
-            return f"Error analyzing incident data: {str(e)}"
+            result = f"Error analyzing incident data: {str(e)}"
+        finally:
+            if self._emit:
+                try:
+                    self._emit("tool:end", {"tool": "analysis"})
+                except Exception:
+                    pass
+
+        return result
     
     def _get_most_common(self, items: List[str]) -> List[str]:
         """Get most common items from a list"""

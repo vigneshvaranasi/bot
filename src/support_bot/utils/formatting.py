@@ -18,8 +18,6 @@ def sanitize_markdown_output(text: str) -> str:
             break
         text = new_text
 
-    # Remove any remaining stray triple backticks
     text = text.replace("```", "")
 
-    # Trim excessive leading/trailing whitespace newlines
     return text.strip()

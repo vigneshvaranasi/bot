@@ -6,6 +6,7 @@ import { Button } from "../components/ui/Button";
 import { useSidebarContext } from "../hooks/useSidebarContext";
 import { Outlet, useNavigate, useParams } from "react-router-dom";
 import { newMessageHandler } from "../handlers/chatHandler";
+import type { ChatSSEEvent } from "../handlers/chatHandler";
 import { useAuthContext } from "../hooks/useAuthContext";
 
 function ChatPage() {
@@ -31,7 +32,7 @@ function ChatPage() {
       let currChatId = chatId || "";
       const newMessageId = Date.now().toString();
 
-      setCurrentChat((prevChat:any) => ({
+  setCurrentChat((prevChat:any) => ({
         chatId: currChatId,
         allMessages: [
           ...(prevChat?.allMessages ?? []),
@@ -45,8 +46,17 @@ function ChatPage() {
 
       setIsLoading(true);
 
-      // Fetch the bot's response
-      const res = await newMessageHandler(currChatId, prompt, user?.token);
+      const res = await newMessageHandler(currChatId, prompt, user?.token, (evt: ChatSSEEvent) => {
+        if (!evt) return;
+        if (evt.label) {
+          setCurrentChat((prevChat:any) => ({
+            ...prevChat,
+            allMessages: prevChat?.allMessages?.map((m:any) =>
+              m.id === newMessageId ? { ...m, botMessage: evt.label } : m
+            ),
+          }));
+        }
+      });
       console.log("res: ", res);
 
       if (currChatId === "") {
@@ -54,7 +64,6 @@ function ChatPage() {
         return;
       }
 
-      // Update the "Thinking..." message with the bot's response
       setCurrentChat((prevChat:any) => ({
         chatId: res.chatId,
         allMessages: prevChat?.allMessages.map((message:any) =>
@@ -79,23 +88,38 @@ function ChatPage() {
       <div className={`flex-1 ${isSidebarOpen && "hidden md:block"}`}>
         <div className="flex flex-col h-screen">
           <Navbar />
-          <Outlet />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <Outlet />
+          </div>
           {/* Prompt Box */}
-          <div className="flex p-5 gap-x-2 bg-gray-50 w-full">
+          <div className="flex items-end p-5 gap-x-3 bg-gray-50 w-full">
             <InputBox
+              className="flex-1"
               onChange={(value) => {
                 setChatInput(value);
               }}
               value={chatInput}
               placeholder="Type your message..."
-              variant="primary"
+              variant="multiline"
               backgroundColor="f9fafb"
+              rows={1}
+              maxHeight={180}
+              // Enter -> Send
+              // onKeyDown={(e) => {
+              //   if (e.key === 'Enter' && !e.shiftKey) {
+              //     e.preventDefault();
+              //     if (!isLoading && chatInput.trim()) {
+              //       handlePromptSend();
+              //     }
+              //   }
+              // }}
             />
             <Button
               ref={sendBtnRef}
               variant="secondary"
               onClick={handlePromptSend}
               disabled={isLoading || !chatInput.trim()}
+              className="flex-none py-0 px-4 h-11 rounded-xl mb-1.5"
             >
               Send
             </Button>
