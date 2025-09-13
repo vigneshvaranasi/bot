@@ -89,7 +89,7 @@ function ChatPage() {
         <div className="flex flex-col h-screen">
           <Navbar />
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <Outlet />
+            <Outlet/>
           </div>
           {/* Prompt Box */}
           <div className="flex items-end p-5 gap-x-3 bg-gray-50 w-full">

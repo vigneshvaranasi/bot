@@ -151,3 +151,116 @@ export const getChatMessagesById = async (token: string,chatId:string) => {
   const data = await response.json();
   return data.messages;
 };
+
+
+export const handleRetry = async (
+  messageId: string,
+  oldPrompt: string,
+  user: { token: string } | null,
+  currentChat: any,
+  setCurrentChat: (chat: any) => void,
+) => {
+  if (!user || !currentChat) return;
+
+  const updatedMessages = currentChat.allMessages.map((msg: any) =>
+    msg.id === messageId ? { ...msg, isRetrying: true } : msg
+  );
+  setCurrentChat({ ...currentChat, allMessages: updatedMessages });
+
+  try {
+    const response = await fetch(`${BE_URL}/chats/retry`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${user.token}`,
+      },
+      body: JSON.stringify({
+        chat_id: currentChat.chatId,
+        message_id: messageId,
+        prompt: oldPrompt,
+      }),
+    });
+
+    if (!response.ok) throw new Error("Retry failed");
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+    let finalBotMessage = "";
+
+    const processChunk = (chunk: string) => {
+      buffer += chunk;
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() || "";
+      for (const part of parts) {
+        const lines = part.split("\n");
+        let event = "";
+        let data = "";
+        for (const line of lines) {
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          else if (line.startsWith("data:")) data = line.slice(5).trim();
+        }
+        if (event === "result") {
+          const parsed = JSON.parse(data);
+          finalBotMessage = parsed.new_message;
+        }
+      }
+    };
+
+    while (true) {
+      const { done, value } = await reader!.read();
+      if (done) break;
+      processChunk(decoder.decode(value));
+    }
+
+    setCurrentChat({
+      ...currentChat,
+      allMessages: currentChat.allMessages.map((msg: any) =>
+        msg.id === messageId
+          ? { ...msg, botMessage: finalBotMessage, isRetrying: false }
+          : msg
+      ),
+    });
+  } catch (err) {
+    console.error(err);
+    setCurrentChat({
+      ...currentChat,
+      allMessages: currentChat.allMessages.map((msg: any) =>
+        msg.id === messageId ? { ...msg, isRetrying: false } : msg
+      ),
+    });
+  }
+};
+
+export const handlePromptEdit = async (
+  chatId: string,
+  editedText: string,
+  messageId: string,
+  user: { token: string } | null,
+  setCurrentChat: (chat: any) => void
+) => {
+  if (!editedText || !user) return;
+
+  try {
+    const res = await newMessageHandler(chatId || "", editedText, user.token, (evt: ChatSSEEvent) => {
+      if (!evt) return;
+      if (evt.label) {
+        setCurrentChat((prevChat: any) => ({
+          ...prevChat,
+          allMessages: prevChat.allMessages.map((m: any) =>
+            m.id === messageId ? { ...m, botMessage: evt.label } : m
+          ),
+        }));
+      }
+    });
+
+    setCurrentChat((prevChat: any) => ({
+      ...prevChat,
+      allMessages: prevChat.allMessages.map((m: any) =>
+        m.id === messageId ? { ...m, botMessage: res.new_message } : m
+      ),
+    }));
+  } catch (err) {
+    console.error("Error updating message:", err);
+  }
+};
