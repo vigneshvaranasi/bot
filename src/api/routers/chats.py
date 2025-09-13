@@ -12,6 +12,7 @@ from src.api.utils.auth import get_current_user
 from src.support_bot.crew import support_crew, conversation_summary_crew,conversation_title_generation_crew
 from src.support_bot.utils.formatting import sanitize_markdown_output
 from src.support_bot.runner import run_support_with_emitter
+from src.support_bot.utils.cache import get_from_cache, add_to_cache
 from typing import List
 import re
 import asyncio
@@ -115,40 +116,53 @@ async def get_chat_prompt(
                 yield sse("status", "Researching")
                 inputs = {"user_prompt": request.prompt, "context": ""}
 
-                async def emit(event: str, data):
-                    try:
-                        if not isinstance(data, str):
-                            data_json = json.dumps(data)
-                        else:
-                            data_json = data
-                        yield sse(event, data_json)
-                    except Exception:
-                        pass
-
-                queue: asyncio.Queue = asyncio.Queue()
-
-                def emitter(event: str, data):
-                    try:
-                        queue.put_nowait((event, data))
-                    except Exception:
-                        pass
-
-                async def pump_events(task: asyncio.Task):
-                    while True:
-                        if task.done() and queue.empty():
-                            break
+                # Check cache first for faster responses
+                cached_response = get_from_cache(request.prompt, "")
+                if cached_response:
+                    yield sse("status", "Processing")
+                    bot_response = cached_response
+                    print(f"[Cache Hit] Using cached response for: {request.prompt}")
+                else:
+                    print(f"[Cache Miss] Processing new prompt: {request.prompt}")
+                    
+                    async def emit(event: str, data):
                         try:
-                            event, data = await asyncio.wait_for(queue.get(), timeout=0.1)
                             if not isinstance(data, str):
-                                data = json.dumps(data)
-                            yield sse(event, data)
-                        except asyncio.TimeoutError:
-                            continue
+                                data_json = json.dumps(data)
+                            else:
+                                data_json = data
+                            yield sse(event, data_json)
+                        except Exception:
+                            pass
 
-                crew_task = asyncio.create_task(kickoff_support_with_events(inputs, emitter))
-                async for chunk in pump_events(crew_task):
-                    yield chunk
-                bot_response = await crew_task
+                    queue: asyncio.Queue = asyncio.Queue()
+
+                    def emitter(event: str, data):
+                        try:
+                            queue.put_nowait((event, data))
+                        except Exception:
+                            pass
+
+                    async def pump_events(task: asyncio.Task):
+                        while True:
+                            if task.done() and queue.empty():
+                                break
+                            try:
+                                event, data = await asyncio.wait_for(queue.get(), timeout=0.1)
+                                if not isinstance(data, str):
+                                    data = json.dumps(data)
+                                yield sse(event, data)
+                            except asyncio.TimeoutError:
+                                continue
+
+                    crew_task = asyncio.create_task(kickoff_support_with_events(inputs, emitter))
+                    async for chunk in pump_events(crew_task):
+                        yield chunk
+                    bot_response = await crew_task
+
+                    # Cache the new response
+                    add_to_cache(request.prompt, "", bot_response)
+                    print(f"[Cache Stored] Cached response for: {request.prompt}")
 
                 yield sse("status", "Processing")
                 title = await generate_title_from_prompt(request.prompt)
@@ -185,35 +199,49 @@ async def get_chat_prompt(
                     return
 
                 yield sse("status", "Researching")
+                context = existing_chat.summary or ""
                 inputs = {
                     "user_prompt": request.prompt,
-                    "context": existing_chat.summary or "",
+                    "context": context,
                 }
 
-                queue: asyncio.Queue = asyncio.Queue()
+                # Check cache first for faster responses
+                cached_response = get_from_cache(request.prompt, context)
+                if cached_response:
+                    yield sse("status", "Processing")
+                    bot_response = cached_response
+                    print(f"[Cache Hit] Using cached response for: {request.prompt} with context")
+                else:
+                    print(f"[Cache Miss] Processing new prompt with context: {request.prompt}")
 
-                def emitter(event: str, data):
-                    try:
-                        queue.put_nowait((event, data))
-                    except Exception:
-                        pass
+                    queue: asyncio.Queue = asyncio.Queue()
 
-                async def pump_events(task: asyncio.Task):
-                    while True:
-                        if task.done() and queue.empty():
-                            break
+                    def emitter(event: str, data):
                         try:
-                            event, data = await asyncio.wait_for(queue.get(), timeout=0.1)
-                            if not isinstance(data, str):
-                                data = json.dumps(data)
-                            yield sse(event, data)
-                        except asyncio.TimeoutError:
-                            continue
+                            queue.put_nowait((event, data))
+                        except Exception:
+                            pass
 
-                crew_task = asyncio.create_task(kickoff_support_with_events(inputs, emitter))
-                async for chunk in pump_events(crew_task):
-                    yield chunk
-                bot_response = await crew_task
+                    async def pump_events(task: asyncio.Task):
+                        while True:
+                            if task.done() and queue.empty():
+                                break
+                            try:
+                                event, data = await asyncio.wait_for(queue.get(), timeout=0.1)
+                                if not isinstance(data, str):
+                                    data = json.dumps(data)
+                                yield sse(event, data)
+                            except asyncio.TimeoutError:
+                                continue
+
+                    crew_task = asyncio.create_task(kickoff_support_with_events(inputs, emitter))
+                    async for chunk in pump_events(crew_task):
+                        yield chunk
+                    bot_response = await crew_task
+
+                    # Cache the new response
+                    add_to_cache(request.prompt, context, bot_response)
+                    print(f"[Cache Stored] Cached response for: {request.prompt} with context")
 
                 yield sse("status", "Processing")
 

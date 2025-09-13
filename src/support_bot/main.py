@@ -21,12 +21,9 @@ def run():
     if not context:
         print("No context provided. Using default context.")
         context = ""
-        
-    # Combine query + context to form a cache key
-    cache_key = f"{user_query}::{context}"
 
     # Check cache first
-    cached_response = get_from_cache(cache_key)
+    cached_response = get_from_cache(user_query, context)
     if cached_response:
         print("\n[From Cache]")
         return cached_response
@@ -47,6 +44,6 @@ def run():
         cleaned = str(result)
 
     # Save response to cache
-    add_to_cache(cache_key, cleaned)
+    add_to_cache(user_query, context, cleaned)
 
     return cleaned
