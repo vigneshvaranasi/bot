@@ -13,12 +13,11 @@ def run():
 
     # Prompt Validation
     if not user_query:
-        print("No query provided. Using default query: 'HTTP 499 timeout errors'")
+        print("No query provided. Using default query.")
         user_query = 'I am getting a status code 499 when connecting to PayU Service, how to solve it?'
 
     # Context Validation
     if not context:
-        print("No context provided. Using default context.")
         context = ""
 
 
@@ -36,12 +35,14 @@ def run():
 
     # Kick off Crew
     result = support_crew.kickoff(inputs=inputs)
-    # Ensure clean markdown without fenced code blocks
+    
+    # Clean the output
     try:
         cleaned = sanitize_markdown_output(str(result))
         return cleaned
-    except Exception:
-        return result
+    except Exception as e:
+        print(f"Output cleaning failed: {e}")
+        return str(result)
 
 # Entry Point
 if __name__ == "__main__":

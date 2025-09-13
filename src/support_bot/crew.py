@@ -6,7 +6,11 @@ support_crew = Crew(
     agents=[support_coordinator_agent, researcher_agent, synthesizer_agent, user_query_responder_agent],
     tasks=[manager_plan_task, research_task, synthesis_task, user_query_response_task],
     process=Process.sequential,
-    verbose=True
+    verbose=True,
+    # Memory
+    memory=False,
+    # Cache
+    # cache=True
 )
 
 conversation_summary_crew = Crew(

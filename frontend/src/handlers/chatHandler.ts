@@ -8,7 +8,6 @@ export const newMessageHandler = async (
   token: string,
   onEvent?: (evt: ChatSSEEvent) => void
 ) => {
-  console.log(JSON.stringify({ chatId, prompt }));
   const headers = new Headers();
   headers.append("Authorization", `Bearer ${token}`);
   headers.append("Content-Type", "application/json");
@@ -28,6 +27,9 @@ export const newMessageHandler = async (
     const decoder = new TextDecoder("utf-8");
     let buffer = "";
     let finalPayload: any = null;
+    // state for progressive / de-duplicated UX
+    let lastLabelEmitted: string | undefined;
+    let lastEventType: string | undefined;
 
     const flushEvents = () => {
       const parts = buffer.split(/\n\n/);
@@ -37,61 +39,114 @@ export const newMessageHandler = async (
         let event = "message";
         const dataLines: string[] = [];
         for (const line of lines) {
-          if (line.startsWith("event:")) {
-            event = line.slice(6).trim();
-          } else if (line.startsWith("data:")) {
-            dataLines.push(line.slice(5).trim());
-          }
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
         }
         const dataRaw = dataLines.join("\n");
         let parsed: any = dataRaw;
-        try {
-          parsed = JSON.parse(dataRaw);
-        } catch {
-          // todo
+        try { parsed = JSON.parse(dataRaw); } catch { }
+        let label: string | undefined;
+        if ((event === 'status' && parsed?.phase && (parsed.phase === 'agent:start' || parsed.phase === 'agent:end')) ||
+            (event === 'agent:start' || event === 'agent:end') ||
+            (typeof parsed === 'string' && (parsed === 'agent:start' || parsed === 'agent:end'))) {
+          return;
         }
 
-        let label: string | undefined;
         if (event === "status") {
           if (typeof parsed === "string") {
             label = parsed;
           } else if (parsed?.phase) {
-            const phase = String(parsed.phase);
-            if (phase.includes("crew:start")) label = "Planning...";
-            else if (phase.includes("crew:end")) label = "Finalizing...";
-            else if (phase.includes("task:start")) label = "Task started...";
-            else if (phase.includes("task:end")) label = "Task completed.";
-            else if (phase.includes("agent:start")) label = "Agent working...";
-            else if (phase.includes("agent:end")) label = "Agent finished.";
+            const phase = parsed.phase;
+            if (['crew:start', 'agent:assigned', 'task:started', 'agent:started'].includes(phase)) {
+              label = "Setting up the specialists";
+            } else if (phase === 'crew:end') {
+              label = "Support analysis complete";
+            } else if (['task:completed', 'agent:completed', 'task:evaluation'].includes(phase)) {
+              label = "Evaluating & generating the solution...";
+            } else if (phase === 'title:generating') {
+              label = "Creating a descriptive title";
+            } else if (phase === 'title:done') {
+              label = "Title created successfully";
+            } else if (phase === 'summary:generating') {
+              label = "Summarizing the conversation";
+            } else if (phase === 'summary:done') {
+              label = "Summary saved";
+            } else if (phase === 'persistence:saving') {
+              label = "Saving conversation to your history";
+            } else if (phase === 'persistence:done') {
+              label = "Conversation saved successfully";
+            } else {
+              if (parsed.label) {
+                label = parsed.label;
+                if (parsed.index && parsed.total) {
+                  label += ` (${parsed.index}/${parsed.total})`;
+                }
+              } else {
+                label = parsed.phase.replace(/:/g, " → ");
+              }
+            }
           }
-          console.log(`[SSE] ${typeof parsed === "string" ? parsed : JSON.stringify(parsed)}`);
         } else if (event === "error") {
           label = `Error: ${typeof parsed === "string" ? parsed : JSON.stringify(parsed)}`;
-          console.error(`[SSE] error: ${JSON.stringify(parsed)}`);
         } else if (event === "result") {
-          try {
-            finalPayload = typeof parsed === "string" ? JSON.parse(parsed) : parsed;
-          } catch {
-            finalPayload = { error: "Malformed result" };
-          }
+          try { finalPayload = typeof parsed === "string" ? JSON.parse(parsed) : parsed; } catch { finalPayload = { error: "Malformed result" }; }
         } else if (event === "end") {
-          console.log("[SSE] end");
         } else {
           if (event === "tool:start") {
-            const tool = parsed?.tool;
-            if (tool === "qdrant") label = "Searching incidents...";
-            else if (tool === "analysis") label = "Analyzing incident data...";
+            if (parsed?.tool === 'qdrant') {
+              label = parsed.label;
+            } else if (parsed?.tool === 'analysis') {
+              label = parsed.label;
+            } else {
+              if (parsed?.label) {
+                label = parsed.label;
+              } else {
+                const tool = parsed?.tool;
+                label = `Starting ${tool || 'tool'}...`;
+              }
+            }
           } else if (event === "tool:results") {
-            const cnt = parsed?.count;
-            if (typeof cnt === "number") label = `Found ${cnt} incident${cnt === 1 ? "" : "s"}...`;
+            if (parsed?.tool === 'qdrant') {
+              const cnt = parsed?.count;
+              label = `Found ${cnt} relevant incident${cnt === 1 ? '' : 's'}`;
+            } else if (parsed?.tool === 'analysis') {
+              const cnt = parsed?.count;
+              label = `Analyzed ${cnt} incidents`;
+            } else {
+              if (parsed?.label) {
+                label = parsed.label;
+              } else {
+                const cnt = parsed?.count;
+                if (typeof cnt === "number") {
+                  label = `Found ${cnt} relevant incident${cnt === 1 ? '' : 's'}.`;
+                }
+              }
+            }
           } else if (event === "tool:end") {
-            // todo
+            if (parsed?.tool === 'qdrant') {
+              label = parsed.label;
+            } else if (parsed?.tool === 'analysis') {
+              label = parsed.label;
+            } else {
+              if (parsed?.label) {
+                label = parsed.label;
+              } else {
+                const tool = parsed?.tool;
+                label = `${tool || 'Tool'} completed successfully.`;
+              }
+            }
           }
-          console.log(`[SSE:${event}] ${typeof parsed === "string" ? parsed : JSON.stringify(parsed)}`);
         }
-
-        if (onEvent && (label || event === "result" || event === "end" || event === "error")) {
-          onEvent({ event, data: parsed, label });
+        const critical = event === 'error' || event === 'result' || event === 'end';
+        if (onEvent && (label || critical)) {
+          if (!critical && label && label === lastLabelEmitted && event === lastEventType) {
+          } 
+          else {
+            if (label) lastLabelEmitted = label;
+            lastEventType = event;
+            console.log('SSE Event:', event, parsed, label);
+            onEvent({ event, data: parsed, label });
+          }
         }
       }
     };
@@ -134,7 +189,7 @@ export const getAllMyChats = async (token: string) => {
   return data;
 };  
 
-export const getChatMessagesById = async (token: string,chatId:string) => {
+export const getChatMessagesById = async (token: string, chatId: string) => {
   const headers = new Headers();
   headers.append("Authorization", `Bearer ${token}`);
   headers.append("Content-Type", "application/json");

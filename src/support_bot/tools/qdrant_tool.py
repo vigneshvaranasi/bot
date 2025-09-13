@@ -1,5 +1,5 @@
 from crewai.tools import BaseTool
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Union
 import os
 import json
 from dotenv import load_dotenv
@@ -26,8 +26,8 @@ class QdrantIncidentDataTool(BaseTool):
         "Returns the most relevant incident information including root cause and mitigation steps.")
 
     class ArgsSchema(BaseModel):
-        argument: Any = Field(
-            ..., description="Search query text (plain string). If a dict is provided, the tool will attempt to extract a text field."
+        argument: Union[str, Dict[str, Any], Any] = Field(
+            ..., description="Search query text. Can be a string, dictionary, or any other input that can be normalized to a search query."
         )
 
     args_schema = ArgsSchema
@@ -95,7 +95,11 @@ class QdrantIncidentDataTool(BaseTool):
         query = self._normalize_argument(argument)
         if self._emit:
             try:
-                self._emit("tool:start", {"tool": "qdrant", "query": query})
+                self._emit("tool:start", {
+                    "tool": "qdrant",
+                    "query": query,
+                    "label": f"Searching incident database for: '{query[:50]}{'...' if len(query) > 50 else ''}'"
+                })
             except Exception:
                 pass
         else:
@@ -106,13 +110,17 @@ class QdrantIncidentDataTool(BaseTool):
 
         # Use Qdrant if available, otherwise fall back to JSON search
         if self._use_qdrant and self._client and self._embedding_generator:
-            result = self._search_qdrant(query)
+            result, incident_count = self._search_qdrant(query)
         else:
-            result = self._search_json_fallback(query)
+            result, incident_count = self._search_json_fallback(query)
 
         if self._emit:
             try:
-                self._emit("tool:end", {"tool": "qdrant"})
+                self._emit("tool:end", {
+                    "tool": "qdrant",
+                    "count": incident_count,
+                    "label": f"Database search completed. Found {incident_count} relevant incident{'s' if incident_count != 1 else ''}."
+                })
             except Exception:
                 pass
         return result
@@ -130,6 +138,11 @@ class QdrantIncidentDataTool(BaseTool):
 
             # If it's a dict-like, try common keys in order
             if isinstance(argument, dict):
+                # First check for a keyword field which is commonly used in tool inputs
+                if "keyword" in argument:
+                    return str(argument["keyword"]).strip()
+
+                # Try to extract the most relevant text from common key names
                 for key in (
                     "query",
                     "search_query",
@@ -139,10 +152,17 @@ class QdrantIncidentDataTool(BaseTool):
                     "argument",
                     "value",
                     "input",
+                    "q",
+                    "keyword",
+                    "term",
+                    "message",
                 ): 
                     val = argument.get(key)
-                    if isinstance(val, str) and val.strip():
-                        return val.strip()
+                    if val is not None:
+                        # Convert to string if not already
+                        str_val = str(val).strip()
+                        if str_val:
+                            return str_val
 
                 # If dict contains a single string value somewhere, pick the first
                 for val in argument.values():
@@ -238,7 +258,7 @@ class QdrantIncidentDataTool(BaseTool):
                 result += f"Details:\n{payload.get('text', 'N/A')}\n"
                 result += "=" * 50 + "\n\n"
             
-            return result
+            return result, len(top_hits)
             
         except Exception as e:
             print(f"Qdrant search failed: {e}, falling back to JSON search")
@@ -299,14 +319,14 @@ class QdrantIncidentDataTool(BaseTool):
                 result += f"Details:\n{incident.get('text', 'N/A')}\n"
                 result += "=" * 50 + "\n\n"
             
-            return result
+            return result, len(matching_incidents)
             
         except FileNotFoundError:
-            return f"Error: incidents.json file not found at {incidents_path}"
+            return f"Error: incidents.json file not found at {incidents_path}", 0
         except json.JSONDecodeError:
-            return "Error: Could not parse incidents.json file"
+            return "Error: Could not parse incidents.json file", 0
         except Exception as e:
-            return f"Error fetching incident data: {str(e)}"
+            return f"Error fetching incident data: {str(e)}", 0
     
     def _search_incidents(self, incidents: List[Dict[str, Any]], query: str) -> List[Dict[str, Any]]:
         """Search incidents based on the query string"""

@@ -5,9 +5,10 @@ import { useEffect, useState } from "react";
 type BubbleProps = {
   variant?: "bot" | "user";
   content: string;
+  streaming?: boolean;
 };
 
-const Bubble = ({ variant = "bot", content }: BubbleProps) => {
+const Bubble = ({ variant = "bot", content, streaming }: BubbleProps) => {
   const variantClasses = {
     bot: "border-none bg-transparent",
     user: "order border-gray-300 bg-bubblegray max-w-3/4",
@@ -33,7 +34,7 @@ const Bubble = ({ variant = "bot", content }: BubbleProps) => {
       <div
         className={`p-2 rounded-lg ${
           variantClasses[variant] || defaultClass
-        }`}
+        } ${streaming && variant === 'bot' ? 'animate-pulse' : ''}`}
       >
         <div
           className="markdown-body"

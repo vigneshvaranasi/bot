@@ -17,157 +17,168 @@ Workflow contract
 - Responder output: final markdown answer as per formatting rules
 """
 
-# Task 0: Manager planning with context-first optimization and routing
+# Task 0: Manager planning
 manager_plan_task = Task(
-    description=(
-        """As SupportCoordinator, determine the minimal workflow to answer the user's prompt.
+    description="""
+Description:
+Analyze the user query and context to determine the optimal workflow route.
+Evaluate if context:{context} can answer prompt:{user_prompt} directly. Detect user intent: information-seeking vs solution-seeking. Choose route: context_only (sufficient context) | info_only (need research) | solution_plan (need research + action plan).
 
-1) Context-first optimization: If the answer can be produced from {context} alone with high confidence, select route=context_only.
-2) Intent analysis: Determine if the user asks for information-only (what/why/history) or a solution/action plan (how/steps/mitigation).
-3) Routing:
-   - context_only → Responder only
-   - info_only → HistoryResearcher → Responder
-   - solution_plan → HistoryResearcher → SolutionSynthesizer → Responder
-4) Build search_query: If a specific incident id/code is present, craft a targeted query; else craft a broad nearest-neighbor query.
+Rules to Output:
+- MUST output valid JSON format: {{"route": "context_only|info_only|solution_plan", "detected_intent": "information|solution", "rationale": "brief explanation"}}
+- If context contains sufficient information to answer {user_prompt}, choose "context_only"
+- If user asks about past incidents, errors, or information, choose appropriate route
+- If user asks for solutions, fixes, or how-to, choose "solution_plan"
+- Rationale should be 1-2 sentences explaining the decision
 
-Produce a compact JSON plan with fields: route, search_query, rationale.
-Input prompt: {user_prompt}
-Context: {context}
-"""
-    ),
-    expected_output=(
-        """A compact JSON object: {\"route\": \"context_only|info_only|solution_plan\", \"search_query\": \"...\", \"rationale\": \"...\"}"""
-    ),
+Chain of Thought:
+- Analyze if provided context can directly answer the user prompt
+- Determine if user wants information (what/why/history) or solutions (how to fix/resolve)  
+- Choose minimal workflow: context_only > info_only > solution_plan
+- Always respond with valid JSON - no additional text or explanation
+""",
+    expected_output="""
+Valid JSON only: {{"route": "context_only|info_only|solution_plan", "detected_intent": "information|solution", "rationale": "explanation"}}
+""",
     agent=support_coordinator_agent,
 )
 
-# Task 1: Research historical incidents per manager plan
+# Task 1: Research - Generate search query and retrieve incidents
 research_task = Task(
-    description=(
-        """Follow the SupportCoordinator plan from the context. Steps:
-1) Parse the plan JSON from SupportCoordinator output in your context to get: route and search_query.
-2) If route=context_only → DO NOT use any tools. Output exactly: 'SKIP: context_only'.
-3) Otherwise → use the Qdrant tool to run the search using the extracted search_query.
-4) Return raw incident data (IDs, titles, summaries/details, scores if any) without interpretation.
-"""
-    ),
-    expected_output=(
-        """Raw incident hits including IDs, titles, summaries/details, and any scores available. Provide up to 5 results, or 'SKIP: context_only'."""
-    ),
+    description="""
+Description:
+Analyze the user prompt to understand what it's about and generate an appropriate search query for the incident database.
+
+Chain of Thought:
+- Check if route='context_only' from manager_plan_task, if so return "[]"
+- Analyze {user_prompt} to understand what the user is talking about
+- If {user_prompt} refers to {context}, include relevant context information
+- Generate a focused search query based on the topic/issue the user is asking about
+- Use Qdrant Incident Data Retriever tool exactly once with the generated search query
+- Return the raw results from the tool
+
+Rules to Output:
+- If route='context_only': Return exactly "[]" (empty array string)
+- Otherwise: Generate search query based on what {user_prompt} is discussing
+- Create search terms that match the topic, issue type, or technical problem mentioned
+- Use the tool only once with your generated search query
+- Return raw incident data text from database search
+""",
+    expected_output="""
+Raw incident data from database search as formatted text, or "[]" if no research needed
+""",
     agent=researcher_agent,
     context=[manager_plan_task],
 )
 
-# Task 2: Synthesize resolution steps (only when needed by route)
+# Task 2: Synthesis - Create Solution Strategy
+
 synthesis_task = Task(
-    description=(
-        """If route=solution_plan, transform the research raw results into an Action Plan:
-- Immediate Resolution Steps (prioritized)
-- Mitigation strategies linked to likely causes
-- Monitoring and Validation guidance
-- Escalation Path if initial steps fail
-If route is not solution_plan, output 'SKIP: no_synthesis'.
-"""
-    ),
-    expected_output=(
-        """Action Plan with sections: Immediate Steps, Root Cause Mitigation, Monitoring and Validation, Escalation Path; or 'SKIP: no_synthesis'."""
-    ),
+    description="""
+Description:
+Transform research results into actionable resolution plans for technical issues.
+
+Rules to Output:
+- Check routing decision from manager_plan_task - if route='context_only', return ""
+- If research results are "[]" or empty, return ""
+- Only synthesize for solution-oriented queries (detected_intent='solution')
+- Focus only on creating structured action plans from historical incident data
+- Output structured sections: Immediate Steps, Root Cause Mitigation, Monitoring, Escalation Path
+- Be concise and actionable - focus on implementable solutions only
+- Return clean Markdown text structure, never JSON format
+
+Chain of Thought:
+- Extract routing decision and detected intent from manager_plan_task
+- If route='context_only' OR research results are empty: return ""
+- If detected_intent='information': return "" (info queries don't need action plans)
+- If detected_intent='solution': analyze research data to identify:
+  - Common patterns in similar incidents from the data
+  - Successful mitigation strategies that worked in past incidents
+  - Typical resolution steps with proven effectiveness
+- Create structured action plan with:
+  - Immediate Steps (urgent actions to take now)
+  - Root Cause Mitigation (fix underlying issue based on historical patterns)
+  - Monitoring (what metrics to watch based on past incidents)
+  - Escalation Path (when and where to escalate if steps don't work)
+- Extract actionable guidance specifically from the historical incident resolutions provided
+""",
+    expected_output="""
+Structured action plan in clean Markdown format with sections for Immediate Steps, Root Cause Mitigation, Monitoring, and Escalation Path. Empty string if no synthesis needed.
+""",
     agent=synthesizer_agent,
     context=[manager_plan_task, research_task],
 )
 
-# Removed the monolithic report task; the Responder consumes research/synthesis directly.
+# Task 3: User Response - Format based on routing and data
 
-# Task 3: User Query Response
 user_query_response_task = Task(
-    description=(
-        """Produce the final answer for the user in Markdown.
-Use this routing logic from SupportCoordinator plan:
-- If route=context_only → answer using only {context}, do not perform research/synthesis.
-- If route=info_only → use research results to answer information requests (root causes, nearest incidents), skip synthesis.
-- If route=solution_plan → use research + action plan to answer with Solution Strategy and Monitoring and Validation.
+    description="""
+Description:
+Answer the user's query directly and professionally based on the routing decision and available data.
 
-Always consider the original prompt: {user_prompt} and the provided context: {context}.
-Your response must be **clear, concise, and strictly formatted in Markdown**.
-Do NOT wrap the entire response in any fenced code block (no ``` or ```markdown). Use headings and lists directly.
+Rules to Output:
+- Check the route from manager_plan_task output to determine response approach
+- If route='context_only': Answer strictly from the provided {context} - use research or synthesis data if its required to clarify
+- If route='info_only' or 'solution_plan': Use research data and synthesis (if available) to provide comprehensive response
+- Never introduce yourself or explain your role - start directly with the answer
+- Use clean Markdown formatting (h1, h2, h3, lists) without triple backticks
+- Keep responses concise, direct, and professional
+- Never reference the context source, research process, or your capabilities
+- Return only clean Markdown text, never JSON format
 
----
-
-### INTENT DETECTION:
-
-- **If the user asks for a solution** → Provide:
-  - `Solution Strategy`
-    - `Monitoring and Validation`
-
-- **If the user asks for a cause or explanation** → Provide:
-    - `Root Cause Analysis`
-
-- **If the exact incident is found**:
-  - Mention the matched incident title.
-  - Return only the relevant section(s) based on user intent.
-
- - **If the exact incident is not found**:
-  - Do not block the answer. Retrieve and summarize the 3-4 most recent, nearest incidents based on:
-    - API name or error type (e.g., HTTP 499, timeout).
-    - Client-side vs server-side nature.
-    - Similar symptoms or misconfigurations.
-    - For each incident (3-4), provide:
-    - Title.
-    - 1-2 sentence summary.
-  - If a solution or cause is requested, adapt and provide that section from the closest match.
-
-- **If the query is unrelated to incidents**:
-  - Respond politely: "This system is designed only to handle incident-related queries."
-
----
-
-### RESPONSE GUIDELINES:
-
-- Use a **friendly and helpful tone**.
-- Avoid mentioning the report or system behavior.
-- Minimize technical jargon unless necessary.
-- Format responses in **Markdown**:
-        - Use bold headers, bullet points, and spacing for readability.
-        - Never include triple backticks in the output.
-"""
-    ),
-    expected_output=(
-        """A markdown-formatted response that includes relevant sections based on the selected route and user intent; cites matched incident titles when appropriate; and if no exact match exists, lists 3-4 most recent nearest incidents (title + short summary) and adapts content as needed. Avoid triple backticks."""
-    ),
+Chain of Thought:
+- Extract route decision from manager_plan_task context
+- For 'context_only': Use only the original {context} provided with {user_prompt}
+- For 'info_only': Combine research findings with informational explanation 
+- For 'solution_plan': Use research findings + synthesis action plan for comprehensive solution
+- Structure response based on user's detected intent:
+  - Information queries: Technical explanation, causes, background
+  - Solution queries: Immediate steps, mitigation, monitoring, escalation
+- Ensure response directly addresses {user_prompt} without meta-commentary
+""",
+    expected_output="""
+Clean Markdown response directly answering the user query, using appropriate data based on routing decision
+""",
     agent=user_query_responder_agent,
     context=[manager_plan_task, research_task, synthesis_task],
 )
 
 # Task 5: JSON Summary Generation
 json_summary_task = Task(
-    description=(
-        """Process a JSON thread of conversations between a user and a chatbot. Extract the key context and generate a concise summary that is optimized for token usage.
-        The summary should:
-        - Capture the main intent of the user.
-        - Highlight key responses from the chatbot.
-        - Provide a clear and economical context for further processing.
-        
-        Input: {conversation_json}
-        """
-    ),
-    expected_output=(
-        """A concise text summary of the conversation thread, capturing:
-        - User's main intent.
-        - Key chatbot responses.
-        - Overall context in an economical format."""
-    ),
+    description="""
+Description:
+Process a JSON thread of conversations between a user and a chatbot. Extract the key context and generate a concise summary that is optimized for token usage.
+Rules to Output:
+- Capture the main intent of the user.
+- Highlight key responses from the chatbot.
+- Provide a clear and economical context for further processing.
+Chain of Thought:
+- Summarize only the most relevant information
+
+JSON Thread: {conversation_json}
+""",
+    expected_output="""
+A concise text summary of the conversation thread, capturing:
+- User's main intent.
+- Key chatbot responses.
+- Overall context in an economical format.
+""",
     agent=json_summary_agent,
 )
 
 # Task 6: Summary Title Generation
 summary_title_generation_task = Task(
-    description=(
-        """Generate a concise and informative title for a user prompt.
-        The title should capture the essence of the user prompt while being concise and informative.
-
-        Input: {user_prompt}
-        """
-    ),
-    expected_output=("""A concise and informative title for the user prompt."""),
+    description="""
+Description:
+Generate a concise and informative title for a user prompt.
+Rules to Output:
+- The title should capture the essence of the user prompt while being concise and informative.
+- Output just the title, nothing else and unformatted.
+Chain of Thought:
+- Focus on the main subject of the prompt - {user_prompt}
+""",
+    expected_output="""
+A concise and informative title for the user prompt.
+""",
     agent=summary_title_agent,
 )

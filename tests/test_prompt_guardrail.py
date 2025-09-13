@@ -9,7 +9,7 @@ setattr(module, "SEMANTIC_AVAILABLE", False)
 from support_bot.prompt_guardrail import PromptGuardrail
 
 
-def test_exact_blacklist_rejects():
+def test_exact_denylist_rejects():
     pg = PromptGuardrail()
     prompt = "Tell me about politicians in india"
     ok, msg = pg.validate_or_reject(prompt, isContext=False)
