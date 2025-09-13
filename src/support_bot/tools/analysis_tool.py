@@ -1,6 +1,8 @@
 from crewai.tools import BaseTool
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 import re
+import json
+from pydantic import BaseModel, Field
 
 class IncidentAnalysisTool(BaseTool):
     name: str = "Incident Analysis Tool"
@@ -8,15 +10,37 @@ class IncidentAnalysisTool(BaseTool):
         "Analyzes incident data to extract patterns, common root causes, "
         "and successful resolution strategies. Useful for identifying "
         "trends and building comprehensive solution strategies.")
+    
+    class ArgsSchema(BaseModel):
+        incident_data: Union[str, dict] = Field(
+            ..., 
+            description="The incident data to analyze. Can be a string or a dictionary containing incident information."
+        )
 
     def __init__(self, emitter=None):
         super().__init__()
         self._emit = emitter
+    
+    def _normalize_input(self, incident_data: Union[str, dict]) -> str:
+        """
+        Normalize the input data to ensure we always work with strings
+        """
+        if isinstance(incident_data, str):
+            return incident_data
+        elif isinstance(incident_data, dict):
+            if 'description' in incident_data:
+                return str(incident_data['description'])
+            # Try to convert the entire dict to a string if no description field
+            return json.dumps(incident_data)
+        # For any other type, convert to string
+        return str(incident_data)
 
-    def _run(self, incident_data: str) -> str:
+    def _run(self, incident_data: Union[str, dict]) -> str:
         """
         Analyze incident data to extract key insights
         """
+        # Normalize input
+        incident_data = self._normalize_input(incident_data)
         if self._emit:
             try:
                 self._emit("tool:start", {

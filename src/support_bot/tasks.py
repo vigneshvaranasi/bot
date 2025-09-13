@@ -29,10 +29,6 @@ Chain of Thought:
 - Consider if the context is sufficient for a direct answer
 - Detect if the user wants information or a solution
 - Choose the minimal workflow path
-Examples:
-User prompt: Why did the PayU API return HTTP 500?
-Context: Incident logs show repeated 500 errors for PayU API.
-Output: {"route": "context_only", "detected_intent": "information", "rationale": "Context provides direct answer."}
 """,
     expected_output="""
 JSON: {"route": "context_only|info_only|solution_plan", "detected_intent": "information|solution", "rationale": "..."}
@@ -46,18 +42,15 @@ research_task = Task(
 Description:
 Generate an optimal search query for the incident database and retrieve relevant incidents.
 Chain of Thought Description:
-- If route=context_only, output 'SKIP_RESEARCH'.
+- If route=context_only, return an empty array [] to indicate no research needed
 - Otherwise, analyze {user_prompt} to create a targeted search query focusing on error codes, service names, and symptoms.
 - Use Qdrant tool to search and return raw incident data.
 Rules to Output:
-- Output up to 5 results or 'SKIP_RESEARCH'.
-Examples:
-User prompt: What caused the timeout in PayU?
-Route: info_only
-Output: [ {id:..., title:..., details:..., score:...}, ... ]
+- Output up to 5 results or empty array [] if no research needed
+Output: [ {id:..., title:..., details:..., score:...}, ... ] or []
 """,
     expected_output="""
-Raw incident data (IDs, titles, details, scores) up to 5 results, or 'SKIP_RESEARCH'
+Raw incident data (IDs, titles, details, scores) up to 5 results, or empty array []
 """,
     agent=researcher_agent,
     context=[manager_plan_task],
@@ -82,14 +75,21 @@ Rules to Output:
 - If monitoring is requested, provide only the monitoring steps and tools.
 
 Chain of Thought:
-- If route is 'context_only', use only the provided context for the answer.
-- Identify if the user is seeking information or a solution.
-- For solutions, break down the response into Immediate Steps, Root Cause Mitigation, Monitoring, and Escalation Path.
-- For monitoring, list only the relevant metrics, tools, and alerting strategies.
-- For information, explain the error, common causes, and debugging steps.
+- If research results are empty ([]), do not perform synthesis and return an empty object {}
+- If research results exist, analyze the data to identify:
+  - Common patterns in incidents
+  - Successful mitigation strategies
+  - Typical resolution steps
+- Break down solutions into:
+  - Immediate Steps
+  - Root Cause Mitigation
+  - Monitoring
+  - Escalation Path
+- For monitoring, list only the relevant metrics, tools, and alerting strategies
+- For information, explain the error, common causes, and debugging steps
 """,
     expected_output="""
-Structured Action Plan with clear sections, or 'SKIP_SYNTHESIS'
+Structured Action Plan with clear sections, or empty object {}
 """,
     agent=synthesizer_agent,
     context=[manager_plan_task, research_task],
@@ -136,9 +136,8 @@ Rules to Output:
 - Provide a clear and economical context for further processing.
 Chain of Thought:
 - Summarize only the most relevant information
-Examples:
-Input: {conversation_json}
-Output: User asked about PayU errors, chatbot explained HTTP 500 causes, user confirmed resolution.
+
+JSON Thread: {conversation_json}
 """,
     expected_output="""
 A concise text summary of the conversation thread, capturing:
@@ -159,9 +158,6 @@ Rules to Output:
 - Output just the title, nothing else and unformatted.
 Chain of Thought:
 - Focus on the main subject of the prompt - {user_prompt}
-Examples:
-Input: How to resolve HTTP 500 in PayU?
-Output: PayU HTTP 500 Resolution
 """,
     expected_output="""
 A concise and informative title for the user prompt.

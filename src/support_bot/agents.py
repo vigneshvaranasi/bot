@@ -3,7 +3,6 @@ from crewai import Agent, LLM
 
 # Custom tools
 from .tools.qdrant_tool import QdrantIncidentDataTool
-from .tools.analysis_tool import IncidentAnalysisTool
 
 # Gemini 2.0 Flash Lite
 gemini_llm = LLM(
@@ -14,15 +13,14 @@ gemini_llm = LLM(
 
 # Local Model
 # gemini_llm = LLM(
-#     model='ollama/gemma3:1b',
-#     base_url='http://localhost:11434',
+#     model='ollama/gemma3:4b',
+#     base_url='http://10.1.41.55:11434',
 #     temperature=0
 # )
 
 # Check if Gemini embeddings should be used - default to true since we use Gemini
 use_gemini_embeddings = os.getenv('USE_GEMINI_EMBEDDINGS', 'true').lower() == 'true'
 qdrant_data_tool = QdrantIncidentDataTool(use_gemini=use_gemini_embeddings)
-analysis_tool = IncidentAnalysisTool()
 
 # Manager Agent: SupportCoordinator
 support_coordinator_agent = Agent(
@@ -85,7 +83,7 @@ Rules to Respond:
 """,
     verbose=True,
     allow_delegation=False,
-    tools=[analysis_tool],
+    tools=[qdrant_data_tool],
     llm=gemini_llm
 )
 

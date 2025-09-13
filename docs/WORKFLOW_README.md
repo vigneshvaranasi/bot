@@ -15,7 +15,6 @@ This CrewAI-powered support bot analyzes historical incident data to provide com
 ### Tools
 
 - **CustomerSupportDataTool**: Searches and retrieves incident data from `incidents.json`
-- **IncidentAnalysisTool**: Analyzes patterns and extracts insights from incident data
 
 ## Workflow
 
