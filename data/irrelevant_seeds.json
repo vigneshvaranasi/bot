@@ -1,0 +1,57 @@
+{
+  "programming": [
+    "Write a Python script to read a file",
+    "Write a C++ program to parse a CSV file",
+    "How to implement a linked list in C++",
+    "Example code to open and read a file in C++",
+    "Show me a Java program to read from a file",
+    "Provide a C++ example that reads a file and prints lines",
+    "Write a program in C++ to read a file",
+    "Create a bash script to process logs",
+    "Show me example code to connect to a database in Python",
+    "Implement an algorithm in Java"
+  ],
+  "politics": [
+    "Tell me about politicians in India",
+    "Who is the president of France?",
+    "Election results for the United States",
+    "Political campaign strategies in the UK",
+    "List of prime ministers in recent history"
+  ],
+  "countries": [
+    "Information about China",
+    "Travel advice for Germany",
+    "Country demographics for Brazil",
+    "Economic data for Russia"
+  ],
+  "celebrities": [
+    "Latest news about celebrities",
+    "List of actors and actresses",
+    "Which celebrity won the award"
+  ],
+  "sports": [
+    "Football match scores",
+    "Cricket world cup results",
+    "Who won the soccer final"
+  ],
+  "religion": [
+    "Questions about Islam",
+    "Christianity beliefs explained",
+    "Religious holidays and practices"
+  ],
+  "adult": [
+    "Adult content and porn sites",
+    "Sexual explicit content",
+    "How to access adult websites"
+  ],
+  "crime": [
+    "How to launder money",
+    "Tax evasion techniques",
+    "Instructions for committing a crime"
+  ],
+  "finance": [
+    "How to evade taxes",
+    "Money laundering examples",
+    "How to hide assets"
+  ]
+}
