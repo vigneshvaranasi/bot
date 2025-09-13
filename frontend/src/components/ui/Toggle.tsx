@@ -28,7 +28,7 @@ const Toggle: React.FC<ToggleProps> = ({ enabled, onChange, label, id }) => {
 
           <div
             className={`absolute top-[1px] bottom-[1px] flex items-center justify-center w-4 rounded-[2px] transition-all duration-200
-              ${enabled ? "left-[20px] bg-[#1B7F9E]" : "left-[2px] bg-gray-600"}`}
+              ${enabled ? "left-[19px] bg-[#1B7F9E]" : "left-[2px] bg-gray-600"}`}
           >
           {enabled && (
             <svg

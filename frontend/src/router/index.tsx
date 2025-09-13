@@ -5,6 +5,8 @@ import ChatPage from '../pages/Chat.page'
 import ChatView from '../view/ChatView'
 import Login from '../pages/LogIn.page'
 import Signup from '../pages/Signup.page'
+import SettingsPage from '../pages/Settings.page'
+import UserManagementPage from '../pages/UserManagement.page'
 import ProtectedRoute from './ProtectedRoute'
 const normalRoutes: RouteObject = {
   path: '/',
@@ -21,6 +23,14 @@ const normalRoutes: RouteObject = {
     {
       path:'/signup',
       element:<Signup/>
+    },
+    {
+      path: '/settings',
+      element: <SettingsPage />
+    },
+    {
+      path: '/user-management',
+      element: <UserManagementPage />
     },
     // Protected Chat Route
     {

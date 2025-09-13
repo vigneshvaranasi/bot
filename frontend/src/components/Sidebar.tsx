@@ -154,7 +154,9 @@ function Sidebar() {
               <p>{user?.email.split("@")[0] || "Guest"}</p>
             </div>
             <div className="flex items-center gap-2">
-              <img src={gearIcon} className="w-5 rounded-full" alt="" />
+              <Link to="/settings">
+                <img src={gearIcon} className="w-5 rounded-full cursor-pointer hover:opacity-80" alt="Settings" />
+              </Link>
               <img src={logoutImg}
               onClick={()=>{
                 logout();
@@ -182,14 +184,12 @@ function Sidebar() {
             </Link>
           </div>
           <div>
-            <button
-              className="p-2 rounded-md hover:bg-gray-200"
-              onClick={() => 
-                console.log("Open Settings")
-              }
+            <Link
+              to="/settings"
+              className="p-2 rounded-md hover:bg-gray-200 block"
             >
-              <img src={gearIcon} className="w-5 rounded-full" alt="" />
-            </button>
+              <img src={gearIcon} className="w-5 rounded-full" alt="Settings" />
+            </Link>
           </div>
         </div>
       )}

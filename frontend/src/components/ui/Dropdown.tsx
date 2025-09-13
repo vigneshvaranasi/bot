@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import caretDownIcon from "../../assets/caretDown.svg";
 
 type DropdownOption = {
@@ -10,7 +10,7 @@ type DropdownProps = {
   options: DropdownOption[];
   value?: string;
   placeholder?: string;
-  onChange: (value: any) => void
+  onChange: (value: string) => void
 };
 
 const Dropdown = ({
@@ -20,7 +20,25 @@ const Dropdown = ({
   onChange,
 }: DropdownProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const selectedOption = options.find((option) => option.value === value);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const handleSelect = (optionValue: string) => {
     onChange?.(optionValue);
@@ -28,23 +46,24 @@ const Dropdown = ({
   };
 
   return (
-    <div className="relative inline-block">
+    <div ref={dropdownRef} className="relative inline-block">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-2 py-1 text-sm font-normal text-gray-800 
-                   flex justify-between items-center 
-                   border-b-2 border-gray-400 
-                   bg-white rounded-bl-md rounded-br-md"
+           flex justify-between items-center 
+           border-b-2 border-gray-400 
+           bg-white rounded-bl-md rounded-br-md
+           min-w-[200px]"
       >
-        <span>
+        <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <img
           src={caretDownIcon}
           alt="caret down"
-          className={`w-5 h-5 ml-2 text-gray-700 transition-transform ${
-            isOpen ? "rotate-180" : ""
+          className={`w-5 h-5 ml-2 text-gray-700 transition-transform flex-shrink-0 ${
+        isOpen ? "rotate-180" : ""
           }`}
         />
       </button>
