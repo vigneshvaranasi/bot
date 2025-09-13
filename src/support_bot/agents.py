@@ -5,18 +5,18 @@ from crewai import Agent, LLM
 from .tools.qdrant_tool import QdrantIncidentDataTool
 
 # Gemini 2.0 Flash Lite
-gemini_llm = LLM(
-    model='gemini/gemini-2.0-flash-lite-001',
-    api_key=os.getenv("GEMINI_API_KEY"),
-    temperature=0.7
-)
+# gemini_llm = LLM(
+#     model='gemini/gemini-2.0-flash-lite-001',
+#     api_key=os.getenv("GEMINI_API_KEY"),
+#     temperature=0.7
+# )
 
 # Local Model
-# gemini_llm = LLM(
-#     model='ollama/gemma3:4b',
-#     base_url='http://10.1.41.55:11434',
-#     temperature=0
-# )
+gemini_llm = LLM(
+    model='ollama/gemma3:4b',
+    base_url='http://202.53.81.125:11434',
+    temperature=0.7
+)
 
 # Check if Gemini embeddings should be used - default to true since we use Gemini
 use_gemini_embeddings = os.getenv('USE_GEMINI_EMBEDDINGS', 'true').lower() == 'true'
@@ -83,7 +83,6 @@ Rules to Respond:
 """,
     verbose=True,
     allow_delegation=False,
-    tools=[qdrant_data_tool],
     llm=gemini_llm
 )
 
