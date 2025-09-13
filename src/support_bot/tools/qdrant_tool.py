@@ -1,5 +1,5 @@
 from crewai.tools import BaseTool
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Union
 import os
 import json
 from dotenv import load_dotenv
@@ -26,8 +26,8 @@ class QdrantIncidentDataTool(BaseTool):
         "Returns the most relevant incident information including root cause and mitigation steps.")
 
     class ArgsSchema(BaseModel):
-        argument: Any = Field(
-            ..., description="Search query text (plain string). If a dict is provided, the tool will attempt to extract a text field."
+        argument: Union[str, Dict[str, Any], Any] = Field(
+            ..., description="Search query text. Can be a string, dictionary, or any other input that can be normalized to a search query."
         )
 
     args_schema = ArgsSchema
@@ -138,6 +138,11 @@ class QdrantIncidentDataTool(BaseTool):
 
             # If it's a dict-like, try common keys in order
             if isinstance(argument, dict):
+                # First check for a keyword field which is commonly used in tool inputs
+                if "keyword" in argument:
+                    return str(argument["keyword"]).strip()
+
+                # Try to extract the most relevant text from common key names
                 for key in (
                     "query",
                     "search_query",
@@ -147,10 +152,17 @@ class QdrantIncidentDataTool(BaseTool):
                     "argument",
                     "value",
                     "input",
+                    "q",
+                    "keyword",
+                    "term",
+                    "message",
                 ): 
                     val = argument.get(key)
-                    if isinstance(val, str) and val.strip():
-                        return val.strip()
+                    if val is not None:
+                        # Convert to string if not already
+                        str_val = str(val).strip()
+                        if str_val:
+                            return str_val
 
                 # If dict contains a single string value somewhere, pick the first
                 for val in argument.values():
