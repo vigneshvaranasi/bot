@@ -4,23 +4,33 @@ from crewai import Agent, LLM
 # Custom tools
 from .tools.qdrant_tool import QdrantIncidentDataTool
 
-# Gemini 2.0 Flash Lite
-# gemini_llm = LLM(
-#     model='gemini/gemini-2.0-flash-lite-001',
-#     api_key=os.getenv("GEMINI_API_KEY"),
-#     temperature=0.7
-# )
-
-# Local Model
-gemini_llm = LLM(
-    model='ollama/gemma3:4b',
-    base_url='http://202.53.81.125:11434',
-    temperature=0.7
-)
-
 # Check if Gemini embeddings should be used - default to true since we use Gemini
 use_gemini_embeddings = os.getenv('USE_GEMINI_EMBEDDINGS', 'true').lower() == 'true'
 qdrant_data_tool = QdrantIncidentDataTool(use_gemini=use_gemini_embeddings)
+
+def create_llm_from_settings(model: str, temperature: float = 0.7):
+    if model.startswith('gemma'):
+        return LLM(
+            model=f'ollama/{model}',
+            base_url='http://202.53.81.125:11434',
+            temperature=temperature
+        )
+    elif model.startswith('gemini'):
+        return LLM(
+            model=f'gemini/{model}',
+            api_key=os.getenv("GEMINI_API_KEY"),
+            temperature=temperature
+        )
+    else:
+        # Default fallback
+        return LLM(
+            model='ollama/gemma3:4b',
+            base_url='http://202.53.81.125:11434',
+            temperature=temperature
+        )
+
+# default LLM
+default_llm = create_llm_from_settings("gemma3:4b", 0.7)
 
 # Manager Agent: SupportCoordinator
 support_coordinator_agent = Agent(
@@ -42,7 +52,7 @@ Rules to Respond:
 """,
     verbose=True,
     allow_delegation=False,
-    llm=gemini_llm
+    llm=default_llm
 )
 
 # Agent 1: Researcher Agent (HistoryResearcher)
@@ -63,7 +73,7 @@ researcher_agent = Agent(
     verbose=True,
     allow_delegation=False,
     tools=[qdrant_data_tool],
-    llm=gemini_llm
+    llm=default_llm
 )
 
 # Agent 2: Synthesizer Agent (SolutionSynthesizer)
@@ -83,7 +93,7 @@ Rules to Respond:
 """,
     verbose=True,
     allow_delegation=False,
-    llm=gemini_llm
+    llm=default_llm
 )
 
 # Agent 3: User Query Responder Agent (Responder)
@@ -103,7 +113,7 @@ Rules to Respond:
 """,
     verbose=True,
     allow_delegation=False,
-    llm=gemini_llm
+    llm=default_llm
 )
 
 # Agent 5: JSON Summary Agent
@@ -122,7 +132,7 @@ Rules to Respond:
 """,
     verbose=True,
     allow_delegation=False,
-    llm=gemini_llm
+    llm=default_llm
 )
 
 # Agent 6: Summary Title Agent
@@ -141,5 +151,14 @@ Rules to Respond:
 """,
     verbose=True,
     allow_delegation=False,
-    llm=gemini_llm
+    llm=default_llm
 )
+
+def configure_agents_llm(model: str, temperature: float = 0.7):
+    llm = create_llm_from_settings(model, temperature)
+    support_coordinator_agent.llm = llm
+    researcher_agent.llm = llm
+    synthesizer_agent.llm = llm
+    user_query_responder_agent.llm = llm
+    json_summary_agent.llm = llm
+    summary_title_agent.llm = llm
