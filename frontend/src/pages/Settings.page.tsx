@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import InputBox from "../components/ui/InputBox";
@@ -11,6 +11,9 @@ import ButtonGroup from "../components/ui/ButtonGroup";
 import SettingsNavbar from "../components/SettingsNavbar";
 import SettingsCard from "../components/ui/SettingsCard";
 import arrowLeftIcon from "../assets/arrow-left.svg";
+import { fetchSettings, updateSettings } from "../handlers/settingsHandlers";
+import type { Model } from "../types/Settings";
+import { useAuthContext } from "../hooks/useAuthContext";
 
 interface FileRecord {
   fileName: string;
@@ -59,11 +62,16 @@ const Settings: React.FC = () => {
       lastUpdated: "21 July 2025",
     },
   ]);
+  const { user } = useAuthContext();
 
   const [selectedRole, setSelectedRole] = useState("Support");
   const [versionsTracked, setVersionsTracked] = useState("5");
   const [purgeDays, setPurgeDays] = useState("30");
   const [pidMaskingFields, setPidMaskingFields] = useState("");
+  const [allDenyWords, setAllDenyWords] = useState("");
+  const [denyWords, setDenyWords] = useState("");
+  const [model, setModel] = useState<Model>("gemma3:4b");
+  const [temperature, setTemperature] = useState("");
   const [accessChat, setAccessChat] = useState(false);
   const [rating, setRating] = useState(false);
   const [requestPastIncidents, setRequestPastIncidents] = useState(false);
@@ -80,6 +88,72 @@ const Settings: React.FC = () => {
     { value: "System Administrator", label: "System Administrator" },
     { value: "Operations Lead", label: "Operations Lead" },
   ];
+
+  const modelOptions = [
+    { value: "gemma3:1b", label: "Gemma3: 1B" },
+    { value: "gemma3:4b", label: "Gemma3: 4B" },
+    { value: "gemini-2.0-flash", label: "Gemini: 2.0 Flash" },
+    { value: "gemini-2.5-flash", label: "Gemini: 2.5 Flash" },
+    { value: "gemini-2.0-flash-lite-001", label: "Gemini: 2.0 Flash Lite" },
+    { value: "gemini-2.5-pro", label: "Gemini: 2.5 Pro" },
+  ];
+
+  const onSave = async () => {
+    try {
+      console.log("Save settings");
+      let totalDenyWords = allDenyWords;
+      if (denyWords.trim() !== "") {
+        const denyWordsArray = totalDenyWords
+          .split(",")
+          .map((word) => word.trim());
+        if (totalDenyWords.trim() !== "") {
+          totalDenyWords += "," + denyWordsArray.join(",");
+        } else {
+          totalDenyWords = denyWordsArray.join(",");
+        }
+      }
+      setAllDenyWords(totalDenyWords);
+      console.log({
+        deny_words: totalDenyWords,
+        model,
+        temperature,
+      });
+      const newSettings = {
+        deny_words: totalDenyWords,
+        model,
+        temperature,
+      };
+      const token = user?.token || null;
+      if (!token) {
+        alert("User not authenticated");
+        return;
+      }
+      const saveSettings = await updateSettings(newSettings, token);
+      if (saveSettings) {
+        alert("Settings saved successfully");
+        setDenyWords("");
+        setAllDenyWords(saveSettings.totalDenyWords);
+        setModel(saveSettings.model);
+        setTemperature(saveSettings.temperature);
+      } else {
+        alert("Failed to save settings");
+      }
+    } catch (error) {
+      console.error("Error saving settings:", error);
+    }
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const settings = await fetchSettings();
+      if (settings) {
+        setAllDenyWords(settings.deny_words);
+        setModel(settings.model);
+        setTemperature(settings.temperature);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleDeleteFile = (fileId: string) => {
     setUploadedFiles((files) => files.filter((file) => file.id !== fileId));
@@ -104,7 +178,11 @@ const Settings: React.FC = () => {
               <UploadFiles compact />
 
               {/* Role Management */}
-              <SettingsCard title="Role Management" className="p-3 md:p-4">
+              <SettingsCard
+                title="Role Management"
+                className="p-3 md:p-4"
+                hidden={true}
+              >
                 <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
                   <label className="text-sm md:text-base text-gray-800 min-w-fit">
                     Role Permissions
@@ -145,7 +223,7 @@ const Settings: React.FC = () => {
             {/* Right Column */}
             <div className="space-y-6 order-1 lg:order-2">
               {/* Knowledge Base Management */}
-              <SettingsCard title="Knowledge Base Management">
+              <SettingsCard title="Knowledge Base Management" hidden={true}>
                 {/* Description + REFRESH */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
                   <span className="text-sm md:text-medium text-black flex-1">
@@ -198,7 +276,7 @@ const Settings: React.FC = () => {
               </SettingsCard>
 
               {/* Data & Privacy */}
-              <SettingsCard title="Data & Privacy">
+              <SettingsCard title="Data & Privacy" hidden={true}>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:gap-6">
                   {/* PID Masking Rules */}
                   <div className="space-y-3">
@@ -213,7 +291,7 @@ const Settings: React.FC = () => {
                         ADD RULE
                       </Button>
                     </div>
-                    
+
                     <InputBox
                       value={pidMaskingFields}
                       onChange={setPidMaskingFields}
@@ -266,8 +344,84 @@ const Settings: React.FC = () => {
                 </div>
               </SettingsCard>
 
+              {/* Configurations */}
+              <SettingsCard title="Configurations" hidden={false}>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:gap-6">
+                  {/* Deny List Rules */}
+                  <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2">
+                      <span className="flex flex-col text-sm md:text-medium text-black min-w-fit">
+                        Deny List Words
+                        <span className="text-xs text-gray-600 font-normal">
+                          (comma separated)
+                        </span>
+                      </span>
+                    </div>
+
+                    <InputBox
+                      value={denyWords}
+                      onChange={setDenyWords}
+                      placeholder="Add words to deny"
+                      variant="primary"
+                      className="
+                        w-full
+                        rounded-[5px]
+                        border-gray-400
+                        border-b-1
+                      "
+                    />
+                  </div>
+
+                  {/* Select of Models (Gemma3:1b, Gemma3:4b) */}
+                  <div className="flex flex-col justify-between space-y-3 h-full">
+                    <span className="flex flex-col text-sm md:text-medium text-black min-w-fit">
+                      Select Model
+                      <span className="text-xs text-gray-600 font-normal">
+                        (changes will take effect after refresh)
+                      </span>
+                    </span>
+
+                    <Dropdown
+                      options={modelOptions}
+                      value={model}
+                      onChange={(val) => setModel(val as Model)}
+                      placeholder="Select model"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:gap-6">
+                  {/*Temperature */}
+                  <div>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4">
+                      <label className="text-sm md:text-medium text-gray-900 min-w-fit">
+                        Temperature
+                      </label>
+                      <InputBox
+                        value={temperature}
+                        onChange={(val) => setTemperature(val)}
+                        variant="primary"
+                        type="number"
+                        className="
+                          outline-none
+                          border-b-1
+                          border-gray-400 
+                          rounded-[8px] 
+                          px-0 py-0
+                          text-medium 
+                          text-gray-900
+                          w-16
+                          "
+                        step={0.1}
+                        min={0}
+                        max={1}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </SettingsCard>
+
               {/* User Management */}
-              <SettingsCard title="User Management">
+              <SettingsCard title="User Management" hidden={true}>
                 <Button
                   variant="secondary"
                   className="font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer w-full sm:w-auto"
@@ -280,7 +434,7 @@ const Settings: React.FC = () => {
           </div>
 
           {/* Knowledge Base Version Control Table */}
-          <div className="mt-6 md:mt-8">
+          <div className="mt-6 md:mt-8 hidden">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 px-2">
               Knowledge Base Version Control
             </h2>
@@ -292,30 +446,36 @@ const Settings: React.FC = () => {
                   {
                     header: "File Name",
                     accessor: "fileName",
-                    headerClassName: "font-medium text-gray-700 text-xs md:text-sm",
-                    className: "text-xs md:text-sm text-gray-900"
+                    headerClassName:
+                      "font-medium text-gray-700 text-xs md:text-sm",
+                    className: "text-xs md:text-sm text-gray-900",
                   },
                   {
                     header: "File Type",
                     accessor: "fileType",
-                    headerClassName: "font-medium text-gray-700 text-xs md:text-sm",
-                    className: "text-xs md:text-sm text-gray-900"
+                    headerClassName:
+                      "font-medium text-gray-700 text-xs md:text-sm",
+                    className: "text-xs md:text-sm text-gray-900",
                   },
                   {
                     header: "Size",
                     accessor: "size",
-                    headerClassName: "font-medium text-gray-700 text-xs md:text-sm",
-                    className: "text-xs md:text-sm text-gray-900"
+                    headerClassName:
+                      "font-medium text-gray-700 text-xs md:text-sm",
+                    className: "text-xs md:text-sm text-gray-900",
                   },
                   {
                     header: "Last Updated",
                     accessor: "lastUpdated",
-                    headerClassName: "font-medium text-gray-700 text-xs md:text-sm hidden sm:table-cell",
-                    className: "text-xs md:text-sm text-gray-900 hidden sm:table-cell"
+                    headerClassName:
+                      "font-medium text-gray-700 text-xs md:text-sm hidden sm:table-cell",
+                    className:
+                      "text-xs md:text-sm text-gray-900 hidden sm:table-cell",
                   },
                   {
                     header: "Actions",
-                    headerClassName: "font-medium text-gray-700 text-xs md:text-sm",
+                    headerClassName:
+                      "font-medium text-gray-700 text-xs md:text-sm",
                     render: (file) => (
                       <div className="flex flex-row gap-1 sm:gap-2">
                         <Button
@@ -333,8 +493,8 @@ const Settings: React.FC = () => {
                           DELETE
                         </Button>
                       </div>
-                    )
-                  }
+                    ),
+                  },
                 ]}
                 headerRowClassName="bg-gray-50"
                 rowClassName="bg-white border-t border-gray-200"
@@ -355,10 +515,7 @@ const Settings: React.FC = () => {
                 <span className="sm:hidden">Back</span>
               </Button>
 
-              <Button
-                variant="primary"
-                rounded="full"
-              >
+              <Button variant="primary" rounded="full" onClick={onSave}>
                 SAVE
               </Button>
             </ButtonGroup>
