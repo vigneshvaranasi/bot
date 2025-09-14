@@ -10,7 +10,7 @@ import type { ChatSSEEvent } from "../handlers/chatHandler";
 import { useAuthContext } from "../hooks/useAuthContext";
 
 function ChatPage() {
-  const { isSidebarOpen, setCurrentChat } = useSidebarContext();
+  const { isSidebarOpen, setCurrentChat, triggerRefreshChats } = useSidebarContext();
   const [chatInput, setChatInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const sendBtnRef = useRef<HTMLButtonElement>(null);
@@ -49,11 +49,58 @@ function ChatPage() {
 
   const res = await newMessageHandler(currChatId, prompt, user?.token, (evt: ChatSSEEvent) => {
         if (!evt) return;
-        if (evt.label) {
+        if (evt.event === "answer_stream") {
+          // Buffer the full streamed answer for proper Markdown rendering
+          let chunk = typeof evt.data?.text === 'string' ? evt.data.text : '';
+          setCurrentChat((prevChat:any) => {
+            const updatedMessages = prevChat?.allMessages?.map((m:any) => {
+              if (m.id === newMessageId) {
+                // Use a buffer to accumulate the full answer for Markdown rendering
+                let buffer = m._streamBuffer || '';
+                if (!m._finalAnswerStarted) {
+                  // Remove a single leading code fence (if present)
+                  chunk = chunk.replace(/^```[a-zA-Z0-9]*\n?/, '');
+                  buffer = chunk;
+                  return {
+                    ...m,
+                    botMessage: buffer,
+                    streaming: true,
+                    _finalAnswerStarted: true,
+                    _streamBuffer: buffer,
+                  };
+                } else {
+                  // Remove a single trailing code fence (if present)
+                  chunk = chunk.replace(/```$/, '');
+                  buffer += chunk;
+                  return {
+                    ...m,
+                    botMessage: buffer,
+                    streaming: true,
+                    _streamBuffer: buffer,
+                  };
+                }
+              }
+              return m;
+            });
+            return {
+              ...prevChat,
+              allMessages: updatedMessages,
+            };
+          });
+        } else if (
+          evt.label &&
+          ![
+            "Saving conversation to your history",
+            "Conversation saved successfully"
+          ].includes(evt.label)
+        ) {
+          // For other events, update the message but preserve streaming state
           setCurrentChat((prevChat:any) => ({
             ...prevChat,
             allMessages: prevChat?.allMessages?.map((m:any) =>
-      m.id === newMessageId ? { ...m, botMessage: evt.label, streaming: true } : m
+              m.id === newMessageId 
+                ? { ...m, botMessage: evt.label || "", streaming: true } 
+                : m
             ),
           }));
         }
@@ -61,6 +108,7 @@ function ChatPage() {
       console.log("res: ", res);
 
       if (currChatId === "") {
+        triggerRefreshChats();
         navigate(`/${res.chatId}`);
         return;
       }

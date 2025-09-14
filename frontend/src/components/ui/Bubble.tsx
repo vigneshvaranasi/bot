@@ -8,21 +8,38 @@ type BubbleProps = {
   streaming?: boolean;
 };
 
-const Bubble = ({ variant = "bot", content, streaming }: BubbleProps) => {
+const Bubble = ({ variant = "bot", content }: BubbleProps) => {
   const variantClasses = {
     bot: "border-none bg-transparent",
     user: "order border-gray-300 bg-bubblegray max-w-3/4",
   };
   const defaultClass = "border border-gray-300 text-gray-900";
   const [renderedContent, setRenderedContent] = useState("");
+  const [isProcessing, setIsProcessing] = useState(variant === "bot" && !content);
+
+  marked.setOptions({
+    breaks: true,
+    gfm: true
+  });
 
   useEffect(() => {
-    const render = async () => {
-      const htmlContent = await marked.parse(content);
-      const sanitizedContent = DOMPurify.sanitize(htmlContent);
+    if (!content) return;
+
+    setIsProcessing(false);
+    try {
+      const htmlContent = marked.parse(content) as string;
+      
+      const sanitizedContent = DOMPurify.sanitize(htmlContent, {
+        ALLOWED_TAGS: ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 
+                      'code', 'pre', 'strong', 'em', 'blockquote', 'br'],
+        ADD_ATTR: ['class'],
+      });
+
       setRenderedContent(sanitizedContent);
-    };
-    render();
+    } catch (error) {
+      console.error('Markdown parsing error:', error);
+      setRenderedContent(content);
+    }
   }, [content]);
 
   return (
@@ -34,10 +51,10 @@ const Bubble = ({ variant = "bot", content, streaming }: BubbleProps) => {
       <div
         className={`p-2 rounded-lg ${
           variantClasses[variant] || defaultClass
-        } ${streaming && variant === 'bot' ? 'animate-pulse' : ''}`}
+        } ${isProcessing && variant === 'bot' ? 'animate-pulse' : ''}`}
       >
         <div
-          className="markdown-body"
+          className="markdown-body prose prose-sm max-w-none dark:prose-invert"
           dangerouslySetInnerHTML={{ __html: renderedContent }}
         />
       </div>

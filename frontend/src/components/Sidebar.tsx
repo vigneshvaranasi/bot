@@ -11,7 +11,7 @@ import { useAuthContext } from "../hooks/useAuthContext";
 import { getAllMyChats } from "../handlers/chatHandler";
 
 function Sidebar() {
-  const { isSidebarOpen, toggleSidebar, chats, setChats, currentChat,setCurrentChat,isSidebarLoading,setIsSidebarLoading } =
+  const { isSidebarOpen, toggleSidebar, chats, setChats, currentChat,isSidebarLoading,setIsSidebarLoading,refreshChatsTick } =
     useSidebarContext();
   const [searchInput, setSearchInput] = useState("");
   const { user,logout } = useAuthContext();
@@ -29,7 +29,7 @@ function Sidebar() {
       setIsSidebarLoading(true);
       try {
         const allMyChats = await getAllMyChats(user?.token);
-        console.log("allMyChats: ", allMyChats);
+        // console.log("allMyChats: ", allMyChats);
         if (allMyChats && Array.isArray(allMyChats.chats)) {
           setChats(
             allMyChats.chats.map((chat: any) => ({
@@ -50,7 +50,7 @@ function Sidebar() {
       }
     };
     fetchChats();
-  }, [user, currentChat]);
+  }, [user, refreshChatsTick]);
 
   const handleLinkClick = () => {
     if (window.innerWidth < 768) {

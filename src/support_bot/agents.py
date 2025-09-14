@@ -8,14 +8,16 @@ from .tools.qdrant_tool import QdrantIncidentDataTool
 # gemini_llm = LLM(
 #     model='gemini/gemini-2.0-flash-lite-001',
 #     api_key=os.getenv("GEMINI_API_KEY"),
-#     temperature=0.7
+#     temperature=0.7,
+#     stream=True
 # )
 
 # Local Model
 gemini_llm = LLM(
     model='ollama/gemma3:4b',
     base_url='http://202.53.81.125:11434',
-    temperature=0.7
+    temperature=0.7,
+    stream=True
 )
 
 # Check if Gemini embeddings should be used - default to true since we use Gemini

@@ -37,5 +37,17 @@ async def run_support_with_emitter(inputs: Dict[str, Any], emitter: Callable[[st
 
     result = await asyncio.to_thread(kickoff)
 
+    if hasattr(result, 'content'):
+        answer = result.content
+    else:
+        answer = str(result)
+    
+    chunk_size = 10
+    words = answer.split()
+    for i in range(0, len(words), chunk_size):
+        chunk = ' '.join(words[i:i + chunk_size])
+        _emit("answer_stream", {"text": chunk})
+        await asyncio.sleep(0.1)
+    
     _emit("status", {"phase": "crew:end"})
-    return str(result)
+    return answer
