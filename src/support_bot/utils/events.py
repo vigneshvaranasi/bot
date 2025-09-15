@@ -1,6 +1,17 @@
 from typing import Callable, Any
+from queue import Queue
+from crewai.utilities.events import crewai_event_bus, LLMStreamChunkEvent
 
 CALLBACKS_AVAILABLE = False
+
+token_queue = Queue()
+
+def stream_token_handler(sender: Any, event: LLMStreamChunkEvent):
+    token = event.chunk
+    token_queue.put(token)
+    # print(f"Received token: {token}")
+
+crewai_event_bus.register_handler(LLMStreamChunkEvent, stream_token_handler)
 
 try:
     from crewai.callbacks import BaseCallbackHandler  # type: ignore

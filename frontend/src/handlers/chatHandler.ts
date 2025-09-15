@@ -59,10 +59,8 @@ export const newMessageHandler = async (
             const phase = parsed.phase;
             if (['crew:start', 'agent:assigned', 'task:started', 'agent:started'].includes(phase)) {
               label = "Setting up the specialists";
-            } else if (phase === 'crew:end') {
-              label = "Support analysis complete";
-            } else if (['task:completed', 'agent:completed', 'task:evaluation'].includes(phase)) {
-              label = "Evaluating & generating the solution...";
+            } else if (phase === 'task:evaluated' || phase === 'agent:completed' || phase === 'task:completed' || phase === 'crew:end' || phase === 'persistence:saving' || phase === 'persistence:done') {
+              label = undefined;
             } else if (phase === 'title:generating') {
               label = "Creating a descriptive title";
             } else if (phase === 'title:done') {
@@ -71,10 +69,6 @@ export const newMessageHandler = async (
               label = "Summarizing the conversation";
             } else if (phase === 'summary:done') {
               label = "Summary saved";
-            } else if (phase === 'persistence:saving') {
-              label = "Saving conversation to your history";
-            } else if (phase === 'persistence:done') {
-              label = "Conversation saved successfully";
             } else {
               if (parsed.label) {
                 label = parsed.label;
@@ -90,7 +84,21 @@ export const newMessageHandler = async (
           label = `Error: ${typeof parsed === "string" ? parsed : JSON.stringify(parsed)}`;
         } else if (event === "result") {
           try { finalPayload = typeof parsed === "string" ? JSON.parse(parsed) : parsed; } catch { finalPayload = { error: "Malformed result" }; }
+        } else if (event === "answer_stream") {
+          if (typeof parsed === "object" && parsed.text) {
+            if (onEvent) {
+              onEvent({ 
+                event: "answer_stream", 
+                data: { text: parsed.text },
+                label: parsed.text
+              });
+            }
+            return;
+          }
         } else if (event === "end") {
+          if (onEvent) {
+            onEvent({ event: "answer_stream_done", data: null });
+          }
         } else {
           if (event === "tool:start") {
             if (parsed?.tool === 'qdrant') {

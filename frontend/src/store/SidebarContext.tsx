@@ -21,6 +21,8 @@ type SidebarContextType = {
   toggleSidebar: () => void;
   isSidebarLoading: boolean;
   setIsSidebarLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  refreshChatsTick: number;
+  triggerRefreshChats: () => void;
 };
 
 export const SidebarContext = createContext<SidebarContextType>({
@@ -33,6 +35,8 @@ export const SidebarContext = createContext<SidebarContextType>({
   toggleSidebar: () => {},
   isSidebarLoading: false,
   setIsSidebarLoading: () => {},
+  refreshChatsTick: 0,
+  triggerRefreshChats: () => {}
 });
 
 export const SidebarProvider = ({
@@ -44,6 +48,7 @@ export const SidebarProvider = ({
   const [chats, setChats] = useState<ChatInSidebar[]>([]);
   const [currentChat, setCurrentChat] = useState<currentChatType | null>(null);
   const [isSidebarLoading, setIsSidebarLoading] = useState<boolean>(false);
+  const [refreshChatsTick, setRefreshChatsTick] = useState<number>(0);
 
   const closeSidebar = () => {
     setSidebarOpen(false);
@@ -60,6 +65,10 @@ export const SidebarProvider = ({
     localStorage.setItem("isSidebarOpen", JSON.stringify(!isSidebarOpen));
   };
 
+  const triggerRefreshChats = () => {
+    setRefreshChatsTick((prev) => prev + 1);
+  }
+
   return (
     <SidebarContext.Provider
       value={{
@@ -72,6 +81,8 @@ export const SidebarProvider = ({
         toggleSidebar,
         isSidebarLoading,
         setIsSidebarLoading,
+        refreshChatsTick,
+        triggerRefreshChats
       }}
     >
       {children}
