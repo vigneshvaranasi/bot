@@ -8,6 +8,7 @@ import { Outlet, useNavigate, useParams } from "react-router-dom";
 import { newMessageHandler } from "../handlers/chatHandler";
 import type { ChatSSEEvent } from "../handlers/chatHandler";
 import { useAuthContext } from "../hooks/useAuthContext";
+import { formatDuration,saveChatMetrics } from "../utils/metrics";
 
 function ChatPage() {
   const { isSidebarOpen, setCurrentChat, triggerRefreshChats } = useSidebarContext();
@@ -19,10 +20,10 @@ function ChatPage() {
   const navigate = useNavigate();
 
   const handlePromptSend = async () => {
-    console.log("Sending prompt...");
+    // console.log("Sending prompt...");
     sendBtnRef.current?.setAttribute("disabled", "true");
     const prompt = chatInput;
-    console.log("Prompt:", prompt);
+    // console.log("Prompt:", prompt);
     if (!prompt || !user) {
       console.error("Invalid prompt or user");
       return;
@@ -31,6 +32,10 @@ function ChatPage() {
     try {
       let currChatId = chatId || "";
       const newMessageId = Date.now().toString();
+      const t0 = performance.now();
+      let firstChunkAt: number | null = null;
+      let firstTokenAt: number | null = null;
+      let endAt: number | null = null;
 
   setCurrentChat((prevChat:any) => ({
         chatId: currChatId,
@@ -49,9 +54,17 @@ function ChatPage() {
 
   const res = await newMessageHandler(currChatId, prompt, user?.token, (evt: ChatSSEEvent) => {
         if (!evt) return;
+        // Capture first chunk 
+        if (firstChunkAt === null && evt.event !== "answer_stream_done") {
+          firstChunkAt = performance.now();
+        }
         if (evt.event === "answer_stream") {
           // Buffer the full streamed answer for proper Markdown rendering
           let chunk = typeof evt.data?.text === 'string' ? evt.data.text : '';
+          // Capture first token
+          if (firstTokenAt === null) {
+            firstTokenAt = performance.now();
+          }
           setCurrentChat((prevChat:any) => {
             const updatedMessages = prevChat?.allMessages?.map((m:any) => {
               if (m.id === newMessageId) {
@@ -88,6 +101,19 @@ function ChatPage() {
             };
           });
         } else if (evt.event === "answer_stream_done") {
+          endAt = performance.now();
+          const totalMs = Math.round(endAt - t0);
+          const ttfChunkMs = firstChunkAt ? Math.round(firstChunkAt - t0) : null;
+          const ttfTokenMs = firstTokenAt ? Math.round(firstTokenAt - t0) : null;
+          console.log(
+            [
+              ttfChunkMs !== null ? `Time to first chunk: ${formatDuration(ttfChunkMs)}` : undefined,
+              ttfTokenMs !== null ? `Time to first token: ${formatDuration(ttfTokenMs)}` : undefined,
+              `Response time: ${formatDuration(totalMs)}`,
+            ]
+              .filter(Boolean)
+              .join("\n")
+          );
           setCurrentChat((prevChat:any) => ({
             ...prevChat,
             allMessages: prevChat?.allMessages?.map((m:any) =>
@@ -118,7 +144,18 @@ function ChatPage() {
       });
       // console.log("res: ", res);
 
+      // Compute metrics
+      const metrics = {
+        timeToFirstChunk: firstChunkAt ? Math.round(firstChunkAt - t0) : undefined,
+        timeToFirstToken: firstTokenAt ? Math.round(firstTokenAt - t0) : undefined,
+        totalResponseTime: Math.round((endAt ?? performance.now()) - t0),
+      };
+
       if (currChatId === "") {
+        // store new chat metrics in session storage
+        if (res?.chatId) {
+          saveChatMetrics(res.chatId, metrics);
+        }
         triggerRefreshChats();
         navigate(`/${res.chatId}`);
         return;
@@ -128,7 +165,7 @@ function ChatPage() {
         chatId: res.chatId,
         allMessages: prevChat?.allMessages.map((message:any) =>
           message.id === newMessageId
-            ? { ...message, botMessage: res.new_message, streaming: false }
+            ? { ...message, botMessage: res.new_message, streaming: false, responseMetrics: metrics }
             : message
         ),
       }));

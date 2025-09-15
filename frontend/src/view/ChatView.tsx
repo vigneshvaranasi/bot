@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { useAuthContext } from "../hooks/useAuthContext";
 import { useEffect, useLayoutEffect, useState, useRef, useCallback } from "react";
 import { getChatMessagesById } from "../handlers/chatHandler";
+import { readChatMetrics, removeChatMetrics } from "../utils/metrics";
 import { useSidebarContext } from "../hooks/useSidebarContext";
 import Spinner from "../components/ui/Spinner";
 
@@ -35,11 +36,21 @@ const ChatView = () => {
       try {
         const res = await getChatMessagesById(user?.token, chatId);
         if (res && Array.isArray(res)) {
-          const messages = res.map((message: any) => ({
+          let messages = res.map((message: any) => ({
             id: message.id,
             userMessage: message.user_query || "",
             botMessage: message.bot_solution || "",
           }));
+          // get and attach metrics to the last message
+          const metrics = readChatMetrics(chatId);
+          if (metrics && messages.length > 0) {
+            const lastIdx = messages.length - 1;
+            messages[lastIdx] = {
+              ...messages[lastIdx],
+              responseMetrics: metrics,
+            } as any;
+            removeChatMetrics(chatId);
+          }
           setCurrentChat({
             chatId: chatId,
             allMessages: messages,

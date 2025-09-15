@@ -152,7 +152,7 @@ export const newMessageHandler = async (
           else {
             if (label) lastLabelEmitted = label;
             lastEventType = event;
-            console.log('SSE Event:', event, parsed, label);
+            // console.log('SSE Event:', event, parsed, label);
             onEvent({ event, data: parsed, label });
           }
         }

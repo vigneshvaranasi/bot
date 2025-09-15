@@ -1,5 +1,6 @@
 import { createContext, useState } from "react";
 import type { ChatInSidebar } from "../types/Chats";
+import type { ResponseMetrics } from "../utils/metrics";
 
 type currentChatType = {
   chatId: string | null;
@@ -8,6 +9,7 @@ type currentChatType = {
     userMessage: string;
     botMessage: string;
     streaming?: boolean;
+    responseMetrics?:ResponseMetrics
   }[];
 };
 
