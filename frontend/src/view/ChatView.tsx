@@ -6,6 +6,7 @@ import { getChatMessagesById } from "../handlers/chatHandler";
 import { readChatMetrics, removeChatMetrics } from "../utils/metrics";
 import { useSidebarContext } from "../hooks/useSidebarContext";
 import Spinner from "../components/ui/Spinner";
+import { loadChatFromCache, saveChatToCache, messagesEqual } from "../utils/chatCache";
 
 const ChatView = () => {
   const { chatId } = useParams<{ chatId: string }>();
@@ -34,33 +35,42 @@ const ChatView = () => {
 
     const fetchMessages = async () => {
       try {
+        const userKey = user?.email;
+        // Try IndexedDB cache
+        const cached = await loadChatFromCache(chatId, userKey);
+        if (cached && Array.isArray(cached)) {
+          setCurrentChat({ chatId, allMessages: cached as any });
+          setLoading(false);
+        }
+
+        // Always fetch from server in the bg
         const res = await getChatMessagesById(user?.token, chatId);
+        let freshMessages: any[] = [];
         if (res && Array.isArray(res)) {
-          let messages = res.map((message: any) => ({
+          freshMessages = res.map((message: any) => ({
             id: message.id,
             userMessage: message.user_query || "",
             botMessage: message.bot_solution || "",
           }));
           // get and attach metrics to the last message
           const metrics = readChatMetrics(chatId);
-          if (metrics && messages.length > 0) {
-            const lastIdx = messages.length - 1;
-            messages[lastIdx] = {
-              ...messages[lastIdx],
+          if (metrics && freshMessages.length > 0) {
+            const lastIdx = freshMessages.length - 1;
+            freshMessages[lastIdx] = {
+              ...freshMessages[lastIdx],
               responseMetrics: metrics,
             } as any;
             removeChatMetrics(chatId);
           }
-          setCurrentChat({
-            chatId: chatId,
-            allMessages: messages,
-          });
-        } else {
-          setCurrentChat({
-            chatId: chatId,
-            allMessages: [],
-          });
         }
+
+        // Update UI only if changed vs cached
+        const curr = cached || [];
+        if (!messagesEqual(curr as any, freshMessages as any)) {
+          setCurrentChat({ chatId, allMessages: freshMessages as any });
+        }
+        // Save refreshed messages to cache
+        await saveChatToCache(chatId, freshMessages as any, 20, userKey);
       } catch (err) {
         console.error("Failed to fetch messages:", err);
         setCurrentChat({

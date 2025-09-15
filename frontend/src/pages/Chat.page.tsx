@@ -9,6 +9,7 @@ import { newMessageHandler } from "../handlers/chatHandler";
 import type { ChatSSEEvent } from "../handlers/chatHandler";
 import { useAuthContext } from "../hooks/useAuthContext";
 import { formatDuration,saveChatMetrics } from "../utils/metrics";
+import { saveChatToCache } from "../utils/chatCache";
 
 function ChatPage() {
   const { isSidebarOpen, setCurrentChat, triggerRefreshChats } = useSidebarContext();
@@ -161,14 +162,29 @@ function ChatPage() {
         return;
       }
 
-      setCurrentChat((prevChat:any) => ({
-        chatId: res.chatId,
-        allMessages: prevChat?.allMessages.map((message:any) =>
-          message.id === newMessageId
-            ? { ...message, botMessage: res.new_message, streaming: false, responseMetrics: metrics }
-            : message
-        ),
-      }));
+      let updatedMessages: any[] = [];
+      setCurrentChat((prevChat:any) => {
+        const next = {
+          chatId: res.chatId,
+          allMessages: prevChat?.allMessages.map((message:any) =>
+            message.id === newMessageId
+              ? { ...message, botMessage: res.new_message, streaming: false, responseMetrics: metrics }
+              : message
+          ),
+        };
+        updatedMessages = next.allMessages;
+        return next;
+      });
+
+      try {
+        const toCache = updatedMessages.map((m:any) => ({
+          id: m.id,
+          userMessage: m.userMessage,
+          botMessage: m.botMessage,
+          responseMetrics: m.responseMetrics,
+        }));
+        await saveChatToCache(res.chatId, toCache, 20, user?.email);
+      } catch {}
 
       setIsLoading(false);
     } catch (err) {

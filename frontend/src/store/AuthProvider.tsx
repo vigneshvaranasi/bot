@@ -1,5 +1,6 @@
 import { createContext, useEffect, useState } from "react";
 import { verifyTokenHandler } from "../handlers/authHandlers";
+import { removeAllChatCache } from "../utils/chatCache";
 
 
 type UserData = {
@@ -42,6 +43,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
     localStorage.removeItem("user");
     localStorage.removeItem("token");
+    removeAllChatCache()
   };
 
   async function verifyToken() {
