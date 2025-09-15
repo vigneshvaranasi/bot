@@ -97,6 +97,3 @@ class Setting(Base):
     deny_words = Column(Text)
     model = Column(String(100), nullable=False, default="gemini-2.5-flash")
     temperature = Column(String(10), nullable=False, default="0.2")
-    
-    
-        
