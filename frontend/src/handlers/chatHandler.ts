@@ -96,6 +96,9 @@ export const newMessageHandler = async (
             return;
           }
         } else if (event === "end") {
+          if (onEvent) {
+            onEvent({ event: "answer_stream_done", data: null });
+          }
         } else {
           if (event === "tool:start") {
             if (parsed?.tool === 'qdrant') {

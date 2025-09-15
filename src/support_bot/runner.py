@@ -42,11 +42,10 @@ async def run_support_with_emitter(inputs: Dict[str, Any], emitter: Callable[[st
     else:
         answer = str(result)
     
-    chunk_size = 10
-    words = answer.split()
-    for i in range(0, len(words), chunk_size):
-        chunk = ' '.join(words[i:i + chunk_size])
-        _emit("answer_stream", {"text": chunk})
+    # Stream line-by-line
+    lines = answer.splitlines(True)
+    for line in lines:
+        _emit("answer_stream", {"text": line})
         await asyncio.sleep(0.1)
     
     _emit("status", {"phase": "crew:end"})

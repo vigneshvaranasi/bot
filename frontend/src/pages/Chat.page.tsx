@@ -87,6 +87,15 @@ function ChatPage() {
               allMessages: updatedMessages,
             };
           });
+        } else if (evt.event === "answer_stream_done") {
+          setCurrentChat((prevChat:any) => ({
+            ...prevChat,
+            allMessages: prevChat?.allMessages?.map((m:any) =>
+              m.id === newMessageId
+                ? { ...m, streaming: false, _finalAnswerDone: true }
+                : m
+            ),
+          }));
         } else if (
           evt.label &&
           ![
@@ -97,15 +106,17 @@ function ChatPage() {
           // For other events, update the message but preserve streaming state
           setCurrentChat((prevChat:any) => ({
             ...prevChat,
-            allMessages: prevChat?.allMessages?.map((m:any) =>
-              m.id === newMessageId 
-                ? { ...m, botMessage: evt.label || "", streaming: true } 
-                : m
-            ),
+            allMessages: prevChat?.allMessages?.map((m:any) => {
+              if (m.id === newMessageId) {
+                if (m._finalAnswerStarted || m._finalAnswerDone) return m;
+                return { ...m, botMessage: evt.label || "", streaming: true };
+              }
+              return m;
+            }),
           }));
         }
       });
-      console.log("res: ", res);
+      // console.log("res: ", res);
 
       if (currChatId === "") {
         triggerRefreshChats();
