@@ -13,6 +13,9 @@ type InputBoxProps = {
   rows?: number
   autoGrow?: boolean
   maxHeight?: number
+  min?: number
+  max?: number
+  step?: number
 }
 
 const variantClasses: Record<'primary' | 'multiline', string> = {
@@ -32,7 +35,10 @@ const InputBox = ({
   type = 'text',
   rows = 1,
   autoGrow = true,
-  maxHeight = 200
+  maxHeight = 200,
+  min,
+  max,
+  step
 }: InputBoxProps) => {
   const variantClass = variantClasses[variant]
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -94,6 +100,9 @@ const InputBox = ({
           placeholder={placeholder}
           onChange={e => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
+          step={step}
+          min={min}
+          max={max}
           className={`w-full px-2 py-2 focus:outline-none transition ${icon ? 'pl-10' : ''} ${variantClass}`}
           style={{ backgroundColor: `#${backgroundColor}` }}
         />

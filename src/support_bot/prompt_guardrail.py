@@ -28,7 +28,8 @@ class PromptGuardrail:
     entries trigger rejection.
     """
 
-    def __init__(self, denylist_path: str = None):
+    def __init__(self, denylist_path: str = None, deny_words: str = None):
+        self.deny_words = deny_words
         if denylist_path:
             self.denylist_path = Path(denylist_path)
         else:
@@ -73,6 +74,10 @@ class PromptGuardrail:
         else:
             raw = []
 
+        if self.deny_words:
+            settings_words = [word.strip() for word in self.deny_words.split(',') if word.strip()]
+            raw.extend(settings_words)
+
         entries = [str(x).strip().lower() for x in raw if x]
         # phrases (contain whitespace) vs single words
         self.phrases = [p for p in entries if " " in p]
@@ -86,10 +91,16 @@ class PromptGuardrail:
         for phrase in self.phrases:
             if phrase in lowered:
                 return True
-        # tokenize by word characters
+        
         tokens = re.findall(r"\w+", lowered)
         token_set = set(tokens)
-        return any(w in token_set for w in self.words)
+            
+        if self.deny_words:
+            deny_tokens = re.findall(r"\w+", self.deny_words.lower())
+            if any(word in token_set for word in deny_tokens):
+                return True
+                
+        return False
 
     def _matches_programming_regex(self, text: str) -> bool:
         """Fast heuristics to catch programming/code-generation prompts."""

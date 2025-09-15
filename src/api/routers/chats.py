@@ -9,9 +9,11 @@ from src.api.db.database import get_session
 from src.api.models import Chat, Message
 from src.api.schemas import ChatCreate, ChatResponse, ChatListItem, ChatListResponse
 from src.api.utils.auth import get_current_user
-from src.support_bot.crew import support_crew, conversation_summary_crew,conversation_title_generation_crew
+from src.support_bot.crew import support_crew, conversation_summary_crew, conversation_title_generation_crew, create_support_crew, create_conversation_summary_crew, create_conversation_title_crew
 from src.support_bot.utils.formatting import sanitize_markdown_output
 from src.support_bot.runner import run_support_with_emitter
+from src.support_bot.agents import configure_agents_llm
+from src.api.db_models import Setting
 from typing import List
 import re
 import asyncio
@@ -79,10 +81,17 @@ async def get_chat_prompt(
     def sse(event: str, data: str) -> str:
         return f"event: {event}\ndata: {data}\n\n"
     
-    guard = PromptGuardrail()
+    # Fetch latest settings for deny words
+    try:
+        result = await session.execute(select(Setting).order_by(Setting.updated_at.desc()))
+        setting = result.scalars().first()
+        deny_words = setting.deny_words if setting and setting.deny_words else ""
+    except Exception:
+        deny_words = ""
+    
+    guard = PromptGuardrail(deny_words=deny_words)
     is_valid, reject_msg = guard.validate_or_reject(request.prompt)
     if not is_valid:
-        # Stream an immediate SSE error so the client receives events instead of plain response
         async def immediate_reject_stream():
             try:
                 yield sse("status", json.dumps({"phase": "prompt:rejected", "label": "Couldn't use that prompt."}))
@@ -98,8 +107,11 @@ async def get_chat_prompt(
         }
         return StreamingResponse(immediate_reject_stream(), media_type="text/event-stream", headers=headers)
 
-    async def kickoff_support_with_events(inputs: dict, emit):
-        result = await run_support_with_emitter(inputs, emit)
+    async def kickoff_support_with_events(inputs: dict, emit, session: AsyncSession, model: str = "gemma3:4b", temperature: float = 0.7):
+        # Configure agents with the provided LLM settings
+        configure_agents_llm(model, temperature)
+        
+        result = await run_support_with_emitter(inputs, emit, model, temperature)
         return sanitize_markdown_output(str(result))
 
     async def event_stream():
@@ -115,6 +127,20 @@ async def get_chat_prompt(
             if chat_id is None:
                 # New chat flow
                 inputs = {"user_prompt": request.prompt, "context": ""}
+
+                # Get LLM settings from DB
+                try:
+                    result = await session.execute(select(Setting).order_by(Setting.updated_at.desc()))
+                    setting = result.scalars().first()
+                    if setting:
+                        model = setting.model
+                        temperature = float(setting.temperature) if setting.temperature else 0.7
+                    else:
+                        model = "gemma3:4b"
+                        temperature = 0.7
+                except Exception:
+                    model = "gemma3:4b"
+                    temperature = 0.7
 
                 queue: asyncio.Queue = asyncio.Queue()
 
@@ -136,17 +162,17 @@ async def get_chat_prompt(
                         except asyncio.TimeoutError:
                             continue
 
-                crew_task = asyncio.create_task(kickoff_support_with_events(inputs, emitter))
+                crew_task = asyncio.create_task(kickoff_support_with_events(inputs, emitter, session, model, temperature))
                 async for chunk in pump_events(crew_task):
                     yield chunk
                 bot_response = await crew_task
 
                 yield sse("status", json.dumps({"phase": "title:generating", "label": "Creating a descriptive title for this conversation..."}))
-                title = await generate_title_from_prompt(request.prompt)
+                title = await generate_title_from_prompt(request.prompt, session)
                 yield sse("status", json.dumps({"phase": "title:done", "label": "Title created successfully."}))
 
                 yield sse("status", json.dumps({"phase": "summary:generating", "label": "Summarizing the conversation for future reference..."}))
-                summary = await generate_summary_from_content(request.prompt, bot_response)
+                summary = await generate_summary_from_content(request.prompt, bot_response, session)
                 yield sse("status", json.dumps({"phase": "summary:done", "label": "Summary saved."}))
 
                 yield sse("status", json.dumps({"phase": "persistence:saving", "label": "Saving conversation to your history..."}))
@@ -187,6 +213,20 @@ async def get_chat_prompt(
                     "context": existing_chat.summary or "",
                 }
 
+                # Get LLM settings from DB
+                try:
+                    result = await session.execute(select(Setting).order_by(Setting.updated_at.desc()))
+                    setting = result.scalars().first()
+                    if setting:
+                        model = setting.model
+                        temperature = float(setting.temperature) if setting.temperature else 0.7
+                    else:
+                        model = "gemma3:4b"
+                        temperature = 0.7
+                except Exception:
+                    model = "gemma3:4b"
+                    temperature = 0.7
+
                 queue: asyncio.Queue = asyncio.Queue()
 
                 def emitter(event: str, data):
@@ -207,14 +247,14 @@ async def get_chat_prompt(
                         except asyncio.TimeoutError:
                             continue
 
-                crew_task = asyncio.create_task(kickoff_support_with_events(inputs, emitter))
+                crew_task = asyncio.create_task(kickoff_support_with_events(inputs, emitter, session, model, temperature))
                 async for chunk in pump_events(crew_task):
                     yield chunk
                 bot_response = await crew_task
 
                 yield sse("status", json.dumps({"phase": "summary:generating", "label": "Summarizing the conversation for future reference..."}))
                 updated_summary = await update_chat_summary(
-                    existing_chat.summary or "", request.prompt, bot_response
+                    existing_chat.summary or "", request.prompt, bot_response, session
                 )
                 yield sse("status", json.dumps({"phase": "summary:done", "label": "Summary saved."}))
 
@@ -253,14 +293,32 @@ async def get_chat_prompt(
     return StreamingResponse(event_stream(), media_type="text/event-stream", headers=headers)
 
 
-async def generate_title_from_prompt(prompt: str) -> str:
+async def generate_title_from_prompt(prompt: str, session: AsyncSession) -> str:
     """Generate a concise title from the user's prompt using the conversation title generation crew."""
     try:
+        # Get LLM settings from DB
+        try:
+            result = await session.execute(select(Setting).order_by(Setting.updated_at.desc()))
+            setting = result.scalars().first()
+            if setting:
+                model = setting.model
+                temperature = float(setting.temperature) if setting.temperature else 0.7
+            else:
+                model = "gemma3:4b"
+                temperature = 0.7
+        except Exception:
+            model = "gemma3:4b"
+            temperature = 0.7
+
+        # Configure agents and create crew
+        configure_agents_llm(model, temperature)
+        title_crew = create_conversation_title_crew()
+
         inputs = {
             'user_prompt': prompt
         }
         
-        result = conversation_title_generation_crew.kickoff(inputs=inputs)
+        result = title_crew.kickoff(inputs=inputs)
         title = str(result).strip()
         
         if len(title) > 50:
@@ -278,9 +336,27 @@ async def generate_title_from_prompt(prompt: str) -> str:
         return title or "New Chat"
 
 
-async def generate_summary_from_content(prompt: str, response: str) -> str:
+async def generate_summary_from_content(prompt: str, response: str, session: AsyncSession) -> str:
     """Generate a summary from prompt and response using the conversation summary crew."""
     try:
+        # Get LLM settings from DB
+        try:
+            result = await session.execute(select(Setting).order_by(Setting.updated_at.desc()))
+            setting = result.scalars().first()
+            if setting:
+                model = setting.model
+                temperature = float(setting.temperature) if setting.temperature else 0.7
+            else:
+                model = "gemma3:4b"
+                temperature = 0.7
+        except Exception:
+            model = "gemma3:4b"
+            temperature = 0.7
+
+        # Configure agents and create crew
+        configure_agents_llm(model, temperature)
+        summary_crew = create_conversation_summary_crew()
+
         conversation_json = {
             "messages": [
                 {"role": "user", "content": prompt},
@@ -292,16 +368,34 @@ async def generate_summary_from_content(prompt: str, response: str) -> str:
             'conversation_json': str(conversation_json)
         }
         
-        result = conversation_summary_crew.kickoff(inputs=inputs)
+        result = summary_crew.kickoff(inputs=inputs)
         return str(result)[:500]
         
     except Exception as e:
         return f"Discussion about: {prompt[:100]}..."
 
 
-async def update_chat_summary(current_summary: str, new_prompt: str, new_response: str) -> str:
+async def update_chat_summary(current_summary: str, new_prompt: str, new_response: str, session: AsyncSession) -> str:
     """Update the chat summary with new conversation content."""
     try:
+        # Get LLM settings from DB
+        try:
+            result = await session.execute(select(Setting).order_by(Setting.updated_at.desc()))
+            setting = result.scalars().first()
+            if setting:
+                model = setting.model
+                temperature = float(setting.temperature) if setting.temperature else 0.7
+            else:
+                model = "gemma3:4b"
+                temperature = 0.7
+        except Exception:
+            model = "gemma3:4b"
+            temperature = 0.7
+
+        # Configure agents and create crew
+        configure_agents_llm(model, temperature)
+        summary_crew = create_conversation_summary_crew()
+
         conversation_json = {
             "previous_context": current_summary,
             "new_messages": [
@@ -314,7 +408,7 @@ async def update_chat_summary(current_summary: str, new_prompt: str, new_respons
             'conversation_json': str(conversation_json)
         }
         
-        result = conversation_summary_crew.kickoff(inputs=inputs)
+        result = summary_crew.kickoff(inputs=inputs)
         return str(result)[:500]
         
     except Exception as e:

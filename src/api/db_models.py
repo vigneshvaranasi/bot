@@ -85,3 +85,18 @@ class Message(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     chat = relationship("Chat", back_populates="messages")
+
+class Setting(Base):
+    __tablename__ = "settings"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deny_words = Column(Text)
+    model = Column(String(100), nullable=False, default="gemini-2.5-flash")
+    temperature = Column(String(10), nullable=False, default="0.2")
+    
+    
+        
