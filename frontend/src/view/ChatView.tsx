@@ -7,6 +7,7 @@ import { readChatMetrics, removeChatMetrics } from "../utils/metrics";
 import { useSidebarContext } from "../hooks/useSidebarContext";
 import Spinner from "../components/ui/Spinner";
 import { loadChatFromCache, saveChatToCache, messagesEqual } from "../utils/chatCache";
+import { ChatAction } from "../components/ui/ChatAction";
 
 const ChatView = () => {
   const { chatId } = useParams<{ chatId: string }>();
@@ -120,7 +121,7 @@ const ChatView = () => {
   }
 
   return (
-    <div ref={containerRef} className="flex-1 space-y-4 overflow-y-auto px-3" style={{ WebkitOverflowScrolling: "touch" }}>
+    <div ref={containerRef} className="flex-1 space-y-4 px-3" style={{ WebkitOverflowScrolling: "touch" }}>
       {loading ? (
         <div className="flex items-center justify-center h-full py-10">
           <Spinner size={20} />
@@ -132,6 +133,20 @@ const ChatView = () => {
           <div key={message.id}>
             <Bubble variant="user" content={message.userMessage} />
             <Bubble variant="bot" content={message.botMessage} streaming={message.streaming} />
+            {/* chat Actions */}
+            {
+              !message.streaming &&
+              <div className="flex items-center gap-0.5 ml-2">
+                {/* <ChatAction type="retry"/>
+                <ChatAction type="thumbsUp"/>
+                <ChatAction type="thumbsDown"/> */}
+                <ChatAction type="copy" content={message.botMessage}/>
+                {
+                  message.responseMetrics && 
+                  <ChatAction type="metrics" responseMetrics={message.responseMetrics}/>
+                }
+            </div>
+            }
           </div>
         ))
       )}

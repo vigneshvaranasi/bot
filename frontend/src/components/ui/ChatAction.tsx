@@ -1,0 +1,152 @@
+import { useEffect, useRef, useState } from 'react'
+import retryIcon from '../../assets/chat-actions/retry.svg'
+import thumbsUpIcon from '../../assets/chat-actions/thumbsUp.svg'
+import thumbsUpFilledIcon from '../../assets/chat-actions/thumbsUpfill.svg'
+import thumbsDownIcon from '../../assets/chat-actions/thumbsDown.svg'
+import thumbsDownFilledIcon from '../../assets/chat-actions/thumbsDownfill.svg'
+import copyIcon from '../../assets/chat-actions/copy.svg'
+import tickIcon from '../../assets/chat-actions/tick.svg'
+import type { ResponseMetrics } from '../../utils/metrics'
+
+import { formatDuration } from '../../utils/metrics'
+
+interface ChatActionButtonProps {
+  type: 'retry' | 'thumbsUp' | 'thumbsDown' | 'metrics' | 'copy'
+  active?: boolean
+  loading?: boolean
+  onClick?: () => void
+  responseMetrics?: ResponseMetrics
+  content?: string
+}
+
+const icons: Record<string, { default?: string; active?: string }> = {
+  retry: { default: retryIcon },
+  thumbsUp: { default: thumbsUpIcon, active: thumbsUpFilledIcon },
+  thumbsDown: { default: thumbsDownIcon, active: thumbsDownFilledIcon },
+  copy: { default: copyIcon, active: tickIcon },
+  metrics: { default: retryIcon }
+}
+
+const tooltips: Record<string, string> = {
+  retry: 'Retry',
+  thumbsUp: 'Like',
+  thumbsDown: 'Dislike',
+  copy: 'Copy'
+}
+
+export const ChatAction: React.FC<ChatActionButtonProps> = ({
+  type,
+  active: activeProp,
+  loading,
+  onClick,
+  responseMetrics,
+  content
+}) => {
+  const [active, setActive] = useState(false)
+  const resetTimerRef = useRef<number | null>(null)
+
+  const iconSet = icons[type]
+  const tooltip = tooltips[type]
+
+  const isActive = type === 'retry' ? false : activeProp ?? active
+
+  const icon =
+    type === 'retry'
+      ? iconSet.default
+      : isActive && iconSet.active
+      ? iconSet.active
+      : iconSet.default
+
+  function handleClick () {
+    if (type === 'copy') {
+      setActive(true)
+      if (content) {
+        navigator.clipboard.writeText(content)
+      }
+      if (resetTimerRef.current) window.clearTimeout(resetTimerRef.current)
+      resetTimerRef.current = window.setTimeout(() => setActive(false), 2000)
+    } else if (type !== 'retry') {
+      setActive(prev => !prev)
+    }
+    if (onClick) onClick()
+  }
+
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current) window.clearTimeout(resetTimerRef.current)
+    }
+  }, [])
+
+  return (
+    <div className='relative group inline-flex'>
+      <button
+        onClick={handleClick}
+        disabled={loading && type === 'retry'}
+        aria-label={tooltip}
+        className='flex items-center justify-center p-1
+             text-gray-600 hover:text-black hover:bg-gray-100
+             disabled:opacity-50 disabled:cursor-not-allowed
+             rounded-sm cursor-pointer'
+      >
+        {type === 'metrics' && responseMetrics?.timeToFirstToken ? (
+          <p>{formatDuration(responseMetrics.timeToFirstToken)}</p>
+        ) : (
+          <img
+            src={icon}
+            alt={tooltip}
+            className={`h-5 w-5 ${
+              loading && type === 'retry' ? 'animate-spin' : ''
+            }`}
+          />
+        )}
+      </button>
+
+      {/* Tooltip */}
+      {type === 'metrics' ? (
+        <div
+          className='absolute left-full ml-2 top-1/2 -translate-y-1/2
+             opacity-0 group-hover:opacity-100 pointer-events-none
+             bg-black text-white text-xs rounded px-2 py-1
+             transition-opacity duration-200 whitespace-nowrap'
+        >
+          {responseMetrics &&
+          responseMetrics.timeToFirstChunk !== undefined &&
+          responseMetrics.timeToFirstToken !== undefined &&
+          responseMetrics.totalResponseTime !== undefined ? (
+            <div className='flex flex-col gap-1'>
+              <p className='opacity-100'>
+                Time To First Chunk:{' '}
+                <span className='opacity-75 font-semibold'>
+                  {formatDuration(responseMetrics.timeToFirstChunk)}
+                </span>
+              </p>
+              <p>
+                Time To First Token:{' '}
+                <span className='opacity-75 font-semibold'>
+                  {formatDuration(responseMetrics.timeToFirstToken)}
+                </span>
+              </p>
+              <p>
+                Response Time:{' '}
+                <span className='opacity-75 font-semibold'>
+                  {formatDuration(responseMetrics.totalResponseTime)}
+                </span>
+              </p>
+            </div>
+          ) : (
+            'No metrics available'
+          )}
+        </div>
+      ) : (
+        <div
+          className='absolute top-full mt-2 left-1/2 -translate-x-1/2
+             opacity-0 group-hover:opacity-100 pointer-events-none
+             bg-black text-white text-xs rounded px-2 py-1
+             transition-opacity duration-200 whitespace-nowrap'
+        >
+          {loading && type === 'retry' ? 'Retrying...' : tooltip}
+        </div>
+      )}
+    </div>
+  )
+}
