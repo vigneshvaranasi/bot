@@ -6,3 +6,5 @@ __pycache__/
 ToDo.md
 
 benchmarks/
+
+.pytest_cache

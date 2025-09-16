@@ -11,7 +11,7 @@ from src.api.schemas import ChatCreate, ChatResponse, ChatListItem, ChatListResp
 from src.api.utils.auth import get_current_user
 from src.support_bot.crew import support_crew, conversation_summary_crew, conversation_title_generation_crew, create_support_crew, create_conversation_summary_crew, create_conversation_title_crew
 from src.support_bot.utils.formatting import sanitize_markdown_output
-from src.support_bot.runner import run_support_with_emitter
+from src.support_bot.runner import run_support_with_emitter, run_support_with_emitter_with_fallback
 from src.support_bot.agents import configure_agents_llm
 from src.api.db_models import Setting
 from typing import List
