@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import InputBox from "../components/ui/InputBox";
@@ -10,20 +10,32 @@ import type { ChatSSEEvent } from "../handlers/chatHandler";
 import { useAuthContext } from "../hooks/useAuthContext";
 import { formatDuration,saveChatMetrics } from "../utils/metrics";
 import { saveChatToCache } from "../utils/chatCache";
+import micOn from '../assets/chat/micOn.svg'
+import micOff from '../assets/chat/micOff.svg'
 
 function ChatPage() {
   const { isSidebarOpen, setCurrentChat, triggerRefreshChats } = useSidebarContext();
   const [chatInput, setChatInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const sendBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Speech recognition states
+  const recognitionRef = useRef<any>(null);
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [hasSpeechSupport, setHasSpeechSupport] = useState<boolean>(false);
+
   const { chatId } = useParams<{ chatId: string }>();
   const { user } = useAuthContext();
   const navigate = useNavigate();
 
-  const handlePromptSend = async () => {
+  // check Web Speech API support
+  useEffect(() => {
+    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    setHasSpeechSupport(!!SR);
+  }, []);
+
+  const handlePromptSend = async (overridePrompt?: string) => {
     // console.log("Sending prompt...");
-    sendBtnRef.current?.setAttribute("disabled", "true");
-    const prompt = chatInput;
+    const prompt = (overridePrompt ?? chatInput).trim();
     // console.log("Prompt:", prompt);
     if (!prompt || !user) {
       console.error("Invalid prompt or user");
@@ -195,6 +207,60 @@ function ChatPage() {
     }
   };
 
+  // Speach recognition handler
+  const toggleDictation = () => {
+    if (!hasSpeechSupport) return;
+    if (isRecording) {
+      setIsRecording(false);
+      try {
+        recognitionRef.current?.stop?.();
+      } catch {}
+      return;
+    }
+
+    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    const recognition = new SR();
+    recognitionRef.current = recognition;
+    recognition.lang = (navigator as any).language || "en-US";
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognition.continuous = true;
+
+    const baseText = chatInput.trim();
+    let finalTranscript = "";
+
+    recognition.onstart = () => {
+      setIsRecording(true);
+    };
+    recognition.onerror = (event: any) => {
+      console.warn("Speech recognition error:", event?.error || event);
+    };
+    recognition.onresult = (event: any) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const res = event.results[i];
+        const text = res[0]?.transcript ?? "";
+        if (res.isFinal) finalTranscript += text;
+        else interim += text;
+      }
+      const composed = [baseText, finalTranscript, interim].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+      setChatInput(composed);
+    };
+    recognition.onend = () => {
+      setIsRecording(false);
+      const composed = [baseText, finalTranscript].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+      if (composed) setChatInput(composed);
+    };
+
+    try {
+      recognition.start();
+    } catch (e) {
+      console.warn("Unable to start speech recognition:", e);
+      setIsRecording(false);
+    }
+  };
+
   return (
     <div className={`flex h-screen`}>
       <Sidebar />
@@ -212,11 +278,12 @@ function ChatPage() {
                 setChatInput(value);
               }}
               value={chatInput}
-              placeholder="Type your message..."
+              placeholder={isRecording ? "Listening… release mic to edit" : "Type your message..."}
               variant="multiline"
               backgroundColor="f9fafb"
               rows={1}
               maxHeight={180}
+              readOnly={isRecording}
               // Enter -> Send
               // onKeyDown={(e) => {
               //   if (e.key === 'Enter' && !e.shiftKey) {
@@ -227,11 +294,22 @@ function ChatPage() {
               //   }
               // }}
             />
+            {hasSpeechSupport && (
+              <Button
+                variant='secondary'
+                onClick={toggleDictation}
+                disabled={isLoading}
+                className={`flex-none h-11 rounded-xl mb-1.5 flex items-center justify-center ${isRecording ? 'animate-pulse' : ''}`}
+              >
+                {
+                  !isRecording ? <img src={micOn} alt="Stop dictation" className="w-5" /> : <img src={micOff} alt="Start dictation" className="w-5" />
+                }
+              </Button>
+            )}
             <Button
-              ref={sendBtnRef}
               variant="secondary"
-              onClick={handlePromptSend}
-              disabled={isLoading || !chatInput.trim()}
+              onClick={() => handlePromptSend()}
+              disabled={isRecording || isLoading || !chatInput.trim()}
               className="flex-none py-0 px-4 h-11 rounded-xl mb-1.5"
             >
               Send
