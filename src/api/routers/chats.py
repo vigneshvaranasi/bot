@@ -1,6 +1,6 @@
 from sqlalchemy import asc
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -67,6 +67,7 @@ async def get_user_chats(
 @router.post("/prompt")
 async def get_chat_prompt(
     request: ChatPromptRequest,
+    http_request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
@@ -78,6 +79,14 @@ async def get_chat_prompt(
 
     def sse(event: str, data: str) -> str:
         return f"event: {event}\ndata: {data}\n\n"
+    
+    async def is_client_connected() -> bool:
+        """Check if the client is still connected"""
+        try:
+            # Check if the client connection is still active
+            return not await http_request.is_disconnected()
+        except Exception:
+            return False
     
     isContextPresent = bool(request.chatId)
     guard = PromptGuardrail()
@@ -136,6 +145,12 @@ async def get_chat_prompt(
 
                 async def pump_events(task: asyncio.Task):
                     while True:
+                        # Check if client is still connected
+                        if not await is_client_connected():
+                            task.cancel()
+                            yield sse("error", "Request cancelled by client")
+                            return
+                        
                         if task.done() and queue.empty():
                             break
                         try:
@@ -145,11 +160,22 @@ async def get_chat_prompt(
                             yield sse(event, data)
                         except asyncio.TimeoutError:
                             continue
+                        except asyncio.CancelledError:
+                            yield sse("error", "Request cancelled")
+                            return
 
                 crew_task = asyncio.create_task(kickoff_support_with_events(inputs, emitter))
-                async for chunk in pump_events(crew_task):
-                    yield chunk
-                bot_response = await crew_task
+                try:
+                    async for chunk in pump_events(crew_task):
+                        yield chunk
+                    bot_response = await crew_task
+                except asyncio.CancelledError:
+                    yield sse("error", "Request cancelled by user")
+                    return
+                except Exception as e:
+                    crew_task.cancel()
+                    yield sse("error", f"Processing error: {str(e)}")
+                    return
 
                 yield sse("status", "Processing")
                 title = await generate_title_from_prompt(request.prompt)
@@ -202,6 +228,12 @@ async def get_chat_prompt(
 
                 async def pump_events(task: asyncio.Task):
                     while True:
+                        # Check if client is still connected
+                        if not await is_client_connected():
+                            task.cancel()
+                            yield sse("error", "Request cancelled by client")
+                            return
+                        
                         if task.done() and queue.empty():
                             break
                         try:
@@ -211,11 +243,22 @@ async def get_chat_prompt(
                             yield sse(event, data)
                         except asyncio.TimeoutError:
                             continue
+                        except asyncio.CancelledError:
+                            yield sse("error", "Request cancelled")
+                            return
 
                 crew_task = asyncio.create_task(kickoff_support_with_events(inputs, emitter))
-                async for chunk in pump_events(crew_task):
-                    yield chunk
-                bot_response = await crew_task
+                try:
+                    async for chunk in pump_events(crew_task):
+                        yield chunk
+                    bot_response = await crew_task
+                except asyncio.CancelledError:
+                    yield sse("error", "Request cancelled by user")
+                    return
+                except Exception as e:
+                    crew_task.cancel()
+                    yield sse("error", f"Processing error: {str(e)}")
+                    return
 
                 yield sse("status", "Processing")
 

@@ -63,6 +63,20 @@ function ChatPage() {
             ),
           }));
         }
+        
+        // Handle cancellation events from backend
+        if (evt.event === 'error' && typeof evt.data === 'string') {
+          if (evt.data.includes('cancelled') || evt.data.includes('Request cancelled')) {
+            setCurrentChat((prevChat:any) => ({
+              ...prevChat,
+              allMessages: prevChat?.allMessages?.map((m:any) =>
+                m.id === newMessageId ? { ...m, botMessage: "Request stopped by user" } : m
+              ),
+            }));
+            setIsLoading(false);
+            return; // Stop processing further events
+          }
+        }
       },
       abortControllerRef.current
       );

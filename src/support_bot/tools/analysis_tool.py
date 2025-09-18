@@ -15,15 +15,27 @@ class IncidentAnalysisTool(BaseTool):
 
     def _run(self, incident_data: str) -> str:
         """
-        Analyze incident data to extract key insights
+        Analyze incident data to extract key insights.
+        Supports cancellation via _cancelled attribute.
         """
+        # Check for cancellation before starting
+        if hasattr(self, '_cancelled') and callable(self._cancelled) and self._cancelled():
+            return "Analysis cancelled by user"
+        
         if self._emit:
             try:
+                # Check for cancellation before emitting
+                if hasattr(self, '_cancelled') and callable(self._cancelled) and self._cancelled():
+                    return "Analysis cancelled by user"
                 self._emit("tool:start", {"tool": "analysis"})
             except Exception:
                 pass
         else:
             print(f"--- Analyzing incident data patterns ---")
+        
+        # Check for cancellation before analysis
+        if hasattr(self, '_cancelled') and callable(self._cancelled) and self._cancelled():
+            return "Analysis cancelled by user"
         
         try:
             # Extract incident IDs
@@ -37,6 +49,10 @@ class IncidentAnalysisTool(BaseTool):
             
             # Extract timelines
             timelines = re.findall(r'timeline: ([^.]+\.)', incident_data)
+            
+            # Check for cancellation before building report
+            if hasattr(self, '_cancelled') and callable(self._cancelled) and self._cancelled():
+                return "Analysis cancelled by user"
             
             # Build analysis report
             analysis = f"""
@@ -56,6 +72,10 @@ TYPICAL RESOLUTION TIMELINE PATTERNS:
 """
             
             result = analysis
+            
+            # Final cancellation check
+            if hasattr(self, '_cancelled') and callable(self._cancelled) and self._cancelled():
+                return "Analysis cancelled by user"
             
         except Exception as e:
             result = f"Error analyzing incident data: {str(e)}"

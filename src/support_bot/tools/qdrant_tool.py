@@ -90,11 +90,19 @@ class QdrantIncidentDataTool(BaseTool):
         """
         Run the tool. Accepts either a plain string or a dict-like payload and
         normalizes it to a search string to be resilient to LLM/tool-caller quirks.
+        Supports cancellation via _cancelled attribute.
         """
+        # Check for cancellation before starting
+        if hasattr(self, '_cancelled') and callable(self._cancelled) and self._cancelled():
+            return "Search cancelled by user"
+        
         # Normalize input into a plain string query
         query = self._normalize_argument(argument)
         if self._emit:
             try:
+                # Check for cancellation before emitting
+                if hasattr(self, '_cancelled') and callable(self._cancelled) and self._cancelled():
+                    return "Search cancelled by user"
                 self._emit("tool:start", {"tool": "qdrant", "query": query})
             except Exception:
                 pass
@@ -104,11 +112,19 @@ class QdrantIncidentDataTool(BaseTool):
         if not query:
             return "Error: No valid search query provided to Qdrant Incident Data Retriever."
 
+        # Check for cancellation before search
+        if hasattr(self, '_cancelled') and callable(self._cancelled) and self._cancelled():
+            return "Search cancelled by user"
+
         # Use Qdrant if available, otherwise fall back to JSON search
         if self._use_qdrant and self._client and self._embedding_generator:
             result = self._search_qdrant(query)
         else:
             result = self._search_json_fallback(query)
+
+        # Check for cancellation before finishing
+        if hasattr(self, '_cancelled') and callable(self._cancelled) and self._cancelled():
+            return "Search cancelled by user"
 
         if self._emit:
             try:
@@ -165,6 +181,10 @@ class QdrantIncidentDataTool(BaseTool):
     def _search_qdrant(self, argument: str) -> str:
         """Search using Qdrant vector database"""
         try:
+            # Check for cancellation before starting
+            if hasattr(self, '_cancelled') and callable(self._cancelled) and self._cancelled():
+                return "Search cancelled by user"
+            
             # Determine collection vector size to match dimensions
             collection_size = None
             try:
@@ -175,6 +195,10 @@ class QdrantIncidentDataTool(BaseTool):
                     collection_size = None
             except Exception:
                 collection_size = None
+
+            # Check for cancellation before embedding generation
+            if hasattr(self, '_cancelled') and callable(self._cancelled) and self._cancelled():
+                return "Search cancelled by user"
 
             # Generate embedding for the search query with matching dimensions
             if collection_size in (3072, 384) and hasattr(self._embedding_generator, 'generate_embedding_with_dimensions'):
@@ -192,6 +216,10 @@ class QdrantIncidentDataTool(BaseTool):
             if not query_embedding:
                 return f"Error: Could not generate embedding for query: '{argument}'"
             
+            # Check for cancellation before Qdrant search
+            if hasattr(self, '_cancelled') and callable(self._cancelled) and self._cancelled():
+                return "Search cancelled by user"
+            
             # Search in Qdrant
             search_results = self._client.search(
                 collection_name=self._collection_name,
@@ -202,6 +230,10 @@ class QdrantIncidentDataTool(BaseTool):
             
             if not search_results:
                 return f"No relevant incidents found for query: '{argument}'"
+            
+            # Check for cancellation before processing results
+            if hasattr(self, '_cancelled') and callable(self._cancelled) and self._cancelled():
+                return "Search cancelled by user"
             
             # Format the results
             # Sort by date extracted from incident_id (PAYU-INC-YYYY-MM-DD-XXX) if possible
