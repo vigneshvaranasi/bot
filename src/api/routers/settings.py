@@ -15,9 +15,12 @@ async def health_check():
 @router.post("/", response_model=SettingResponse, status_code=status.HTTP_201_CREATED)
 async def create_setting(setting: SettingCreate, db: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_user)):
     # Check the last setting to avoid creating duplicates
-    result = await db.execute(select(Setting).order_by(Setting.updated_at.desc()))
+    result = await db.execute(
+        select(Setting)
+        .order_by(Setting.updated_at.desc())
+        .limit(1)
+    )
     last_setting = result.scalars().first()
-    
     
     # Compare with the new setting
     if last_setting and (
@@ -26,6 +29,7 @@ async def create_setting(setting: SettingCreate, db: AsyncSession = Depends(get_
         last_setting.temperature == setting.temperature
     ):
         # No change, return the existing last setting
+        print("No changes detected, returning existing setting with deny_words:", last_setting.deny_words)
         return last_setting
     
     # Create new setting if different
@@ -38,11 +42,16 @@ async def create_setting(setting: SettingCreate, db: AsyncSession = Depends(get_
     db.add(new_setting)
     await db.commit()
     await db.refresh(new_setting)
+    print("Created new setting with deny_words:", new_setting.deny_words)
     return new_setting
 
 @router.get("/", response_model=SettingResponse)
 async def get_latest_setting(db: AsyncSession = Depends(get_session)):
-    result = await db.execute(select(Setting).order_by(Setting.updated_at.desc()))
+    result = await db.execute(
+        select(Setting)
+        .order_by(Setting.updated_at.desc())
+        .limit(1)
+    )
     setting = result.scalars().first()
     if not setting:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No settings found")
@@ -56,7 +65,11 @@ async def list_settings(db: AsyncSession = Depends(get_session)):
 
 @router.get("/last", response_model=SettingResponse)
 async def get_last_setting(db: AsyncSession = Depends(get_session)):
-    result = await db.execute(select(Setting).order_by(Setting.updated_at.desc()))
+    result = await db.execute(
+        select(Setting)
+        .order_by(Setting.updated_at.desc())
+        .limit(1)
+    )
     setting = result.scalars().first()
     if not setting:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No settings found")
@@ -64,13 +77,26 @@ async def get_last_setting(db: AsyncSession = Depends(get_session)):
 
 @router.put("/rollback", response_model=SettingResponse)
 async def rollback_setting(db: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_user)):
-    result = await db.execute(select(Setting).order_by(Setting.updated_at.desc()))
+    # Get the latest setting
+    result = await db.execute(
+        select(Setting)
+        .order_by(Setting.updated_at.desc())
+        .limit(1)
+    )
     setting = result.scalars().first()
     if not setting:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No settings found")
+    
+    # Delete the latest setting
     await db.delete(setting)
     await db.commit()
-    result = await db.execute(select(Setting).order_by(Setting.updated_at.desc()))
+    
+    # Get the new latest setting (after deletion)
+    result = await db.execute(
+        select(Setting)
+        .order_by(Setting.updated_at.desc())
+        .limit(1)
+    )
     setting = result.scalars().first()
     if not setting:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No previous settings found")
