@@ -6,17 +6,21 @@ import thumbsDownIcon from '../../assets/chat-actions/thumbsDown.svg'
 import thumbsDownFilledIcon from '../../assets/chat-actions/thumbsDownfill.svg'
 import copyIcon from '../../assets/chat-actions/copy.svg'
 import tickIcon from '../../assets/chat-actions/tick.svg'
+import speakerIcon from '../../assets/chat-actions/speaker.svg'
+import stopIcon from '../../assets/chat-actions/stop.svg'
 import type { ResponseMetrics } from '../../utils/metrics'
 
 import { formatDuration } from '../../utils/metrics'
 
 interface ChatActionButtonProps {
-  type: 'retry' | 'thumbsUp' | 'thumbsDown' | 'metrics' | 'copy'
+  type: 'retry' | 'thumbsUp' | 'thumbsDown' | 'metrics' | 'copy' | 'speaker'
   active?: boolean
   loading?: boolean
   onClick?: () => void
   responseMetrics?: ResponseMetrics
   content?: string
+  isSpeaking?: boolean
+  onSpeakToggle?: () => void
 }
 
 const icons: Record<string, { default?: string; active?: string }> = {
@@ -24,14 +28,17 @@ const icons: Record<string, { default?: string; active?: string }> = {
   thumbsUp: { default: thumbsUpIcon, active: thumbsUpFilledIcon },
   thumbsDown: { default: thumbsDownIcon, active: thumbsDownFilledIcon },
   copy: { default: copyIcon, active: tickIcon },
-  metrics: { default: retryIcon }
+  metrics: { default: retryIcon },
+  speaker: { default: speakerIcon, active: stopIcon}
 }
 
-const tooltips: Record<string, string> = {
-  retry: 'Retry',
-  thumbsUp: 'Like',
-  thumbsDown: 'Dislike',
-  copy: 'Copy'
+const tooltips: Record<string, { default: string; active?: string }> = {
+  retry: { default: 'Retry' },
+  thumbsUp: { default: 'Like' },
+  thumbsDown: { default: 'Dislike' },
+  copy: { default: 'Copy' },
+  metrics: { default: 'Metrics' },
+  speaker: { default: 'Read Aloud', active: 'Stop Reading' },
 }
 
 export const ChatAction: React.FC<ChatActionButtonProps> = ({
@@ -40,15 +47,19 @@ export const ChatAction: React.FC<ChatActionButtonProps> = ({
   loading,
   onClick,
   responseMetrics,
-  content
+  content,
+  isSpeaking,
+  onSpeakToggle
 }) => {
   const [active, setActive] = useState(false)
   const resetTimerRef = useRef<number | null>(null)
 
   const iconSet = icons[type]
-  const tooltip = tooltips[type]
+  const tooltipSet = tooltips[type]
 
-  const isActive = type === 'retry' ? false : activeProp ?? active
+  const isActive = type === 'retry' ? false : type === 'speaker' ? (isSpeaking ?? false) : activeProp ?? active
+
+  const tooltip = type === 'speaker' && isActive && tooltipSet.active ? tooltipSet.active : tooltipSet.default
 
   const icon =
     type === 'retry'
@@ -65,6 +76,10 @@ export const ChatAction: React.FC<ChatActionButtonProps> = ({
       }
       if (resetTimerRef.current) window.clearTimeout(resetTimerRef.current)
       resetTimerRef.current = window.setTimeout(() => setActive(false), 2000)
+    } else if (type === 'speaker') {
+      if (onSpeakToggle) {
+        onSpeakToggle()
+      }
     } else if (type !== 'retry') {
       setActive(prev => !prev)
     }
