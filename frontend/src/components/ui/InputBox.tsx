@@ -16,6 +16,8 @@ type InputBoxProps = {
   min?: number
   max?: number
   step?: number
+  disabled?: boolean
+  readOnly?: boolean
 }
 
 const variantClasses: Record<'primary' | 'multiline', string> = {
@@ -38,11 +40,14 @@ const InputBox = ({
   maxHeight = 200,
   min,
   max,
-  step
+  step,
+  disabled = false,
+  readOnly = false
 }: InputBoxProps) => {
   const variantClass = variantClasses[variant]
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
   const [isOverflowing, setIsOverflowing] = useState(false)
+  const isNonEditable = disabled || readOnly
 
   // Auto resize textarea height based on content
   useEffect(() => {
@@ -58,6 +63,10 @@ const InputBox = ({
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
+    if (isNonEditable) {
+      e.preventDefault()
+      return
+    }
     if (variant === 'multiline' && e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       onKeyDown?.(e)
@@ -85,9 +94,13 @@ const InputBox = ({
           onChange={e => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
           rows={rows}
+          readOnly={readOnly}
+          disabled={disabled}
+          aria-readonly={readOnly}
+          aria-disabled={disabled}
           className={`w-full px-3 py-2.5 leading-6 placeholder-gray-400 focus:outline-none transition ${
             icon ? 'pl-10' : ''
-          } ${variantClass} resize-none min-h-[44px] ${autoGrow ? (isOverflowing ? 'overflow-y-auto' : 'overflow-y-hidden') : ''}`}
+          } ${variantClass} resize-none min-h-[44px] ${autoGrow ? (isOverflowing ? 'overflow-y-auto' : 'overflow-y-hidden') : ''} ${isNonEditable ? 'cursor-not-allowed' : ''}`}
           style={{
             backgroundColor: `#${backgroundColor}`,
             maxHeight: autoGrow ? `${maxHeight}px` : undefined
@@ -103,7 +116,11 @@ const InputBox = ({
           step={step}
           min={min}
           max={max}
-          className={`w-full px-2 py-2 focus:outline-none transition ${icon ? 'pl-10' : ''} ${variantClass}`}
+          readOnly={readOnly}
+          disabled={disabled}
+          aria-readonly={readOnly}
+          aria-disabled={disabled}
+          className={`w-full px-2 py-2 focus:outline-none transition ${icon ? 'pl-10' : ''} ${variantClass} ${isNonEditable ? 'cursor-not-allowed' : ''}`}
           style={{ backgroundColor: `#${backgroundColor}` }}
         />
       )}
