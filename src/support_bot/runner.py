@@ -21,7 +21,10 @@ class CancellableCrewRunner:
     
     def cancel(self):
         """Mark the execution as cancelled."""
+        print("🛑 CANCELLATION REQUEST - User interrupted the crew execution")
+        print("⏹️  Stopping AI agents and cleaning up resources...")
         self.cancelled = True
+        print("✅ Cancellation signal sent to crew execution")
     
     def run_crew(self, inputs: Dict[str, Any], emitter: Callable[[str, Any], None]):
         """Run the crew in a separate thread."""
@@ -87,9 +90,13 @@ class CancellableCrewRunner:
             
         except Exception as e:
             if self.cancelled or "cancelled" in str(e).lower():
+                print("🛑 CREW EXECUTION CANCELLED - Process interrupted by user")
+                print("🧹 Cleaning up AI resources and agents...")
                 emitter("status", {"phase": "crew:cancelled"})
-                self.result = "Request cancelled by user"
+                self.result = "🛑 Process stopped by user. Ready for next question!"
+                print("✅ Crew execution cleanup complete, system ready for next chat")
             else:
+                print(f"❌ Crew execution failed with error: {str(e)}")
                 self.exception = e
 
 
@@ -131,6 +138,7 @@ async def run_support_with_emitter(inputs: Dict[str, Any], emitter: Callable[[st
         
     except asyncio.CancelledError:
         # Client disconnected - cancel the crew execution
+        print("🛑 CLIENT DISCONNECTED - Stopping crew execution")
         emitter("status", {"phase": "crew:cancelling"})
         runner.cancel()
         
@@ -139,10 +147,12 @@ async def run_support_with_emitter(inputs: Dict[str, Any], emitter: Callable[[st
         
         # Force terminate if still running
         if thread.is_alive():
+            print("⚠️  Force stopping crew execution (timeout exceeded)")
             emitter("status", {"phase": "crew:force_stopped"})
         
         emitter("status", {"phase": "crew:cancelled"})
-        return "Request cancelled by user"
+        print("✅ Crew execution fully stopped, ready for next chat")
+        return "🛑 Process stopped by user. Ready for next question!"
 
 
 # Legacy function for backward compatibility

@@ -66,14 +66,16 @@ function ChatPage() {
         
         // Handle cancellation events from backend
         if (evt.event === 'error' && typeof evt.data === 'string') {
-          if (evt.data.includes('cancelled') || evt.data.includes('Request cancelled')) {
+          if (evt.data.includes('stopped by user') || evt.data.includes('cancelled') || evt.data.includes('Process stopped')) {
+            console.log("🛑 Backend confirmed process stopped by user");
             setCurrentChat((prevChat:any) => ({
               ...prevChat,
               allMessages: prevChat?.allMessages?.map((m:any) =>
-                m.id === newMessageId ? { ...m, botMessage: "Request stopped by user" } : m
+                m.id === newMessageId ? { ...m, botMessage: evt.data } : m
               ),
             }));
             setIsLoading(false);
+            console.log("✅ UI updated with cancellation message, ready for next chat");
             return; // Stop processing further events
           }
         }
@@ -122,9 +124,24 @@ function ChatPage() {
 
   const handleStop = () => {
     if (abortControllerRef.current) {
+      console.log("🛑 STOP BUTTON CLICKED - User interrupting the process");
+      console.log("⏹️  Aborting current request and preparing for next chat...");
       abortControllerRef.current.abort();
       setIsLoading(false);
-      console.log("Request aborted by user");
+      
+      // Add visual feedback in the UI
+      setCurrentChat((prevChat:any) => ({
+        ...prevChat,
+        allMessages: prevChat?.allMessages?.map((m:any) => {
+          // Find the last message that's still loading
+          if (m.botMessage === "" || m.botMessage === undefined) {
+            return { ...m, botMessage: "🛑 Process stopped by user. Ready for next question!" };
+          }
+          return m;
+        }),
+      }));
+      
+      console.log("✅ System ready for next chat");
     }
   };
 
