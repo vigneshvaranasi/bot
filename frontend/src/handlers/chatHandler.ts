@@ -214,3 +214,19 @@ export const getChatMessagesById = async (token: string, chatId: string) => {
   const data = await response.json();
   return data.messages;
 };
+
+export const archiveChatById = async (token: string, chatId: string) => {
+  const headers = new Headers();
+  headers.append("Authorization", `Bearer ${token}`);
+  headers.append("Content-Type", "application/json");
+  
+  const response = await fetch(`${BE_URL}/chats/archive/${chatId}`, {
+    method: "DELETE",
+    headers,
+  });
+  if (!response.ok) {
+    throw new Error("Failed to archive chat");
+  }
+  const data = await response.json();
+  return data;
+};
