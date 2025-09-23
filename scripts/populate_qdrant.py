@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 import sys
 import argparse
+from pathlib import Path
 
 # Add the src directory to the path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -54,7 +55,7 @@ def simple_text_embedding(text, dimensions=384):
     
     return embedding[:dimensions]
 
-def populate_qdrant_with_incidents(use_gemini=False):
+def populate_qdrant_with_incidents(use_gemini=False, collection_name: str = "incident_data", recreate: bool = False, data_file: str | None = None, verbose: bool = False):
     if not QDRANT_AVAILABLE:
         print("Qdrant client not available. Cannot proceed.")
         return
@@ -99,15 +100,22 @@ def populate_qdrant_with_incidents(use_gemini=False):
         use_sentence_transformers = False
         embedding_dimensions = 3072 if use_gemini else 384
     
-    # Collection name
-    collection_name = "incident_data"
     
     try:
         # Create collection if it doesn't exist
         try:
-            client.get_collection(collection_name)
+            info = client.get_collection(collection_name)
+            current_dim = getattr(getattr(getattr(info, 'config', None), 'params', None), 'vectors', None).size if info else None
+            if recreate:
+                print(f"Recreating collection '{collection_name}'")
+                client.delete_collection(collection_name)
+                raise Exception("recreate")
+            if current_dim is not None and current_dim != embedding_dimensions:
+                print(f"Dimension mismatch ({current_dim} != {embedding_dimensions}), recreating '{collection_name}'")
+                client.delete_collection(collection_name)
+                raise Exception("recreate")
             print(f"Collection '{collection_name}' already exists")
-        except:
+        except Exception:
             print(f"Creating collection '{collection_name}'")
             client.create_collection(
                 collection_name=collection_name,
@@ -115,7 +123,10 @@ def populate_qdrant_with_incidents(use_gemini=False):
             )
         
         # Load incidents data
-        incidents_path = os.path.join(current_dir, "..", "data", "incidents.json")
+        if data_file:
+            incidents_path = data_file
+        else:
+            incidents_path = os.path.join(current_dir, "..", "data", "incidents.json")
         with open(incidents_path, 'r', encoding='utf-8') as file:
             incidents_data = json.load(file)
         
@@ -166,9 +177,34 @@ def populate_qdrant_with_incidents(use_gemini=False):
         print(f"Error populating Qdrant: {str(e)}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Populate Qdrant database with incident data')
+    parser = argparse.ArgumentParser(
+        description='Populate Qdrant database with incident data'
+    )
     parser.add_argument('--gemini', action='store_true', 
                        help='Use Gemini embeddings instead of Sentence Transformers')
+    parser.add_argument('--collection', default='incident_data',
+                       help='Qdrant collection name (default: incident_data)')
+    parser.add_argument('--recreate', action='store_true',
+                       help='Recreate the collection if it exists')
+    parser.add_argument('--data-file', '--file', dest='data_file', type=str,
+                       help='Path to custom incidents JSON file (or use --file)')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                       help='Enable verbose output')
+
     args = parser.parse_args()
+
+    if args.verbose:
+        print("Starting Qdrant population...")
+        print(f" - Embeddings: {'Gemini' if args.gemini else 'Sentence Transformers or fallback'}")
+        print(f" - Collection: {args.collection}")
+        print(f" - Recreate: {args.recreate}")
+        if args.data_file:
+            print(f" - Data file: {args.data_file}")
     
-    populate_qdrant_with_incidents(use_gemini=args.gemini)
+    populate_qdrant_with_incidents(
+        use_gemini=args.gemini,
+        collection_name=args.collection,
+        recreate=args.recreate,
+        data_file=args.data_file,
+        verbose=args.verbose,
+    )

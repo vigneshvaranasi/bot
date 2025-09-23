@@ -57,12 +57,48 @@ def simple_text_embedding(text: str, dimensions: int = 384) -> List[float]:
     return embedding[:dimensions]
 
 
+def get_repo_root(start: Optional[Path] = None) -> Path:
+    """Find the repository root by walking up until we see pyproject.toml or data/
+    """
+    start_path = (start or Path(__file__)).resolve()
+    for parent in [start_path] + list(start_path.parents):
+        if (parent / "pyproject.toml").exists() or (parent / "data").is_dir():
+            return parent
+    # Fallbacks
+    try:
+        return Path(__file__).resolve().parents[3]
+    except Exception:
+        return Path.cwd()
+
+
 def get_incidents_data_path() -> Path:
-    """Get the path to the incidents data file."""
-    current_dir = Path(__file__).parent
-    # Navigate from src/support_bot/scripts/ to data/
-    data_path = current_dir.parent.parent.parent / "data" / "incidents.json"
-    return data_path
+    """Get the default path to the incidents data file under repo data/."""
+    repo_root = get_repo_root()
+    return repo_root / "data" / "incidents.json"
+
+
+def resolve_data_file_path(data_file: Optional[str]) -> Path:
+    """Resolve the data file path.
+    """
+    repo_root = get_repo_root()
+    data_dir = repo_root / "data"
+    if not data_file:
+        return data_dir / "incidents.json"
+
+    candidate = Path(data_file)
+    if candidate.exists():
+        return candidate
+    
+    under_data = data_dir / data_file
+    if under_data.exists():
+        return under_data
+
+    if under_data.suffix == "":
+        with_json = under_data.with_suffix(".json")
+        if with_json.exists():
+            return with_json
+
+    return under_data
 
 
 def populate_qdrant_with_incidents(
@@ -171,10 +207,7 @@ def populate_qdrant_with_incidents(
             )
         
         # Load incidents data
-        if data_file:
-            incidents_path = Path(data_file)
-        else:
-            incidents_path = get_incidents_data_path()
+        incidents_path = resolve_data_file_path(data_file)
         
         if not incidents_path.exists():
             print(f"❌ Data file not found: {incidents_path}")
@@ -244,12 +277,13 @@ def main():
     parser = argparse.ArgumentParser(
         description='Populate Qdrant database with incident data',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+      epilog="""
 Examples:
   uv run populate-qdrant                    # Use Sentence Transformers
   uv run populate-qdrant --gemini           # Use Gemini embeddings
   uv run populate-qdrant --gemini --recreate # Recreate collection with Gemini
   uv run populate-qdrant --collection mydata # Use custom collection name
+  uv run populate-qdrant --gemini --file data/filename.json
         """
     )
     
@@ -269,9 +303,10 @@ Examples:
         help='Recreate the collection if it exists'
     )
     parser.add_argument(
-        '--data-file',
+        '--data-file', '--file',
+        dest='data_file',
         type=str,
-        help='Path to custom incidents JSON file'
+        help='Path to custom incidents JSON file (or use --file)'
     )
     parser.add_argument(
         '--verbose', '-v',

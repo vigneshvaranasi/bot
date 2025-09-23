@@ -1,0 +1,502 @@
+[
+  {
+    "Incident ID": "USBC-INC-2025-01-01-001",
+    "Main Issue": "ACH File Processing Delay Due to Network Latency",
+    "text": "incidentId: USBC-INC-2025-01-01-001\nexecutiveSummary: On January 1, 2025, high network latency caused delays in ACH file processing, resulting in a 30-minute backlog of transactions. This impacted payroll and bill payments for small businesses.\nimpact: Delayed 8,000 ACH transactions, affecting 200 clients.\nimpactedTransactions: ACH batch payments\npsdiiReportable: False\nimpactedApplication: ACH Processing System\naccountableParty: Network Provider\nrepeatIncident: False\nrootCause: ISP routing issue during peak traffic.\nmitigation: Switched to backup network path and monitored latency.\ntimeline: Discovery: 2025-01-01 08:00; Escalation: 2025-01-01 08:15; Resolution: 2025-01-01 08:45\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-02-002",
+    "Main Issue": "Fedwire Message Routing Error",
+    "text": "incidentId: USBC-INC-2025-01-02-002\nexecutiveSummary: A routing configuration error in the Fedwire system on January 2, 2025, misdirected high-value transfers, causing temporary holds on $200 million in transactions.\nimpact: Affected 500 Fedwire transfers, impacting 100 institutional clients.\nimpactedTransactions: Fedwire wire transfers\npsdiiReportable: True\nimpactedApplication: Fedwire Core System\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Manual configuration change error in routing table.\nmitigation: Corrected routing rules and validated with test transactions.\ntimeline: Discovery: 2025-01-02 09:00; Escalation: 2025-01-02 09:10; Resolution: 2025-01-02 09:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-03-003",
+    "Main Issue": "Mobile App Login Timeout",
+    "text": "incidentId: USBC-INC-2025-01-03-003\nexecutiveSummary: On January 3, 2025, the mobile app experienced login timeouts due to server overload, preventing 20,000 users from accessing their accounts.\nimpact: Impacted 20,000 users, leading to 500 support calls.\nimpactedTransactions: Mobile login\npsdiiReportable: False\nimpactedApplication: Mobile Banking App\naccountableParty: Bank Internal Team\nrepeatIncident: True\nrootCause: Insufficient server capacity during login surge.\nmitigation: Scaled up server instances and implemented load balancing.\ntimeline: Discovery: 2025-01-03 10:00; Escalation: 2025-01-03 10:05; Resolution: 2025-01-03 10:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-04-004",
+    "Main Issue": "Core Banking Database Corruption",
+    "text": "incidentId: USBC-INC-2025-01-04-004\nexecutiveSummary: Database corruption in the core banking system on January 4, 2025, led to inaccurate balance displays for 50,000 accounts.\nimpact: Affected 50,000 accounts, causing confusion and potential overdrafts.\nimpactedTransactions: Balance inquiries\npsdiiReportable: False\nimpactedApplication: Core Banking Platform\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Disk failure in database storage.\nmitigation: Restored from backup and replaced faulty hardware.\ntimeline: Discovery: 2025-01-04 11:00; Escalation: 2025-01-04 11:15; Resolution: 2025-01-04 12:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-05-005",
+    "Main Issue": "Fraud Alert False Positive",
+    "text": "incidentId: USBC-INC-2025-01-05-005\nexecutiveSummary: On January 5, 2025, the fraud service flagged 1,000 legitimate transactions as suspicious, requiring manual verification.\nimpact: Delayed 1,000 transactions, impacting 800 customers.\nimpactedTransactions: Online transfers\npsdiiReportable: False\nimpactedApplication: Fraud Detection Service\naccountableParty: Vendor\nrepeatIncident: True\nrootCause: Algorithm sensitivity miscalibration.\nmitigation: Adjusted fraud thresholds and monitored.\ntimeline: Discovery: 2025-01-05 12:00; Escalation: 2025-01-05 12:10; Resolution: 2025-01-05 12:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-06-006",
+    "Main Issue": "API Gateway Rate Limiting Issue",
+    "text": "incidentId: USBC-INC-2025-01-06-006\nexecutiveSummary: Rate limiting in the API gateway on January 6, 2025, blocked legitimate API calls from third-party apps, affecting integrations.\nimpact: Blocked 5,000 API requests, impacting 50 partners.\nimpactedTransactions: API transactions\npsdiiReportable: False\nimpactedApplication: API Gateway\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Misconfigured rate limit policy.\nmitigation: Updated rate limit settings.\ntimeline: Discovery: 2025-01-06 13:00; Escalation: 2025-01-06 13:05; Resolution: 2025-01-06 13:15\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-07-007",
+    "Main Issue": "SWIFT Network Outage",
+    "text": "incidentId: USBC-INC-2025-01-07-007\nexecutiveSummary: A SWIFT network outage on January 7, 2025, halted international transfers for 2 hours.\nimpact: Affected 300 SWIFT messages, delaying global payments.\nimpactedTransactions: SWIFT transfers\npsdiiReportable: True\nimpactedApplication: SWIFT Interface\naccountableParty: Network Provider\nrepeatIncident: False\nrootCause: External network maintenance.\nmitigation: Monitored and communicated with SWIFT operators.\ntimeline: Discovery: 2025-01-07 14:00; Escalation: 2025-01-07 14:10; Resolution: 2025-01-07 16:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-08-008",
+    "Main Issue": "ATM Cash Dispensing Error",
+    "text": "incidentId: USBC-INC-2025-01-08-008\nexecutiveSummary: On January 8, 2025, ATM machines dispensed incorrect amounts due to a software glitch.\nimpact: Affected 100 ATMs, impacting 500 customers.\nimpactedTransactions: ATM withdrawals\npsdiiReportable: False\nimpactedApplication: ATM Network\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Firmware update bug.\nmitigation: Rolled back firmware and patched.\ntimeline: Discovery: 2025-01-08 15:00; Escalation: 2025-01-08 15:05; Resolution: 2025-01-08 15:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-09-009",
+    "Main Issue": "Online Banking Portal Down",
+    "text": "incidentId: USBC-INC-2025-01-09-009\nexecutiveSummary: The online banking portal was down on January 9, 2025, due to a DDoS attack.\nimpact: Affected 100,000 users, preventing online access.\nimpactedTransactions: Online banking\npsdiiReportable: False\nimpactedApplication: Online Banking Portal\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: DDoS attack on web servers.\nmitigation: Activated DDoS protection and scaled resources.\ntimeline: Discovery: 2025-01-09 16:00; Escalation: 2025-01-09 16:10; Resolution: 2025-01-09 17:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-10-010",
+    "Main Issue": "Credit Card Processing Delay",
+    "text": "incidentId: USBC-INC-2025-01-10-010\nexecutiveSummary: Delays in credit card processing on January 10, 2025, caused transaction failures at merchants.\nimpact: Failed 10,000 credit card transactions.\nimpactedTransactions: Credit card payments\npsdiiReportable: False\nimpactedApplication: Credit Card System\naccountableParty: Vendor\nrepeatIncident: True\nrootCause: Processor overload.\nmitigation: Increased processing capacity.\ntimeline: Discovery: 2025-01-10 17:00; Escalation: 2025-01-10 17:05; Resolution: 2025-01-10 17:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-11-011",
+    "Main Issue": "ACH Return File Mismatch",
+    "text": "incidentId: USBC-INC-2025-01-11-011\nexecutiveSummary: Mismatch in ACH return files on January 11, 2025, led to incorrect reversals.\nimpact: Affected 2,000 ACH returns.\nimpactedTransactions: ACH returns\npsdiiReportable: False\nimpactedApplication: ACH Processing System\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: File format parsing error.\nmitigation: Fixed parser and reprocessed files.\ntimeline: Discovery: 2025-01-11 18:00; Escalation: 2025-01-11 18:10; Resolution: 2025-01-11 18:45\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-12-012",
+    "Main Issue": "Fedwire Encryption Key Expiry",
+    "text": "incidentId: USBC-INC-2025-01-12-012\nexecutiveSummary: Expired encryption keys in Fedwire on January 12, 2025, blocked secure communications.\nimpact: Halted Fedwire for 1 hour.\nimpactedTransactions: Fedwire transfers\npsdiiReportable: True\nimpactedApplication: Fedwire Core System\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Key management oversight.\nmitigation: Renewed keys and updated policy.\ntimeline: Discovery: 2025-01-12 19:00; Escalation: 2025-01-12 19:05; Resolution: 2025-01-12 20:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-13-013",
+    "Main Issue": "Mobile App Crash on Update",
+    "text": "incidentId: USBC-INC-2025-01-13-013\nexecutiveSummary: Mobile app crashed after update on January 13, 2025, affecting user experience.\nimpact: Impacted 30,000 users.\nimpactedTransactions: Mobile app usage\npsdiiReportable: False\nimpactedApplication: Mobile Banking App\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Incompatible update.\nmitigation: Released hotfix.\ntimeline: Discovery: 2025-01-13 20:00; Escalation: 2025-01-13 20:05; Resolution: 2025-01-13 20:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-14-014",
+    "Main Issue": "Core Banking Batch Job Failure",
+    "text": "incidentId: USBC-INC-2025-01-14-014\nexecutiveSummary: Batch job failure in core banking on January 14, 2025, delayed end-of-day processing.\nimpact: Delayed processing for 1 million transactions.\nimpactedTransactions: Batch processing\npsdiiReportable: False\nimpactedApplication: Core Banking Platform\naccountableParty: Vendor\nrepeatIncident: True\nrootCause: Memory leak in job scheduler.\nmitigation: Patched scheduler.\ntimeline: Discovery: 2025-01-14 21:00; Escalation: 2025-01-14 21:10; Resolution: 2025-01-14 22:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-15-015",
+    "Main Issue": "Fraud Model Overload",
+    "text": "incidentId: USBC-INC-2025-01-15-015\nexecutiveSummary: Fraud model overload on January 15, 2025, caused slow response times.\nimpact: Slowed 5,000 fraud checks.\nimpactedTransactions: Fraud checks\npsdiiReportable: False\nimpactedApplication: Fraud Detection Service\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: High transaction volume.\nmitigation: Scaled model resources.\ntimeline: Discovery: 2025-01-15 22:00; Escalation: 2025-01-15 22:05; Resolution: 2025-01-15 22:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-16-016",
+    "Main Issue": "API Authentication Failure",
+    "text": "incidentId: USBC-INC-2025-01-16-016\nexecutiveSummary: API authentication failure on January 16, 2025, blocked third-party access.\nimpact: Affected 200 API integrations.\nimpactedTransactions: API calls\npsdiiReportable: False\nimpactedApplication: API Gateway\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Token expiry issue.\nmitigation: Refreshed tokens.\ntimeline: Discovery: 2025-01-16 23:00; Escalation: 2025-01-16 23:05; Resolution: 2025-01-16 23:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-17-017",
+    "Main Issue": "SWIFT Message Format Error",
+    "text": "incidentId: USBC-INC-2025-01-17-017\nexecutiveSummary: Format error in SWIFT messages on January 17, 2025, rejected international transfers.\nimpact: Rejected 100 SWIFT messages.\nimpactedTransactions: SWIFT transfers\npsdiiReportable: True\nimpactedApplication: SWIFT Interface\naccountableParty: Client Integration\nrepeatIncident: False\nrootCause: Incorrect format from client.\nmitigation: Provided format guidance.\ntimeline: Discovery: 2025-01-17 00:00; Escalation: 2025-01-17 00:10; Resolution: 2025-01-17 00:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-18-018",
+    "Main Issue": "ATM Network Disconnect",
+    "text": "incidentId: USBC-INC-2025-01-18-018\nexecutiveSummary: ATM network disconnect on January 18, 2025, offline 50 ATMs.\nimpact: Affected 50 ATMs.\nimpactedTransactions: ATM transactions\npsdiiReportable: False\nimpactedApplication: ATM Network\naccountableParty: Network Provider\nrepeatIncident: True\nrootCause: Network outage.\nmitigation: Restored network.\ntimeline: Discovery: 2025-01-18 01:00; Escalation: 2025-01-18 01:05; Resolution: 2025-01-18 01:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-19-019",
+    "Main Issue": "Online Portal SSL Certificate Expiry",
+    "text": "incidentId: USBC-INC-2025-01-19-019\nexecutiveSummary: SSL certificate expiry on January 19, 2025, caused browser warnings.\nimpact: Affected all online users.\nimpactedTransactions: Online access\npsdiiReportable: False\nimpactedApplication: Online Banking Portal\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Certificate renewal missed.\nmitigation: Renewed certificate.\ntimeline: Discovery: 2025-01-19 02:00; Escalation: 2025-01-19 02:05; Resolution: 2025-01-19 02:15\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-20-020",
+    "Main Issue": "Credit Card Fraud Spike",
+    "text": "incidentId: USBC-INC-2025-01-20-020\nexecutiveSummary: Fraud spike in credit cards on January 20, 2025, led to blocks.\nimpact: Blocked 500 cards.\nimpactedTransactions: Credit card transactions\npsdiiReportable: False\nimpactedApplication: Credit Card System\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Compromised data.\nmitigation: Issued new cards.\ntimeline: Discovery: 2025-01-20 03:00; Escalation: 2025-01-20 03:10; Resolution: 2025-01-20 04:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-21-021",
+    "Main Issue": "ACH File Encryption Issue",
+    "text": "incidentId: USBC-INC-2025-01-21-021\nexecutiveSummary: Encryption issue in ACH files on January 21, 2025, prevented decryption.\nimpact: Affected 10,000 ACH files.\nimpactedTransactions: ACH processing\npsdiiReportable: False\nimpactedApplication: ACH Processing System\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Key mismatch.\nmitigation: Corrected keys.\ntimeline: Discovery: 2025-01-21 04:00; Escalation: 2025-01-21 04:05; Resolution: 2025-01-21 04:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-22-022",
+    "Main Issue": "Fedwire Latency Spike",
+    "text": "incidentId: USBC-INC-2025-01-22-022\nexecutiveSummary: Latency spike in Fedwire on January 22, 2025, delayed messages.\nimpact: Delayed 1,000 messages.\nimpactedTransactions: Fedwire transfers\npsdiiReportable: True\nimpactedApplication: Fedwire Core System\naccountableParty: Network Provider\nrepeatIncident: True\nrootCause: Network congestion.\nmitigation: Optimized routing.\ntimeline: Discovery: 2025-01-22 05:00; Escalation: 2025-01-22 05:10; Resolution: 2025-01-22 05:45\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-23-023",
+    "Main Issue": "Mobile App Push Notification Failure",
+    "text": "incidentId: USBC-INC-2025-01-23-023\nexecutiveSummary: Push notification failure on January 23, 2025, in mobile app.\nimpact: Affected 40,000 users.\nimpactedTransactions: Notifications\npsdiiReportable: False\nimpactedApplication: Mobile Banking App\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Service outage.\nmitigation: Restarted service.\ntimeline: Discovery: 2025-01-23 06:00; Escalation: 2025-01-23 06:05; Resolution: 2025-01-23 06:15\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-24-024",
+    "Main Issue": "Core Banking Data Sync Error",
+    "text": "incidentId: USBC-INC-2025-01-24-024\nexecutiveSummary: Data sync error in core banking on January 24, 2025.\nimpact: Inconsistent data for 20,000 accounts.\nimpactedTransactions: Data sync\npsdiiReportable: False\nimpactedApplication: Core Banking Platform\naccountableParty: Vendor\nrepeatIncident: True\nrootCause: Sync failure.\nmitigation: Manual sync.\ntimeline: Discovery: 2025-01-24 07:00; Escalation: 2025-01-24 07:10; Resolution: 2025-01-24 08:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-25-025",
+    "Main Issue": "Fraud Detection Delay",
+    "text": "incidentId: USBC-INC-2025-01-25-025\nexecutiveSummary: Delay in fraud detection on January 25, 2025.\nimpact: Delayed checks for 3,000 transactions.\nimpactedTransactions: Fraud checks\npsdiiReportable: False\nimpactedApplication: Fraud Detection Service\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Queue backlog.\nmitigation: Increased queue capacity.\ntimeline: Discovery: 2025-01-25 08:00; Escalation: 2025-01-25 08:05; Resolution: 2025-01-25 08:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-26-026",
+    "Main Issue": "API Rate Limit Exceeded",
+    "text": "incidentId: USBC-INC-2025-01-26-026\nexecutiveSummary: Rate limit exceeded in API on January 26, 2025.\nimpact: Throttled 2,000 requests.\nimpactedTransactions: API calls\npsdiiReportable: False\nimpactedApplication: API Gateway\naccountableParty: Client Integration\nrepeatIncident: True\nrootCause: High traffic.\nmitigation: Adjusted limits.\ntimeline: Discovery: 2025-01-26 09:00; Escalation: 2025-01-26 09:05; Resolution: 2025-01-26 09:15\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-27-027",
+    "Main Issue": "SWIFT Connection Drop",
+    "text": "incidentId: USBC-INC-2025-01-27-027\nexecutiveSummary: Connection drop in SWIFT on January 27, 2025.\nimpact: Disconnected for 30 minutes.\nimpactedTransactions: SWIFT transfers\npsdiiReportable: True\nimpactedApplication: SWIFT Interface\naccountableParty: Network Provider\nrepeatIncident: False\nrootCause: Network issue.\nmitigation: Reconnected.\ntimeline: Discovery: 2025-01-27 10:00; Escalation: 2025-01-27 10:05; Resolution: 2025-01-27 10:35\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-28-028",
+    "Main Issue": "ATM Software Update Failure",
+    "text": "incidentId: USBC-INC-2025-01-28-028\nexecutiveSummary: Software update failure on ATMs January 28, 2025.\nimpact: Failed updates on 100 ATMs.\nimpactedTransactions: ATM operations\npsdiiReportable: False\nimpactedApplication: ATM Network\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Update script error.\nmitigation: Manual update.\ntimeline: Discovery: 2025-01-28 11:00; Escalation: 2025-01-28 11:05; Resolution: 2025-01-28 12:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-29-029",
+    "Main Issue": "Online Banking Session Timeout",
+    "text": "incidentId: USBC-INC-2025-01-29-029\nexecutiveSummary: Session timeout in online banking January 29, 2025.\nimpact: Logged out 10,000 users.\nimpactedTransactions: Online sessions\npsdiiReportable: False\nimpactedApplication: Online Banking Portal\naccountableParty: Bank Internal Team\nrepeatIncident: True\nrootCause: Timeout config.\nmitigation: Adjusted timeout.\ntimeline: Discovery: 2025-01-29 12:00; Escalation: 2025-01-29 12:05; Resolution: 2025-01-29 12:15\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-01-30-030",
+    "Main Issue": "Credit Card Authorization Delay",
+    "text": "incidentId: USBC-INC-2025-01-30-030\nexecutiveSummary: Authorization delay for credit cards January 30, 2025.\nimpact: Delayed 5,000 authorizations.\nimpactedTransactions: Credit card auth\npsdiiReportable: False\nimpactedApplication: Credit Card System\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Processor delay.\nmitigation: Escalated to processor.\ntimeline: Discovery: 2025-01-30 13:00; Escalation: 2025-01-30 13:10; Resolution: 2025-01-30 13:45\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-01-031",
+    "Main Issue": "ACH File Size Limit Exceeded",
+    "text": "incidentId: USBC-INC-2025-02-01-031\nexecutiveSummary: File size limit exceeded in ACH February 1, 2025.\nimpact: Rejected large files.\nimpactedTransactions: ACH batch\npsdiiReportable: False\nimpactedApplication: ACH Processing System\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Config limit.\nmitigation: Increased limit.\ntimeline: Discovery: 2025-02-01 14:00; Escalation: 2025-02-01 14:05; Resolution: 2025-02-01 14:10\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-02-032",
+    "Main Issue": "Fedwire Message Duplication",
+    "text": "incidentId: USBC-INC-2025-02-02-032\nexecutiveSummary: Message duplication in Fedwire February 2, 2025.\nimpact: Duplicated 200 messages.\nimpactedTransactions: Fedwire transfers\npsdiiReportable: True\nimpactedApplication: Fedwire Core System\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Queue issue.\nmitigation: Deduplicated.\ntimeline: Discovery: 2025-02-02 15:00; Escalation: 2025-02-02 15:05; Resolution: 2025-02-02 15:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-03-033",
+    "Main Issue": "Mobile App Biometric Failure",
+    "text": "incidentId: USBC-INC-2025-02-03-033\nexecutiveSummary: Biometric failure in mobile app February 3, 2025.\nimpact: Failed logins for 5,000 users.\nimpactedTransactions: Mobile login\npsdiiReportable: False\nimpactedApplication: Mobile Banking App\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Sensor issue.\nmitigation: Updated app.\ntimeline: Discovery: 2025-02-03 16:00; Escalation: 2025-02-03 16:05; Resolution: 2025-02-03 16:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-04-034",
+    "Main Issue": "Core Banking Audit Log Full",
+    "text": "incidentId: USBC-INC-2025-02-04-034\nexecutiveSummary: Audit log full in core banking February 4, 2025.\nimpact: Stopped logging.\nimpactedTransactions: Audit logs\npsdiiReportable: False\nimpactedApplication: Core Banking Platform\naccountableParty: Vendor\nrepeatIncident: True\nrootCause: Disk space.\nmitigation: Cleared logs.\ntimeline: Discovery: 2025-02-04 17:00; Escalation: 2025-02-04 17:05; Resolution: 2025-02-04 17:15\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-05-035",
+    "Main Issue": "Fraud Alert Configuration Error",
+    "text": "incidentId: USBC-INC-2025-02-05-035\nexecutiveSummary: Configuration error in fraud alerts February 5, 2025.\nimpact: Missed alerts for 100 transactions.\nimpactedTransactions: Fraud alerts\npsdiiReportable: False\nimpactedApplication: Fraud Detection Service\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Config mistake.\nmitigation: Corrected config.\ntimeline: Discovery: 2025-02-05 18:00; Escalation: 2025-02-05 18:05; Resolution: 2025-02-05 18:10\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-06-036",
+    "Main Issue": "API Version Mismatch",
+    "text": "incidentId: USBC-INC-2025-02-06-036\nexecutiveSummary: Version mismatch in API February 6, 2025.\nimpact: Failed 1,000 calls.\nimpactedTransactions: API calls\npsdiiReportable: False\nimpactedApplication: API Gateway\naccountableParty: Client Integration\nrepeatIncident: False\nrootCause: Version update.\nmitigation: Updated clients.\ntimeline: Discovery: 2025-02-06 19:00; Escalation: 2025-02-06 19:05; Resolution: 2025-02-06 19:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-07-037",
+    "Main Issue": "SWIFT Field Validation Error",
+    "text": "incidentId: USBC-INC-2025-02-07-037\nexecutiveSummary: Field validation error in SWIFT February 7, 2025.\nimpact: Rejected 50 messages.\nimpactedTransactions: SWIFT transfers\npsdiiReportable: True\nimpactedApplication: SWIFT Interface\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Validation rule.\nmitigation: Fixed rule.\ntimeline: Discovery: 2025-02-07 20:00; Escalation: 2025-02-07 20:05; Resolution: 2025-02-07 20:15\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-08-038",
+    "Main Issue": "ATM Card Reader Malfunction",
+    "text": "incidentId: USBC-INC-2025-02-08-038\nexecutiveSummary: Card reader malfunction in ATMs February 8, 2025.\nimpact: Affected 20 ATMs.\nimpactedTransactions: ATM withdrawals\npsdiiReportable: False\nimpactedApplication: ATM Network\naccountableParty: Vendor\nrepeatIncident: True\nrootCause: Hardware failure.\nmitigation: Replaced readers.\ntimeline: Discovery: 2025-02-08 21:00; Escalation: 2025-02-08 21:05; Resolution: 2025-02-08 22:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-09-039",
+    "Main Issue": "Online Portal Database Query Timeout",
+    "text": "incidentId: USBC-INC-2025-02-09-039\nexecutiveSummary: Query timeout in online portal February 9, 2025.\nimpact: Slowed responses for 15,000 users.\nimpactedTransactions: Online queries\npsdiiReportable: False\nimpactedApplication: Online Banking Portal\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Slow query.\nmitigation: Optimized query.\ntimeline: Discovery: 2025-02-09 22:00; Escalation: 2025-02-09 22:05; Resolution: 2025-02-09 22:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-10-040",
+    "Main Issue": "Credit Card Chargeback Dispute",
+    "text": "incidentId: USBC-INC-2025-02-10-040\nexecutiveSummary: Chargeback dispute surge February 10, 2025.\nimpact: Increased disputes by 200%.\nimpactedTransactions: Chargebacks\npsdiiReportable: False\nimpactedApplication: Credit Card System\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Fraud increase.\nmitigation: Enhanced monitoring.\ntimeline: Discovery: 2025-02-10 23:00; Escalation: 2025-02-10 23:10; Resolution: 2025-02-10 23:45\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-11-041",
+    "Main Issue": "ACH Originator ID Mismatch",
+    "text": "incidentId: USBC-INC-2025-02-11-041\nexecutiveSummary: Originator ID mismatch in ACH February 11, 2025.\nimpact: Rejected 500 entries.\nimpactedTransactions: ACH entries\npsdiiReportable: False\nimpactedApplication: ACH Processing System\naccountableParty: Client Integration\nrepeatIncident: False\nrootCause: ID error.\nmitigation: Corrected IDs.\ntimeline: Discovery: 2025-02-11 00:00; Escalation: 2025-02-11 00:05; Resolution: 2025-02-11 00:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-12-042",
+    "Main Issue": "Fedwire Settlement Delay",
+    "text": "incidentId: USBC-INC-2025-02-12-042\nexecutiveSummary: Settlement delay in Fedwire February 12, 2025.\nimpact: Delayed settlements for 1 hour.\nimpactedTransactions: Fedwire settlements\npsdiiReportable: True\nimpactedApplication: Fedwire Core System\naccountableParty: Network Provider\nrepeatIncident: True\nrootCause: Network delay.\nmitigation: Monitored.\ntimeline: Discovery: 2025-02-12 01:00; Escalation: 2025-02-12 01:05; Resolution: 2025-02-12 02:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-13-043",
+    "Main Issue": "Mobile App In-App Purchase Failure",
+    "text": "incidentId: USBC-INC-2025-02-13-043\nexecutiveSummary: In-app purchase failure February 13, 2025.\nimpact: Failed 1,000 purchases.\nimpactedTransactions: In-app purchases\npsdiiReportable: False\nimpactedApplication: Mobile Banking App\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Payment gateway issue.\nmitigation: Fixed gateway.\ntimeline: Discovery: 2025-02-13 02:00; Escalation: 2025-02-13 02:05; Resolution: 2025-02-13 02:25\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-14-044",
+    "Main Issue": "Core Banking Interest Calculation Error",
+    "text": "incidentId: USBC-INC-2025-02-14-044\nexecutiveSummary: Interest calculation error February 14, 2025.\nimpact: Incorrect interest for 10,000 accounts.\nimpactedTransactions: Interest calculations\npsdiiReportable: False\nimpactedApplication: Core Banking Platform\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Formula error.\nmitigation: Corrected formula.\ntimeline: Discovery: 2025-02-14 03:00; Escalation: 2025-02-14 03:10; Resolution: 2025-02-14 03:45\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-15-045",
+    "Main Issue": "Fraud Detection False Negative",
+    "text": "incidentId: USBC-INC-2025-02-15-045\nexecutiveSummary: False negative in fraud detection February 15, 2025.\nimpact: Missed fraudulent transaction.\nimpactedTransactions: Fraud detection\npsdiiReportable: False\nimpactedApplication: Fraud Detection Service\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Model inaccuracy.\nmitigation: Updated model.\ntimeline: Discovery: 2025-02-15 04:00; Escalation: 2025-02-15 04:05; Resolution: 2025-02-15 04:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-16-046",
+    "Main Issue": "API Response Format Change",
+    "text": "incidentId: USBC-INC-2025-02-16-046\nexecutiveSummary: Response format change in API February 16, 2025.\nimpact: Broke 50 integrations.\nimpactedTransactions: API responses\npsdiiReportable: False\nimpactedApplication: API Gateway\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Update without notice.\nmitigation: Reverted change.\ntimeline: Discovery: 2025-02-16 05:00; Escalation: 2025-02-16 05:05; Resolution: 2025-02-16 05:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-17-047",
+    "Main Issue": "SWIFT BIC Code Update",
+    "text": "incidentId: USBC-INC-2025-02-17-047\nexecutiveSummary: BIC code update in SWIFT February 17, 2025.\nimpact: Invalid codes for 30 messages.\nimpactedTransactions: SWIFT messages\npsdiiReportable: True\nimpactedApplication: SWIFT Interface\naccountableParty: Client Integration\nrepeatIncident: False\nrootCause: Outdated codes.\nmitigation: Updated codes.\ntimeline: Discovery: 2025-02-17 06:00; Escalation: 2025-02-17 06:05; Resolution: 2025-02-17 06:25\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-18-048",
+    "Main Issue": "ATM Cash Low Alert Failure",
+    "text": "incidentId: USBC-INC-2025-02-18-048\nexecutiveSummary: Cash low alert failure in ATMs February 18, 2025.\nimpact: Ran out of cash at 5 ATMs.\nimpactedTransactions: ATM withdrawals\npsdiiReportable: False\nimpactedApplication: ATM Network\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Alert system down.\nmitigation: Fixed alerts.\ntimeline: Discovery: 2025-02-18 07:00; Escalation: 2025-02-18 07:05; Resolution: 2025-02-18 07:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-19-049",
+    "Main Issue": "Online Banking Password Reset Loop",
+    "text": "incidentId: USBC-INC-2025-02-19-049\nexecutiveSummary: Password reset loop February 19, 2025.\nimpact: Affected 2,000 users.\nimpactedTransactions: Password resets\npsdiiReportable: False\nimpactedApplication: Online Banking Portal\naccountableParty: Bank Internal Team\nrepeatIncident: True\nrootCause: Logic error.\nmitigation: Fixed logic.\ntimeline: Discovery: 2025-02-19 08:00; Escalation: 2025-02-19 08:05; Resolution: 2025-02-19 08:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-20-050",
+    "Main Issue": "Credit Card PIN Change Failure",
+    "text": "incidentId: USBC-INC-2025-02-20-050\nexecutiveSummary: PIN change failure February 20, 2025.\nimpact: Failed changes for 500 cards.\nimpactedTransactions: PIN changes\npsdiiReportable: False\nimpactedApplication: Credit Card System\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: System error.\nmitigation: Retried changes.\ntimeline: Discovery: 2025-02-20 09:00; Escalation: 2025-02-20 09:05; Resolution: 2025-02-20 09:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-21-051",
+    "Main Issue": "ACH Effective Entry Date Error",
+    "text": "incidentId: USBC-INC-2025-02-21-051\nexecutiveSummary: Effective entry date error in ACH February 21, 2025.\nimpact: Incorrect dates for 1,000 entries.\nimpactedTransactions: ACH entries\npsdiiReportable: False\nimpactedApplication: ACH Processing System\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Date calculation.\nmitigation: Fixed calculation.\ntimeline: Discovery: 2025-02-21 10:00; Escalation: 2025-02-21 10:05; Resolution: 2025-02-21 10:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-22-052",
+    "Main Issue": "Fedwire Participant Outage",
+    "text": "incidentId: USBC-INC-2025-02-22-052\nexecutiveSummary: Participant outage in Fedwire February 22, 2025.\nimpact: Affected 50 participants.\nimpactedTransactions: Fedwire transfers\npsdiiReportable: True\nimpactedApplication: Fedwire Core System\naccountableParty: Network Provider\nrepeatIncident: False\nrootCause: External outage.\nmitigation: Waited for recovery.\ntimeline: Discovery: 2025-02-22 11:00; Escalation: 2025-02-22 11:05; Resolution: 2025-02-22 12:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-23-053",
+    "Main Issue": "Mobile App Location Service Error",
+    "text": "incidentId: USBC-INC-2025-02-23-053\nexecutiveSummary: Location service error February 23, 2025.\nimpact: Disabled features for 10,000 users.\nimpactedTransactions: Location-based features\npsdiiReportable: False\nimpactedApplication: Mobile Banking App\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Permission issue.\nmitigation: Updated permissions.\ntimeline: Discovery: 2025-02-23 12:00; Escalation: 2025-02-23 12:05; Resolution: 2025-02-23 12:15\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-24-054",
+    "Main Issue": "Core Banking Backup Failure",
+    "text": "incidentId: USBC-INC-2025-02-24-054\nexecutiveSummary: Backup failure in core banking February 24, 2025.\nimpact: No backup for 24 hours.\nimpactedTransactions: Backups\npsdiiReportable: False\nimpactedApplication: Core Banking Platform\naccountableParty: Vendor\nrepeatIncident: True\nrootCause: Disk failure.\nmitigation: Replaced disk.\ntimeline: Discovery: 2025-02-24 13:00; Escalation: 2025-02-24 13:05; Resolution: 2025-02-24 14:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-25-055",
+    "Main Issue": "Fraud Detection Rule Conflict",
+    "text": "incidentId: USBC-INC-2025-02-25-055\nexecutiveSummary: Rule conflict in fraud detection February 25, 2025.\nimpact: Conflicting alerts for 200 transactions.\nimpactedTransactions: Fraud alerts\npsdiiReportable: False\nimpactedApplication: Fraud Detection Service\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Rule overlap.\nmitigation: Resolved conflict.\ntimeline: Discovery: 2025-02-25 14:00; Escalation: 2025-02-25 14:05; Resolution: 2025-02-25 14:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-26-056",
+    "Main Issue": "API OAuth Scope Issue",
+    "text": "incidentId: USBC-INC-2025-02-26-056\nexecutiveSummary: OAuth scope issue in API February 26, 2025.\nimpact: Limited access for 30 clients.\nimpactedTransactions: API access\npsdiiReportable: False\nimpactedApplication: API Gateway\naccountableParty: Client Integration\nrepeatIncident: False\nrootCause: Scope misconfig.\nmitigation: Corrected scopes.\ntimeline: Discovery: 2025-02-26 15:00; Escalation: 2025-02-26 15:05; Resolution: 2025-02-26 15:15\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-27-057",
+    "Main Issue": "SWIFT MT Format Deprecation",
+    "text": "incidentId: USBC-INC-2025-02-27-057\nexecutiveSummary: MT format deprecation in SWIFT February 27, 2025.\nimpact: Deprecated messages rejected.\nimpactedTransactions: SWIFT messages\npsdiiReportable: True\nimpactedApplication: SWIFT Interface\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Old format.\nmitigation: Updated to MX.\ntimeline: Discovery: 2025-02-27 16:00; Escalation: 2025-02-27 16:05; Resolution: 2025-02-27 16:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-02-28-058",
+    "Main Issue": "ATM Receipt Printer Jam",
+    "text": "incidentId: USBC-INC-2025-02-28-058\nexecutiveSummary: Receipt printer jam in ATMs February 28, 2025.\nimpact: No receipts at 15 ATMs.\nimpactedTransactions: ATM receipts\npsdiiReportable: False\nimpactedApplication: ATM Network\naccountableParty: Vendor\nrepeatIncident: True\nrootCause: Paper jam.\nmitigation: Cleared jams.\ntimeline: Discovery: 2025-02-28 17:00; Escalation: 2025-02-28 17:05; Resolution: 2025-02-28 17:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-01-059",
+    "Main Issue": "Online Banking MFA Bypass",
+    "text": "incidentId: USBC-INC-2025-03-01-059\nexecutiveSummary: MFA bypass in online banking March 1, 2025.\nimpact: Potential security risk.\nimpactedTransactions: MFA\npsdiiReportable: False\nimpactedApplication: Online Banking Portal\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Bypass exploit.\nmitigation: Patched exploit.\ntimeline: Discovery: 2025-03-01 18:00; Escalation: 2025-03-01 18:05; Resolution: 2025-03-01 18:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-02-060",
+    "Main Issue": "Credit Card EMV Chip Failure",
+    "text": "incidentId: USBC-INC-2025-03-02-060\nexecutiveSummary: EMV chip failure March 2, 2025.\nimpact: Failed chip reads for 100 cards.\nimpactedTransactions: Chip transactions\npsdiiReportable: False\nimpactedApplication: Credit Card System\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Chip defect.\nmitigation: Replaced cards.\ntimeline: Discovery: 2025-03-02 19:00; Escalation: 2025-03-02 19:05; Resolution: 2025-03-02 20:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-03-061",
+    "Main Issue": "ACH Addenda Record Missing",
+    "text": "incidentId: USBC-INC-2025-03-03-061\nexecutiveSummary: Addenda record missing in ACH March 3, 2025.\nimpact: Incomplete 300 entries.\nimpactedTransactions: ACH addenda\npsdiiReportable: False\nimpactedApplication: ACH Processing System\naccountableParty: Client Integration\nrepeatIncident: False\nrootCause: Missing data.\nmitigation: Added records.\ntimeline: Discovery: 2025-03-03 20:00; Escalation: 2025-03-03 20:05; Resolution: 2025-03-03 20:25\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-04-062",
+    "Main Issue": "Fedwire Cutoff Time Miss",
+    "text": "incidentId: USBC-INC-2025-03-04-062\nexecutiveSummary: Cutoff time miss in Fedwire March 4, 2025.\nimpact: Delayed next-day processing.\nimpactedTransactions: Fedwire cutoff\npsdiiReportable: True\nimpactedApplication: Fedwire Core System\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Clock sync.\nmitigation: Synced clocks.\ntimeline: Discovery: 2025-03-04 21:00; Escalation: 2025-03-04 21:05; Resolution: 2025-03-04 21:15\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-05-063",
+    "Main Issue": "Mobile App Dark Mode Bug",
+    "text": "incidentId: USBC-INC-2025-03-05-063\nexecutiveSummary: Dark mode bug in mobile app March 5, 2025.\nimpact: UI issues for 5,000 users.\nimpactedTransactions: UI display\npsdiiReportable: False\nimpactedApplication: Mobile Banking App\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Theme switch.\nmitigation: Fixed bug.\ntimeline: Discovery: 2025-03-05 22:00; Escalation: 2025-03-05 22:05; Resolution: 2025-03-05 22:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-06-064",
+    "Main Issue": "Core Banking Fee Calculation Error",
+    "text": "incidentId: USBC-INC-2025-03-06-064\nexecutiveSummary: Fee calculation error March 6, 2025.\nimpact: Incorrect fees for 20,000 accounts.\nimpactedTransactions: Fee calculations\npsdiiReportable: False\nimpactedApplication: Core Banking Platform\naccountableParty: Vendor\nrepeatIncident: True\nrootCause: Formula error.\nmitigation: Corrected formula.\ntimeline: Discovery: 2025-03-06 23:00; Escalation: 2025-03-06 23:05; Resolution: 2025-03-06 23:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-07-065",
+    "Main Issue": "Fraud Detection API Timeout",
+    "text": "incidentId: USBC-INC-2025-03-07-065\nexecutiveSummary: API timeout in fraud detection March 7, 2025.\nimpact: Slowed 2,000 checks.\nimpactedTransactions: Fraud checks\npsdiiReportable: False\nimpactedApplication: Fraud Detection Service\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: API overload.\nmitigation: Scaled API.\ntimeline: Discovery: 2025-03-07 00:00; Escalation: 2025-03-07 00:05; Resolution: 2025-03-07 00:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-08-066",
+    "Main Issue": "API Webhook Failure",
+    "text": "incidentId: USBC-INC-2025-03-08-066\nexecutiveSummary: Webhook failure in API March 8, 2025.\nimpact: Missed notifications for 100 events.\nimpactedTransactions: Webhooks\npsdiiReportable: False\nimpactedApplication: API Gateway\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Endpoint down.\nmitigation: Fixed endpoint.\ntimeline: Discovery: 2025-03-08 01:00; Escalation: 2025-03-08 01:05; Resolution: 2025-03-08 01:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-09-067",
+    "Main Issue": "SWIFT FIN Copy Service Down",
+    "text": "incidentId: USBC-INC-2025-03-09-067\nexecutiveSummary: FIN copy service down in SWIFT March 9, 2025.\nimpact: No copies for 1 hour.\nimpactedTransactions: SWIFT copies\npsdiiReportable: True\nimpactedApplication: SWIFT Interface\naccountableParty: Network Provider\nrepeatIncident: False\nrootCause: Service outage.\nmitigation: Restored service.\ntimeline: Discovery: 2025-03-09 02:00; Escalation: 2025-03-09 02:05; Resolution: 2025-03-09 03:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-10-068",
+    "Main Issue": "ATM Balance Inquiry Error",
+    "text": "incidentId: USBC-INC-2025-03-10-068\nexecutiveSummary: Balance inquiry error in ATMs March 10, 2025.\nimpact: Wrong balances shown at 10 ATMs.\nimpactedTransactions: Balance inquiries\npsdiiReportable: False\nimpactedApplication: ATM Network\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Data sync issue.\nmitigation: Synced data.\ntimeline: Discovery: 2025-03-10 03:00; Escalation: 2025-03-10 03:05; Resolution: 2025-03-10 03:25\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-11-069",
+    "Main Issue": "Online Banking Chatbot Failure",
+    "text": "incidentId: USBC-INC-2025-03-11-069\nexecutiveSummary: Chatbot failure in online banking March 11, 2025.\nimpact: Unresponsive chatbot for 30 minutes.\nimpactedTransactions: Chat support\npsdiiReportable: False\nimpactedApplication: Online Banking Portal\naccountableParty: Vendor\nrepeatIncident: True\nrootCause: AI model error.\nmitigation: Restarted model.\ntimeline: Discovery: 2025-03-11 04:00; Escalation: 2025-03-11 04:05; Resolution: 2025-03-11 04:35\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-12-070",
+    "Main Issue": "Credit Card Reward Points Miscalculation",
+    "text": "incidentId: USBC-INC-2025-03-12-070\nexecutiveSummary: Reward points miscalculation March 12, 2025.\nimpact: Incorrect points for 5,000 cards.\nimpactedTransactions: Reward calculations\npsdiiReportable: False\nimpactedApplication: Credit Card System\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Calculation bug.\nmitigation: Fixed bug.\ntimeline: Discovery: 2025-03-12 05:00; Escalation: 2025-03-12 05:05; Resolution: 2025-03-12 05:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-13-071",
+    "Main Issue": "ACH Trace Number Duplicate",
+    "text": "incidentId: USBC-INC-2025-03-13-071\nexecutiveSummary: Trace number duplicate in ACH March 13, 2025.\nimpact: Duplicate traces for 100 entries.\nimpactedTransactions: ACH traces\npsdiiReportable: False\nimpactedApplication: ACH Processing System\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Generator error.\nmitigation: Fixed generator.\ntimeline: Discovery: 2025-03-13 06:00; Escalation: 2025-03-13 06:05; Resolution: 2025-03-13 06:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-14-072",
+    "Main Issue": "Fedwire Funds Availability Delay",
+    "text": "incidentId: USBC-INC-2025-03-14-072\nexecutiveSummary: Funds availability delay in Fedwire March 14, 2025.\nimpact: Delayed availability for 2 hours.\nimpactedTransactions: Funds availability\npsdiiReportable: True\nimpactedApplication: Fedwire Core System\naccountableParty: Network Provider\nrepeatIncident: True\nrootCause: Processing delay.\nmitigation: Optimized processing.\ntimeline: Discovery: 2025-03-14 07:00; Escalation: 2025-03-14 07:05; Resolution: 2025-03-14 09:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-15-073",
+    "Main Issue": "Mobile App Fingerprint Recognition Failure",
+    "text": "incidentId: USBC-INC-2025-03-15-073\nexecutiveSummary: Fingerprint recognition failure March 15, 2025.\nimpact: Failed logins for 3,000 users.\nimpactedTransactions: Biometric login\npsdiiReportable: False\nimpactedApplication: Mobile Banking App\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Sensor update.\nmitigation: Updated sensor.\ntimeline: Discovery: 2025-03-15 08:00; Escalation: 2025-03-15 08:05; Resolution: 2025-03-15 08:25\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-16-074",
+    "Main Issue": "Core Banking Statement Generation Error",
+    "text": "incidentId: USBC-INC-2025-03-16-074\nexecutiveSummary: Statement generation error March 16, 2025.\nimpact: Missing statements for 15,000 accounts.\nimpactedTransactions: Statement generation\npsdiiReportable: False\nimpactedApplication: Core Banking Platform\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Template error.\nmitigation: Fixed template.\ntimeline: Discovery: 2025-03-16 09:00; Escalation: 2025-03-16 09:05; Resolution: 2025-03-16 09:45\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-17-075",
+    "Main Issue": "Fraud Detection Machine Learning Model Drift",
+    "text": "incidentId: USBC-INC-2025-03-17-075\nexecutiveSummary: Model drift in fraud detection March 17, 2025.\nimpact: Reduced accuracy for 1 week.\nimpactedTransactions: Fraud detection\npsdiiReportable: False\nimpactedApplication: Fraud Detection Service\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Data drift.\nmitigation: Retrained model.\ntimeline: Discovery: 2025-03-17 10:00; Escalation: 2025-03-17 10:05; Resolution: 2025-03-17 10:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-18-076",
+    "Main Issue": "API Pagination Bug",
+    "text": "incidentId: USBC-INC-2025-03-18-076\nexecutiveSummary: Pagination bug in API March 18, 2025.\nimpact: Incomplete data for 50 queries.\nimpactedTransactions: API pagination\npsdiiReportable: False\nimpactedApplication: API Gateway\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Logic error.\nmitigation: Fixed logic.\ntimeline: Discovery: 2025-03-18 11:00; Escalation: 2025-03-18 11:05; Resolution: 2025-03-18 11:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-19-077",
+    "Main Issue": "SWIFT Alliance Lite Connection Issue",
+    "text": "incidentId: USBC-INC-2025-03-19-077\nexecutiveSummary: Alliance Lite connection issue March 19, 2025.\nimpact: Disconnected for 45 minutes.\nimpactedTransactions: SWIFT connections\npsdiiReportable: True\nimpactedApplication: SWIFT Interface\naccountableParty: Network Provider\nrepeatIncident: False\nrootCause: Network glitch.\nmitigation: Reconnected.\ntimeline: Discovery: 2025-03-19 12:00; Escalation: 2025-03-19 12:05; Resolution: 2025-03-19 12:50\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-20-078",
+    "Main Issue": "ATM Touchscreen Calibration Error",
+    "text": "incidentId: USBC-INC-2025-03-20-078\nexecutiveSummary: Touchscreen calibration error March 20, 2025.\nimpact: Misaligned touches at 8 ATMs.\nimpactedTransactions: ATM interactions\npsdiiReportable: False\nimpactedApplication: ATM Network\naccountableParty: Vendor\nrepeatIncident: True\nrootCause: Calibration drift.\nmitigation: Recalibrated.\ntimeline: Discovery: 2025-03-20 13:00; Escalation: 2025-03-20 13:05; Resolution: 2025-03-20 13:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-21-079",
+    "Main Issue": "Online Banking Two-Factor Authentication Delay",
+    "text": "incidentId: USBC-INC-2025-03-21-079\nexecutiveSummary: 2FA delay in online banking March 21, 2025.\nimpact: Delayed logins for 8,000 users.\nimpactedTransactions: 2FA\npsdiiReportable: False\nimpactedApplication: Online Banking Portal\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: SMS delay.\nmitigation: Switched to app-based.\ntimeline: Discovery: 2025-03-21 14:00; Escalation: 2025-03-21 14:05; Resolution: 2025-03-21 14:45\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-22-080",
+    "Main Issue": "Credit Card Dispute Resolution Timeout",
+    "text": "incidentId: USBC-INC-2025-03-22-080\nexecutiveSummary: Dispute resolution timeout March 22, 2025.\nimpact: Pending disputes for 200 cases.\nimpactedTransactions: Disputes\npsdiiReportable: False\nimpactedApplication: Credit Card System\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Process timeout.\nmitigation: Extended timeout.\ntimeline: Discovery: 2025-03-22 15:00; Escalation: 2025-03-22 15:05; Resolution: 2025-03-22 15:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-23-081",
+    "Main Issue": "ACH Company ID Validation Failure",
+    "text": "incidentId: USBC-INC-2025-03-23-081\nexecutiveSummary: Company ID validation failure March 23, 2025.\nimpact: Rejected 400 ACH entries.\nimpactedTransactions: ACH validations\npsdiiReportable: False\nimpactedApplication: ACH Processing System\naccountableParty: Client Integration\nrepeatIncident: False\nrootCause: Invalid IDs.\nmitigation: Validated IDs.\ntimeline: Discovery: 2025-03-23 16:00; Escalation: 2025-03-23 16:05; Resolution: 2025-03-23 16:25\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-24-082",
+    "Main Issue": "Fedwire Book-Entry Transfer Error",
+    "text": "incidentId: USBC-INC-2025-03-24-082\nexecutiveSummary: Book-entry transfer error March 24, 2025.\nimpact: Incorrect transfers for 50 entries.\nimpactedTransactions: Book-entry transfers\npsdiiReportable: True\nimpactedApplication: Fedwire Core System\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Calculation error.\nmitigation: Corrected calculations.\ntimeline: Discovery: 2025-03-24 17:00; Escalation: 2025-03-24 17:05; Resolution: 2025-03-24 17:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-25-083",
+    "Main Issue": "Mobile App Notification Spam",
+    "text": "incidentId: USBC-INC-2025-03-25-083\nexecutiveSummary: Notification spam in mobile app March 25, 2025.\nimpact: Overwhelmed 4,000 users.\nimpactedTransactions: Notifications\npsdiiReportable: False\nimpactedApplication: Mobile Banking App\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Loop in notification logic.\nmitigation: Fixed loop.\ntimeline: Discovery: 2025-03-25 18:00; Escalation: 2025-03-25 18:05; Resolution: 2025-03-25 18:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-26-084",
+    "Main Issue": "Core Banking Overdraft Protection Failure",
+    "text": "incidentId: USBC-INC-2025-03-26-084\nexecutiveSummary: Overdraft protection failure March 26, 2025.\nimpact: Allowed overdrafts for 1,000 accounts.\nimpactedTransactions: Overdraft protection\npsdiiReportable: False\nimpactedApplication: Core Banking Platform\naccountableParty: Vendor\nrepeatIncident: True\nrootCause: Trigger failure.\nmitigation: Fixed trigger.\ntimeline: Discovery: 2025-03-26 19:00; Escalation: 2025-03-26 19:05; Resolution: 2025-03-26 19:45\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-27-085",
+    "Main Issue": "Fraud Detection IP Whitelist Bypass",
+    "text": "incidentId: USBC-INC-2025-03-27-085\nexecutiveSummary: IP whitelist bypass March 27, 2025.\nimpact: Bypassed security for 10 IPs.\nimpactedTransactions: IP checks\npsdiiReportable: False\nimpactedApplication: Fraud Detection Service\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Config error.\nmitigation: Corrected config.\ntimeline: Discovery: 2025-03-27 20:00; Escalation: 2025-03-27 20:05; Resolution: 2025-03-27 20:15\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-28-086",
+    "Main Issue": "API CORS Policy Violation",
+    "text": "incidentId: USBC-INC-2025-03-28-086\nexecutiveSummary: CORS policy violation March 28, 2025.\nimpact: Blocked 20 web apps.\nimpactedTransactions: CORS requests\npsdiiReportable: False\nimpactedApplication: API Gateway\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Policy misconfig.\nmitigation: Updated policy.\ntimeline: Discovery: 2025-03-28 21:00; Escalation: 2025-03-28 21:05; Resolution: 2025-03-28 21:15\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-29-087",
+    "Main Issue": "SWIFT GPI Tracker Delay",
+    "text": "incidentId: USBC-INC-2025-03-29-087\nexecutiveSummary: GPI tracker delay March 29, 2025.\nimpact: Delayed tracking for 300 payments.\nimpactedTransactions: GPI tracking\npsdiiReportable: True\nimpactedApplication: SWIFT Interface\naccountableParty: Network Provider\nrepeatIncident: False\nrootCause: Tracker outage.\nmitigation: Restored tracker.\ntimeline: Discovery: 2025-03-29 22:00; Escalation: 2025-03-29 22:05; Resolution: 2025-03-29 23:00\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-30-088",
+    "Main Issue": "ATM Deposit Envelope Jam",
+    "text": "incidentId: USBC-INC-2025-03-30-088\nexecutiveSummary: Deposit envelope jam March 30, 2025.\nimpact: Jammed envelopes at 12 ATMs.\nimpactedTransactions: Deposits\npsdiiReportable: False\nimpactedApplication: ATM Network\naccountableParty: Vendor\nrepeatIncident: True\nrootCause: Mechanical jam.\nmitigation: Cleared jams.\ntimeline: Discovery: 2025-03-30 23:00; Escalation: 2025-03-30 23:05; Resolution: 2025-03-30 23:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-03-31-089",
+    "Main Issue": "Online Banking Account Linking Error",
+    "text": "incidentId: USBC-INC-2025-03-31-089\nexecutiveSummary: Account linking error March 31, 2025.\nimpact: Failed links for 1,500 users.\nimpactedTransactions: Account linking\npsdiiReportable: False\nimpactedApplication: Online Banking Portal\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: API mismatch.\nmitigation: Fixed API.\ntimeline: Discovery: 2025-03-31 00:00; Escalation: 2025-03-31 00:05; Resolution: 2025-03-31 00:40\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-04-01-090",
+    "Main Issue": "Credit Card Balance Transfer Glitch",
+    "text": "incidentId: USBC-INC-2025-04-01-090\nexecutiveSummary: Balance transfer glitch April 1, 2025.\nimpact: Incorrect transfers for 300 cards.\nimpactedTransactions: Balance transfers\npsdiiReportable: False\nimpactedApplication: Credit Card System\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Transfer logic error.\nmitigation: Fixed logic.\ntimeline: Discovery: 2025-04-01 01:00; Escalation: 2025-04-01 01:05; Resolution: 2025-04-01 01:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-04-02-091",
+    "Main Issue": "ACH Prenote Failure",
+    "text": "incidentId: USBC-INC-2025-04-02-091\nexecutiveSummary: Prenote failure in ACH April 2, 2025.\nimpact: Failed prenotes for 200 accounts.\nimpactedTransactions: ACH prenotes\npsdiiReportable: False\nimpactedApplication: ACH Processing System\naccountableParty: Client Integration\nrepeatIncident: False\nrootCause: Data error.\nmitigation: Corrected data.\ntimeline: Discovery: 2025-04-02 02:00; Escalation: 2025-04-02 02:05; Resolution: 2025-04-02 02:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-04-03-092",
+    "Main Issue": "Fedwire Daylight Overdraft Alert",
+    "text": "incidentId: USBC-INC-2025-04-03-092\nexecutiveSummary: Daylight overdraft alert April 3, 2025.\nimpact: Missed alerts for 50 overdrafts.\nimpactedTransactions: Overdraft alerts\npsdiiReportable: True\nimpactedApplication: Fedwire Core System\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Alert threshold.\nmitigation: Adjusted threshold.\ntimeline: Discovery: 2025-04-03 03:00; Escalation: 2025-04-03 03:05; Resolution: 2025-04-03 03:15\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-04-04-093",
+    "Main Issue": "Mobile App QR Code Scan Failure",
+    "text": "incidentId: USBC-INC-2025-04-04-093\nexecutiveSummary: QR code scan failure April 4, 2025.\nimpact: Failed scans for 2,000 users.\nimpactedTransactions: QR scans\npsdiiReportable: False\nimpactedApplication: Mobile Banking App\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Camera permission.\nmitigation: Updated permissions.\ntimeline: Discovery: 2025-04-04 04:00; Escalation: 2025-04-04 04:05; Resolution: 2025-04-04 04:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-04-05-094",
+    "Main Issue": "Core Banking Loan Amortization Error",
+    "text": "incidentId: USBC-INC-2025-04-05-094\nexecutiveSummary: Loan amortization error April 5, 2025.\nimpact: Incorrect payments for 500 loans.\nimpactedTransactions: Loan payments\npsdiiReportable: False\nimpactedApplication: Core Banking Platform\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Amortization formula.\nmitigation: Fixed formula.\ntimeline: Discovery: 2025-04-05 05:00; Escalation: 2025-04-05 05:05; Resolution: 2025-04-05 05:45\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-04-06-095",
+    "Main Issue": "Fraud Detection Behavioral Analysis Lag",
+    "text": "incidentId: USBC-INC-2025-04-06-095\nexecutiveSummary: Behavioral analysis lag April 6, 2025.\nimpact: Delayed analysis for 1,000 transactions.\nimpactedTransactions: Behavioral analysis\npsdiiReportable: False\nimpactedApplication: Fraud Detection Service\naccountableParty: Vendor\nrepeatIncident: True\nrootCause: Processing lag.\nmitigation: Optimized processing.\ntimeline: Discovery: 2025-04-06 06:00; Escalation: 2025-04-06 06:05; Resolution: 2025-04-06 06:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-04-07-096",
+    "Main Issue": "API Token Expiration Handling",
+    "text": "incidentId: USBC-INC-2025-04-07-096\nexecutiveSummary: Token expiration handling April 7, 2025.\nimpact: Expired tokens for 40 clients.\nimpactedTransactions: Token handling\npsdiiReportable: False\nimpactedApplication: API Gateway\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Renewal failure.\nmitigation: Automated renewal.\ntimeline: Discovery: 2025-04-07 07:00; Escalation: 2025-04-07 07:05; Resolution: 2025-04-07 07:25\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-04-08-097",
+    "Main Issue": "SWIFT Sanctions Screening Delay",
+    "text": "incidentId: USBC-INC-2025-04-08-097\nexecutiveSummary: Sanctions screening delay April 8, 2025.\nimpact: Delayed screening for 150 messages.\nimpactedTransactions: Sanctions screening\npsdiiReportable: True\nimpactedApplication: SWIFT Interface\naccountableParty: Network Provider\nrepeatIncident: False\nrootCause: Database delay.\nmitigation: Optimized database.\ntimeline: Discovery: 2025-04-08 08:00; Escalation: 2025-04-08 08:05; Resolution: 2025-04-08 08:45\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-04-09-098",
+    "Main Issue": "ATM Foreign Currency Conversion Error",
+    "text": "incidentId: USBC-INC-2025-04-09-098\nexecutiveSummary: Currency conversion error April 9, 2025.\nimpact: Wrong conversions at 5 ATMs.\nimpactedTransactions: Currency conversions\npsdiiReportable: False\nimpactedApplication: ATM Network\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Rate update failure.\nmitigation: Updated rates.\ntimeline: Discovery: 2025-04-09 09:00; Escalation: 2025-04-09 09:05; Resolution: 2025-04-09 09:20\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-04-10-099",
+    "Main Issue": "Online Banking Bill Pay Duplicate",
+    "text": "incidentId: USBC-INC-2025-04-10-099\nexecutiveSummary: Bill pay duplicate April 10, 2025.\nimpact: Duplicate payments for 300 bills.\nimpactedTransactions: Bill payments\npsdiiReportable: False\nimpactedApplication: Online Banking Portal\naccountableParty: Bank Internal Team\nrepeatIncident: False\nrootCause: Submission error.\nmitigation: Deduplicated.\ntimeline: Discovery: 2025-04-10 10:00; Escalation: 2025-04-10 10:05; Resolution: 2025-04-10 10:30\nproblemRecords: True"
+  },
+  {
+    "Incident ID": "USBC-INC-2025-04-11-100",
+    "Main Issue": "Credit Card Cash Advance Limit Bypass",
+    "text": "incidentId: USBC-INC-2025-04-11-100\nexecutiveSummary: Cash advance limit bypass April 11, 2025.\nimpact: Over-limit advances for 50 cards.\nimpactedTransactions: Cash advances\npsdiiReportable: False\nimpactedApplication: Credit Card System\naccountableParty: Vendor\nrepeatIncident: False\nrootCause: Limit check failure.\nmitigation: Fixed check.\ntimeline: Discovery: 2025-04-11 11:00; Escalation: 2025-04-11 11:05; Resolution: 2025-04-11 11:25\nproblemRecords: True"
+  }
+]
