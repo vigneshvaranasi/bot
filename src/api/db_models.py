@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import (
-    Column, String, Text, ForeignKey, DateTime,
+    Boolean, Column, String, Text, ForeignKey, DateTime,
     UniqueConstraint, Table
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -70,6 +70,7 @@ class Chat(Base):
     summary = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_archived = Column(Boolean, nullable=False, default=False)
 
     user = relationship("User", back_populates="chats")
     messages = relationship("Message", back_populates="chat", cascade="all, delete")

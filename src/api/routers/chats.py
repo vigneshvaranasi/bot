@@ -34,7 +34,7 @@ async def create_chat(chat: ChatCreate, session: AsyncSession = Depends(get_sess
 
 @router.get("/", response_model=List[ChatResponse])
 async def get_chats(session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(Chat))
+    result = await session.execute(select(Chat).where(Chat.is_archived == False).order_by(Chat.created_at.desc()))
     chats = result.scalars().all()
     return chats
 
@@ -49,6 +49,7 @@ async def get_user_chats(
     result = await session.execute(
         select(Chat.id, Chat.title, Chat.created_at)
         .where(Chat.user_id == user_id)
+        .where(Chat.is_archived == False)
         .order_by(Chat.created_at.desc())
     )
     
@@ -455,3 +456,20 @@ async def get_chat_with_messages(chat_id: str, session: AsyncSession = Depends(g
         "updated_at": chat.updated_at.isoformat() if chat.updated_at else None,
         "messages": messages_data
     }
+    
+    
+@router.delete("/archive/{chat_id}")
+async def archive_chat(chat_id: str, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_user)):
+    """Archive a chat and its messages by chat id."""
+    user_id = current_user["user_id"]
+    # Verify the chat exists and belongs to the user
+    result = await session.execute(
+        select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id)
+    )
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    chat.is_archived = True
+    await session.commit()
+    return {"detail": "Chat archived successfully"}
+

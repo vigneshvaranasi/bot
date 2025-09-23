@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import InputBox from "../components/ui/InputBox";
@@ -12,16 +12,10 @@ import SettingsNavbar from "../components/SettingsNavbar";
 import SettingsCard from "../components/ui/SettingsCard";
 import arrowLeftIcon from "../assets/arrow-left.svg";
 import { fetchSettings, updateSettings } from "../handlers/settingsHandlers";
-import type { Model } from "../types/Settings";
+import type { Model, DenyWordRecord, FileRecord } from "../types/Settings";
 import { useAuthContext } from "../hooks/useAuthContext";
 
-interface FileRecord {
-  fileName: string;
-  fileType: string;
-  size: string;
-  lastUpdated: string;
-  id: string;
-}
+
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
@@ -68,8 +62,9 @@ const Settings: React.FC = () => {
   const [versionsTracked, setVersionsTracked] = useState("5");
   const [purgeDays, setPurgeDays] = useState("30");
   const [pidMaskingFields, setPidMaskingFields] = useState("");
-  const [allDenyWords, setAllDenyWords] = useState("");
+  const [denyWordsArray, setDenyWordsArray] = useState<DenyWordRecord[]>([]);
   const [denyWords, setDenyWords] = useState("");
+  const [showDenyWordsTable, setShowDenyWordsTable] = useState(false);
   const [model, setModel] = useState<Model>("gemma3:4b");
   const [temperature, setTemperature] = useState("");
   const [accessChat, setAccessChat] = useState(false);
@@ -77,6 +72,69 @@ const Settings: React.FC = () => {
   const [requestPastIncidents, setRequestPastIncidents] = useState(false);
   const [versionControl, setVersionControl] = useState(true);
   const [purgeEnabled, setPurgeEnabled] = useState(true);
+
+  // convert comma-separated string to array
+  const stringToWordsArray = useCallback((str: string): DenyWordRecord[] => {
+    if (!str.trim()) return [];
+    return str
+      .split(",")
+      .map((word) => word.trim())
+      .filter((word) => word.length > 0)
+      .map((word, index) => ({
+        id: `word-${Date.now()}-${index}`,
+        word: word,
+      }));
+  }, []);
+
+  // convert array to comma-separated string
+  const wordsArrayToString = useCallback(
+    (wordsArray: DenyWordRecord[]): string => {
+      return wordsArray.map((item) => item.word).join(",");
+    },
+    []
+  );
+
+  // add deny words
+  const handleAddDenyWords = () => {
+    if (!denyWords.trim()) return;
+
+    const newWords = denyWords
+      .split(",")
+      .map((word) => word.trim())
+      .filter((word) => word.length > 0);
+
+    const existingWords = denyWordsArray.map((item) => item.word.toLowerCase());
+    const wordsToAdd = newWords.filter(
+      (word) => !existingWords.includes(word.toLowerCase())
+    );
+
+    if (wordsToAdd.length > 0) {
+      const newWordRecords: DenyWordRecord[] = wordsToAdd.map(
+        (word, index) => ({
+          id: `word-${Date.now()}-${index}`,
+          word: word,
+        })
+      );
+
+      const updatedDenyWordsArray = [...denyWordsArray, ...newWordRecords];
+      setDenyWordsArray(updatedDenyWordsArray);
+      
+      // auto show, dint like
+      // if (!showDenyWordsTable) {
+      //   setShowDenyWordsTable(true);
+      // }
+    }
+
+    setDenyWords("");
+  };
+
+  // remove a deny word
+  const handleRemoveDenyWord = (wordId: string) => {
+    const updatedDenyWordsArray = denyWordsArray.filter(
+      (item) => item.id !== wordId
+    );
+    setDenyWordsArray(updatedDenyWordsArray);
+  };
 
   const roleOptions = [
     { value: "L1 Support", label: "L1 Support" },
@@ -100,24 +158,7 @@ const Settings: React.FC = () => {
 
   const onSave = async () => {
     try {
-      console.log("Save settings");
-      let totalDenyWords = allDenyWords;
-      if (denyWords.trim() !== "") {
-        const denyWordsArray = totalDenyWords
-          .split(",")
-          .map((word) => word.trim());
-        if (totalDenyWords.trim() !== "") {
-          totalDenyWords += "," + denyWordsArray.join(",");
-        } else {
-          totalDenyWords = denyWordsArray.join(",");
-        }
-      }
-      setAllDenyWords(totalDenyWords);
-      console.log({
-        deny_words: totalDenyWords,
-        model,
-        temperature,
-      });
+      let totalDenyWords = wordsArrayToString(denyWordsArray);
       const newSettings = {
         deny_words: totalDenyWords,
         model,
@@ -132,7 +173,9 @@ const Settings: React.FC = () => {
       if (saveSettings) {
         alert("Settings saved successfully");
         setDenyWords("");
-        setAllDenyWords(saveSettings.totalDenyWords);
+        if (saveSettings.deny_words !== undefined) {
+          setDenyWordsArray(stringToWordsArray(saveSettings.deny_words));
+        }
         setModel(saveSettings.model);
         setTemperature(saveSettings.temperature);
       } else {
@@ -145,15 +188,20 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const settings = await fetchSettings();
-      if (settings) {
-        setAllDenyWords(settings.deny_words);
-        setModel(settings.model);
-        setTemperature(settings.temperature);
+      try {
+        const settings = await fetchSettings();
+        if (settings) {
+          const denyWordsFromBackend = settings.deny_words || "";
+          setDenyWordsArray(stringToWordsArray(denyWordsFromBackend));
+          setModel(settings.model);
+          setTemperature(settings.temperature);
+        }
+      } catch (error) {
+        console.error("Error fetching settings:", error);
       }
     };
     fetchData();
-  }, []);
+  }, [stringToWordsArray]);
 
   const handleDeleteFile = (fileId: string) => {
     setUploadedFiles((files) => files.filter((file) => file.id !== fileId));
@@ -346,32 +394,98 @@ const Settings: React.FC = () => {
 
               {/* Configurations */}
               <SettingsCard title="Configurations" hidden={false}>
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:gap-6">
+                <div className="grid grid-cols-1 xl:grid-cols-1 gap-4 xl:gap-6">
                   {/* Deny List Rules */}
                   <div className="space-y-3">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2">
                       <span className="flex flex-col text-sm md:text-medium text-black min-w-fit">
                         Deny List Words
                         <span className="text-xs text-gray-600 font-normal">
-                          (comma separated)
+                          (comma separated) 
+                          <button 
+                            onClick={() => setShowDenyWordsTable(!showDenyWordsTable)}
+                            className="ml-2 text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                          >
+                            {showDenyWordsTable ? 'Hide All' : `View All (${denyWordsArray.length})`}
+                          </button>
                         </span>
                       </span>
                     </div>
-
-                    <InputBox
-                      value={denyWords}
-                      onChange={setDenyWords}
-                      placeholder="Add words to deny"
-                      variant="primary"
-                      className="
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                      <InputBox
+                        value={denyWords}
+                        onChange={setDenyWords}
+                        placeholder="Add words to deny"
+                        variant="primary"
+                        className="
                         w-full
                         rounded-[5px]
                         border-gray-400
                         border-b-1
                       "
-                    />
+                      />
+                      <Button
+                        variant="secondary"
+                        className="font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer w-full sm:w-auto"
+                        onClick={handleAddDenyWords}
+                      >
+                        ADD WORD
+                      </Button>
+                    </div>
                   </div>
-
+                </div>
+                {/* Table for Deny Words */}
+                {showDenyWordsTable && (
+                  <div className="grid grid-cols-1 xl:grid-cols-1 gap-4 xl:gap-6 my-2">
+                    <div className="overflow-x-auto bg-white rounded-lg border border-gray-300">
+                      {denyWordsArray.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500 text-sm">
+                          No deny words configured. Add words above to get
+                          started.
+                        </div>
+                      ) : (
+                        <div className="max-h-60 overflow-y-auto border-t border-gray-200">
+                          <ConfigurableTable
+                            data={denyWordsArray}
+                            keyExtractor={(row) => row.id}
+                            columns={[
+                              {
+                                header: "Deny Word",
+                                accessor: "word",
+                                headerClassName:
+                                  "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200",
+                                className: "text-xs md:text-sm text-gray-900 py-3",
+                                searchable: true,
+                              },
+                              {
+                                header: "Action",
+                                headerClassName:
+                                  "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200 w-20",
+                                render: (denyWord) => (
+                                  <div className="flex flex-row gap-1 sm:gap-2">
+                                    <Button
+                                      variant="default"
+                                      className=" hover:text-red-500 text-xs px-2 md:px-3 py-1"
+                                      onClick={() =>
+                                        handleRemoveDenyWord(denyWord.id)
+                                      }
+                                    >
+                                      &#x2715;
+                                    </Button>
+                                  </div>
+                                ),
+                                searchable: false,
+                              },
+                            ]}
+                            headerRowClassName="bg-gray-50 sticky top-0 z-10"
+                            rowClassName="bg-white border-t border-gray-200 hover:bg-gray-50"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:gap-6">
                   {/* Select of Models (Gemma3:1b, Gemma3:4b) */}
                   <div className="flex flex-col justify-between space-y-3 h-full">
                     <span className="flex flex-col text-sm md:text-medium text-black min-w-fit">
@@ -388,20 +502,17 @@ const Settings: React.FC = () => {
                       placeholder="Select model"
                     />
                   </div>
-                </div>
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:gap-6">
                   {/*Temperature */}
-                  <div>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4">
-                      <label className="text-sm md:text-medium text-gray-900 min-w-fit">
-                        Temperature
-                      </label>
-                      <InputBox
-                        value={temperature}
-                        onChange={(val) => setTemperature(val)}
-                        variant="primary"
-                        type="number"
-                        className="
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4">
+                    <label className="text-sm md:text-medium text-gray-900 min-w-fit">
+                      Temperature
+                    </label>
+                    <InputBox
+                      value={temperature}
+                      onChange={(val) => setTemperature(val)}
+                      variant="primary"
+                      type="number"
+                      className="
                           outline-none
                           border-b-1
                           border-gray-400 
@@ -411,11 +522,10 @@ const Settings: React.FC = () => {
                           text-gray-900
                           w-16
                           "
-                        step={0.1}
-                        min={0}
-                        max={1}
-                      />
-                    </div>
+                      step={0.1}
+                      min={0}
+                      max={1}
+                    />
                   </div>
                 </div>
               </SettingsCard>

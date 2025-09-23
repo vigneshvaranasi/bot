@@ -17,11 +17,11 @@ const SettingsNavbar: React.FC<SettingsNavbarProps> = ({
       <div className="max-w-screen-2xl mx-auto flex flex-col md:grid md:grid-cols-[1.5fr_1.5fr] gap-4 md:gap-0">
         {/* Logo */}
         <div className="bg-white px-6 md:px-8 py-2 rounded-[10px] text-lg font-low text-gray-900 w-fit">
-          Logo
+          Support Bot
         </div>
 
         {/* Right cell: search + avatar */}
-        <div className="flex items-center gap-4 justify-end w-full">
+        <div className=" items-center gap-4 justify-end w-full hidden">
           {/* Search */}
           <div className="relative w-full max-w-md md:max-w-none">
             <InputBox

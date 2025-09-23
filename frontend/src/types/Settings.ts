@@ -5,3 +5,16 @@ export type Settings = {
   model: Model;
   temperature: string;
 }
+
+export type FileRecord = {
+  fileName: string;
+  fileType: string;
+  size: string;
+  lastUpdated: string;
+  id: string;
+}
+
+export type DenyWordRecord ={
+  id: string;
+  word: string;
+}
