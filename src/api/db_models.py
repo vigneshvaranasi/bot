@@ -53,12 +53,14 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False)
     password = Column(String(255), nullable=False)  # hashed password
     role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id", ondelete="RESTRICT"), nullable=False)
+    persona_id = Column(UUID(as_uuid=True), ForeignKey("personas.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     role = relationship("Role")
+    persona = relationship("Persona", foreign_keys=[persona_id], passive_deletes=True)
     permissions = relationship("Permission", secondary=user_permissions, back_populates="users")
-    chats = relationship("Chat", back_populates="user", cascade="all, delete")
+    chats = relationship("Chat", back_populates="user", cascade="all, delete")    
 
 
 class Chat(Base):
@@ -98,3 +100,9 @@ class Setting(Base):
     deny_words = Column(Text)
     model = Column(String(100), nullable=False, default="gemini-2.5-flash")
     temperature = Column(String(10), nullable=False, default="0.2")
+    
+class Persona(Base):
+    __tablename__ = "personas"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    type = Column(String(50), nullable=False)
