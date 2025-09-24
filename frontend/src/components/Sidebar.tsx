@@ -136,6 +136,7 @@ function Sidebar() {
             <button
               className="p-2 rounded-md hover:bg-gray-200"
               onClick={() => toggleSidebar()}
+              title="Close Sidebar"
             >
               <img
                 src={sidebarImg}
@@ -239,6 +240,7 @@ function Sidebar() {
                 src="https://t3.ftcdn.net/jpg/08/05/28/22/360_F_805282248_LHUxw7t2pnQ7x8lFEsS2IZgK8IGFXePS.jpg"
                 className="w-8 rounded-full"
                 alt=""
+                title={user?.email || "Guest"}
               />
               <p>{user?.email.split("@")[0] || "Guest"}</p>
             </div>
@@ -248,6 +250,7 @@ function Sidebar() {
                   src={gearIcon}
                   className="w-5 rounded-full cursor-pointer hover:opacity-80"
                   alt="Settings"
+                  title="Settings"
                 />
               </Link>
               <div className="hover:bg-gray-300 p-1 rounded">
@@ -259,6 +262,7 @@ function Sidebar() {
                 }}
                 className="w-4 cursor-pointer "
                 alt=""
+                title="Logout"
               />
               </div>
             </div>
@@ -268,8 +272,9 @@ function Sidebar() {
         <div className="flex flex-1 flex-col justify-between items-center gap-2 py-2 pb-6">
           <div className="flex items-center flex-col">
             <button
-              className="p-2 rounded-md hover:bg-gray-200"
+              className="p-2 rounded-md hover:bg-gray-200 cursor-pointer"
               onClick={() => toggleSidebar()}
+              title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
             >
               <img src={sidebarImg} alt="Close Sidebar" className="w-6" />
             </button>
@@ -277,6 +282,7 @@ function Sidebar() {
               to={"/"}
               className="p-2 rounded-md hover:bg-gray-200"
               onClick={() => console.log("New chat clicked")}
+              title="New Chat"
             >
               <p className="text-3xl">+</p>
             </Link>
@@ -285,6 +291,7 @@ function Sidebar() {
             <Link
               to="/settings"
               className="p-2 rounded-md hover:bg-gray-200 block"
+              title="Settings"
             >
               <img src={gearIcon} className="w-5 rounded-full" alt="Settings" />
             </Link>

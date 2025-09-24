@@ -2,7 +2,7 @@ import React from 'react';
 
 type ButtonVariant = 'primary' | 'secondary' | 'default';
 
-interface ButtonProps {
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   children: React.ReactNode;
   onClick?: () => void;
   variant?: ButtonVariant;
@@ -21,7 +21,8 @@ export const Button: React.FC<ButtonProps> = ({
   type = 'button',
   rounded = 'md',
   disabled = false,
-  ref
+  ref,
+  ...rest
 }) => {
   const baseClasses = 'font-semibold py-2 px-6 transition-colors duration-200';
 
@@ -38,6 +39,7 @@ export const Button: React.FC<ButtonProps> = ({
       onClick={onClick}
       disabled={disabled}
       className={`${baseClasses} ${variantClasses[variant]} rounded-${rounded} ${className} cursor-pointer`}
+      {...rest}
     >
       {children}
     </button>

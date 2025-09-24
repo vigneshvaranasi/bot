@@ -14,8 +14,7 @@ import arrowLeftIcon from "../assets/arrow-left.svg";
 import { fetchSettings, updateSettings } from "../handlers/settingsHandlers";
 import type { Model, DenyWordRecord, FileRecord } from "../types/Settings";
 import { useAuthContext } from "../hooks/useAuthContext";
-
-
+import InfoHint from "../components/ui/InfoHint";
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
@@ -118,7 +117,7 @@ const Settings: React.FC = () => {
 
       const updatedDenyWordsArray = [...denyWordsArray, ...newWordRecords];
       setDenyWordsArray(updatedDenyWordsArray);
-      
+
       // auto show, dint like
       // if (!showDenyWordsTable) {
       //   setShowDenyWordsTable(true);
@@ -221,7 +220,7 @@ const Settings: React.FC = () => {
         <div className="max-w-screen-2xl mx-auto">
           <div className="grid gap-6 md:gap-8 grid-cols-1 lg:grid-cols-[1.44fr_1.5fr]">
             {/* Left Column */}
-            <div className="space-y-6 order-2 lg:order-1">
+            <div className="space-y-6 order-2 lg:order-1 hidden">
               {/* Upload Files */}
               <UploadFiles compact />
 
@@ -398,15 +397,25 @@ const Settings: React.FC = () => {
                   {/* Deny List Rules */}
                   <div className="space-y-3">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2">
-                      <span className="flex flex-col text-sm md:text-medium text-black min-w-fit">
-                        Deny List Words
+                      <span className="flex flex-row justify-between text-sm md:text-medium text-black w-full">
+                        <div className="flex flex-row items-center gap-1">
+                          <span>Deny List Words</span>
+                          <InfoHint
+                            text="Words added here will be filtered out from both user queries and model responses."
+                            position="right"
+                            gap={0.3}
+                          />
+                        </div>
                         <span className="text-xs text-gray-600 font-normal">
-                          (comma separated) 
-                          <button 
-                            onClick={() => setShowDenyWordsTable(!showDenyWordsTable)}
+                          <button
+                            onClick={() =>
+                              setShowDenyWordsTable(!showDenyWordsTable)
+                            }
                             className="ml-2 text-blue-600 hover:text-blue-800 underline cursor-pointer"
                           >
-                            {showDenyWordsTable ? 'Hide All' : `View All (${denyWordsArray.length})`}
+                            {showDenyWordsTable
+                              ? "Hide All"
+                              : `View All (${denyWordsArray.length})`}
                           </button>
                         </span>
                       </span>
@@ -454,7 +463,8 @@ const Settings: React.FC = () => {
                                 accessor: "word",
                                 headerClassName:
                                   "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200",
-                                className: "text-xs md:text-sm text-gray-900 py-3",
+                                className:
+                                  "text-xs md:text-sm text-gray-900 py-3",
                                 searchable: true,
                               },
                               {
@@ -488,12 +498,14 @@ const Settings: React.FC = () => {
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:gap-6">
                   {/* Select of Models (Gemma3:1b, Gemma3:4b) */}
                   <div className="flex flex-col justify-between space-y-3 h-full">
-                    <span className="flex flex-col text-sm md:text-medium text-black min-w-fit">
-                      Select Model
-                      <span className="text-xs text-gray-600 font-normal">
-                        (changes will take effect after refresh)
-                      </span>
-                    </span>
+                    <div className="flex flex-row  items-center text-sm md:text-medium text-black min-w-fit">
+                      <span>Select Model</span>
+                      <InfoHint
+                        text="Gemma Models are Locally run and Gemini are cloud-based, may incur costs."
+                        position="right"
+                        gap={0.3}
+                      />
+                    </div>
 
                     <Dropdown
                       options={modelOptions}
@@ -504,9 +516,14 @@ const Settings: React.FC = () => {
                   </div>
                   {/*Temperature */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4">
-                    <label className="text-sm md:text-medium text-gray-900 min-w-fit">
-                      Temperature
-                    </label>
+                    <div className="flex flex-row items-center text-sm md:text-medium text-gray-900 min-w-fit">
+                      <label>Temperature</label>
+                      <InfoHint
+                        text="Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic."
+                        position="right"
+                        gap={0.3}
+                      />
+                    </div>
                     <InputBox
                       value={temperature}
                       onChange={(val) => setTemperature(val)}
@@ -616,6 +633,7 @@ const Settings: React.FC = () => {
           <div className="mt-6 flex items-center justify-center mb-4 px-4">
             <ButtonGroup className="border border-gray-300 bg-white rounded-full shadow-sm p-1 sm:w-auto">
               <Button
+                title="Go to Chat"
                 variant="default"
                 onClick={handleGoToChat}
                 className="bg-transparent hover:bg-gray-50 hover:rounded-full text-gray-900 px-4 md:px-6 py-2 rounded-full flex items-center justify-center gap-2 flex-1 sm:flex-none"
@@ -625,7 +643,7 @@ const Settings: React.FC = () => {
                 <span className="sm:hidden">Back</span>
               </Button>
 
-              <Button variant="primary" rounded="full" onClick={onSave}>
+              <Button variant="primary" rounded="full" onClick={onSave} title="Save Settings">
                 SAVE
               </Button>
             </ButtonGroup>
