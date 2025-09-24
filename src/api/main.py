@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from src.api.routers import users, chats, support, auth, roles
+from src.api.routers import users, chats, support, auth, roles,upload
 from src.api.db.database import engine
 from src.api.db_models import Base
+
 
 # app init
 app = FastAPI(title="Support Bot API", version="1.0.0")
@@ -27,6 +28,7 @@ app.include_router(roles.router, prefix="/roles", tags=["Roles"])
 app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(chats.router, prefix="/chats", tags=["Chats"])
 app.include_router(support.router, prefix="/support", tags=["Support"])
+app.include_router(upload.router)
 
 
 @app.options("/{rest_of_path:path}")

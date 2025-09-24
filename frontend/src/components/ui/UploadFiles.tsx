@@ -35,16 +35,22 @@ const mapSchema = (data: any, fileType: string): any[] => {
         }
       }
       if (mapped[key] === undefined) {
-        mapped[key] = key === "id" ? `file-${index}-${Date.now()}` : "";
+        mapped[key] = key === "id" ? index : "";
       }
+    }
+    // Ensure id is always an integer for backend validation
+    if (typeof mapped.id !== "number") {
+      // Try to extract a number from string, fallback to index
+      const num = parseInt(mapped.id, 10);
+      mapped.id = isNaN(num) ? index : num;
     }
     return mapped;
   };
 
   if (fileType === "json") return Array.isArray(data) ? data.map(normalize) : [normalize(data, 0)];
   if (fileType === "csv") return data.map((row: any, index: number) => normalize(row, index));
-  if (fileType === "md" || fileType === "txt") return [{ id: `file-${Date.now()}`, description: data }];
-  return [{ id: `file-${Date.now()}`, raw: data }];
+  if (fileType === "md" || fileType === "txt") return [{ id: 0, description: data }];
+  return [{ id: 0, raw: data }];
 };
 
 interface UploadFilesProps {
@@ -82,6 +88,7 @@ const UploadFiles = ({
 
       const newFiles: UploadedFile[] = [];
 
+
       for (const file of Array.from(selectedFiles)) {
         if (maxFiles && localFiles.length + newFiles.length >= maxFiles) {
           alert(`Maximum ${maxFiles} files allowed.`);
@@ -94,25 +101,13 @@ const UploadFiles = ({
         }
 
         const content = await readFileContent(file);
-        const ext = file.name.split(".").pop()?.toLowerCase();
-        let parsed: any[] = [];
-
-        try {
-          if (ext === "json") parsed = mapSchema(JSON.parse(content), "json");
-          else if (ext === "csv") parsed = mapSchema(parseCSV(content), "csv");
-          else parsed = mapSchema(content, "md");
-        } catch (err) {
-          console.error(`Error parsing ${file.name}:`, err);
-          parsed = [{ id: `file-${Date.now()}`, description: content }];
-        }
-
+        // No parsed property in UploadedFile, just store content
         newFiles.push({
           id: `file-${Math.random().toString(36).substr(2, 9)}`,
           name: file.name,
           size: file.size,
           type: file.type,
           content,
-          parsed,
           uploaded: false,
           uploadedAt: new Date(),
         });
@@ -131,16 +126,30 @@ const UploadFiles = ({
       let totalRecords = 0;
 
       for (const file of localFiles) {
-        const res = await fetch("http://localhost:5000/files/save", {
+        // Parse content on the fly before upload
+
+        const ext = file.name.split(".").pop()?.toLowerCase();
+        let parsed: any[] = [];
+        const fileContent = file.content ?? "";
+        try {
+          if (ext === "json") parsed = mapSchema(JSON.parse(fileContent), "json");
+          else if (ext === "csv") parsed = mapSchema(parseCSV(fileContent), "csv");
+          else parsed = mapSchema(fileContent, "md");
+        } catch (err) {
+          console.error(`Error parsing ${file.name}:`, err);
+          parsed = [{ id: 0, description: fileContent }];
+        }
+
+        const res = await fetch("http://localhost:8000/files/save", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: file.name, content: file.parsed }),
+          body: JSON.stringify({ filename: file.name, content: parsed }),
         });
 
         if (!res.ok) throw new Error(`Failed to ingest file: ${file.name}`);
 
         const data = await res.json();
-        totalRecords += data.inserted || file.parsed.length;
+        totalRecords += data.inserted || parsed.length;
       }
 
       addFiles(localFiles);
