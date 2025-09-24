@@ -34,3 +34,7 @@ class ChatPromptRequest(BaseModel):
     """Schema for the request containing chat prompt."""
     chatId: str = None
     prompt: str
+    
+class ChatRenameRequest(BaseModel):
+    """Schema for renaming a chat."""
+    title: str

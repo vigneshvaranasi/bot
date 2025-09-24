@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from src.api.schemas.chat_schemas import ChatPromptResponse, ChatPromptRequest
+from src.api.schemas.chat_schemas import ChatPromptResponse, ChatPromptRequest, ChatRenameRequest
 from src.api.db.database import get_session
 from src.api.models import Chat, Message
 from src.api.schemas import ChatCreate, ChatResponse, ChatListItem, ChatListResponse
@@ -473,3 +473,17 @@ async def archive_chat(chat_id: str, session: AsyncSession = Depends(get_session
     await session.commit()
     return {"detail": "Chat archived successfully"}
 
+@router.put("/rename/{chat_id}")
+async def rename_chat(chat_id: str, request: ChatRenameRequest, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_user)):
+    """Rename a chat by chat id."""
+    user_id = current_user["user_id"]
+    result = await session.execute(
+        select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id)
+    )
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    print("Renaming chat:", chat_id, "to", request.title)
+    chat.title = request.title
+    await session.commit()
+    return {"error":False, "detail": "Chat renamed successfully", "new_title": request.title}

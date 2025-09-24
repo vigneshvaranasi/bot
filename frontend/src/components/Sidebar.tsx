@@ -11,7 +11,7 @@ import { Link, useNavigate } from "react-router-dom";
 import InputBox from "./ui/InputBox";
 import { useEffect, useState, useRef } from "react";
 import { useAuthContext } from "../hooks/useAuthContext";
-import { archiveChatById, getAllMyChats } from "../handlers/chatHandler";
+import { archiveChatById,renameChatById, getAllMyChats } from "../handlers/chatHandler";
 
 function Sidebar() {
   const {
@@ -29,6 +29,9 @@ function Sidebar() {
   const { user, logout } = useAuthContext();
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState<string>("");
+  const editingInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
   if (!user) {
     return (
@@ -52,6 +55,14 @@ function Sidebar() {
     }; 
   },[menuRef, activeMenu]);
 
+  // focus the input when entering edit mode
+  useEffect(() => {
+    if (editingChatId && editingInputRef.current) {
+      // small timeout to ensure the input is mounted
+      setTimeout(() => editingInputRef.current && editingInputRef.current.focus(), 0);
+    }
+  }, [editingChatId]);
+
   const onArchiveChat = async(chatId: string) => {
     try {
       const token = user?.token;
@@ -59,7 +70,7 @@ function Sidebar() {
         console.error("User token is missing");
         return;
       }
-      const archiveChat = await archiveChatById(token, chatId);
+  await archiveChatById(token, chatId);
       triggerRefreshChats();
       // If the chat is currently open, close it after archiving
       if (currentChat?.chatId === chatId) {
@@ -70,6 +81,23 @@ function Sidebar() {
     }
   }
 
+  const onRenameChat = async(chatId: string, title: string) => {
+    try {
+      const token = user?.token;
+      if (!token) {
+        console.error("User token is missing");
+        return;
+      }
+      if(!title || title.trim().length === 0){
+        console.error("Title cannot be empty");
+        return;
+      }
+      await renameChatById(token, chatId, title.trim());
+      triggerRefreshChats();
+    } catch (error) {
+      console.error("Failed to rename chat:", error);
+    }
+  }
   // fetch chats
   useEffect(() => {
     const fetchChats = async () => {
@@ -184,25 +212,57 @@ function Sidebar() {
                           : ""}
                       </div>
                       <div className="flex justify-between items-start font-medium text-base">
-                        <p className="truncate">{chat.chatTitle}</p>
+                        {editingChatId === chat.chatId ? (
+                          <input
+                            ref={editingInputRef}
+                            className="truncate bg-white border border-gray-300 rounded px-1"
+                            value={editingTitle}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                            }}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onBlur={() => {
+                              setEditingChatId(null);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onRenameChat(chat.chatId, editingTitle);
+                                setEditingChatId(null);
+                              } else if (e.key === "Escape") {
+                                setEditingChatId(null);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <p className="truncate">{chat.chatTitle}</p>
+                        )}
                         <button
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             setActiveMenu(activeMenu === chat.chatId ? null : chat.chatId);
                           }}
-                          className="p-1 rounded-md hover:bg-gray-300 invisible group-hover:visible"
+                          className="p-1 rounded-md hover:bg-gray-300 invisible group-hover:visible "
                         >
-                          <img src={threeDotsIcon} alt="" className="w-4" />
+                          <img src={threeDotsIcon} alt="" className="w-5 max-w-5" />
                         </button>
                       </div>
                     </Link>
                     {activeMenu === chat.chatId && (
                       <div ref={menuRef} className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10">
-                        {/* <button
+                        <button
                           className="flex items-center gap-2 px-2 py-1 hover:bg-gray-100 w-full text-left"
-                          onClick={() => {
-                            console.log("Edit chat:", chat.chatId);
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            // start editing this chat title
+                            setEditingTitle(chat.chatTitle || "");
+                            setEditingChatId(chat.chatId);
                             setActiveMenu(null);
                           }}
                         >
@@ -212,7 +272,7 @@ function Sidebar() {
                             className="w-4"
                           />
                           Rename
-                        </button> */}
+                        </button>
                         <button
                           className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 w-full text-left"
                           onClick={() => {

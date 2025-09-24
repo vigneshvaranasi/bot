@@ -230,3 +230,20 @@ export const archiveChatById = async (token: string, chatId: string) => {
   const data = await response.json();
   return data;
 };
+
+export const renameChatById = async (token: string, chatId: string, title: string) => {
+  const headers = new Headers();
+  headers.append("Authorization", `Bearer ${token}`);
+  headers.append("Content-Type", "application/json");
+  
+  const response = await fetch(`${BE_URL}/chats/rename/${chatId}`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({ title }),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to rename chat");
+  }
+  const data = await response.json();
+  return data;
+}
