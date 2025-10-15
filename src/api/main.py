@@ -31,6 +31,7 @@ app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(chats.router, prefix="/chats", tags=["Chats"])
 app.include_router(support.router, prefix="/support", tags=["Support"])
 app.include_router(settings.router, prefix="/settings", tags=["Settings"])
+app.include_router(upload.router)
 
 # startup event
 @app.on_event("startup")
