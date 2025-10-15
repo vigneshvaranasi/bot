@@ -7,12 +7,13 @@ from .tools.qdrant_tool import QdrantIncidentDataTool
 # Check if Gemini embeddings should be used - default to true since we use Gemini
 use_gemini_embeddings = os.getenv('USE_GEMINI_EMBEDDINGS', 'true').lower() == 'true'
 qdrant_data_tool = QdrantIncidentDataTool(use_gemini=use_gemini_embeddings)
+OLLAMA_API_URL = os.getenv('OLLAMA_API_URL')
 
 def create_llm_from_settings(model: str, temperature: float = 0.7):
     if model.startswith('gemma'):
         return LLM(
             model=f'ollama/{model}',
-            base_url='http://202.53.81.125:11434',
+            base_url=OLLAMA_API_URL,
             temperature=temperature
         )
     elif model.startswith('gemini'):
@@ -25,7 +26,7 @@ def create_llm_from_settings(model: str, temperature: float = 0.7):
         # Default fallback
         return LLM(
             model='ollama/gemma3:4b',
-            base_url='http://202.53.81.125:11434',
+            base_url=OLLAMA_API_URL,
             temperature=temperature
         )
 

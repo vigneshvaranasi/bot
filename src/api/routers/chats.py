@@ -14,6 +14,7 @@ from src.support_bot.utils.formatting import sanitize_markdown_output
 from src.support_bot.runner import run_support_with_emitter, run_support_with_emitter_with_fallback
 from src.support_bot.agents import configure_agents_llm
 from src.api.db_models import Setting
+from src.api.utils.cache import get_from_cache, add_to_cache
 from typing import List
 import re
 import asyncio
@@ -121,6 +122,94 @@ async def get_chat_prompt(
             yield sse("status", json.dumps({"phase": "prompt:accepted", "label": "Analyzing your request and planning the best approach..."}))
             await asyncio.sleep(0)
 
+            # Check cache first
+            cached_response = None
+            try:
+                cached_response = get_from_cache(request.prompt)
+                if cached_response:
+                    print(f"[CACHE HIT] Returning cached response for: '{request.prompt[:50]}...'")
+                    yield sse("status", json.dumps({"phase": "cache:hit", "label": "Found cached response, returning immediately..."}))
+                    
+                    # For new chats, we still need to create the chat and message records
+                    chat_id = request.chatId
+                    if chat_id is not None and isinstance(chat_id, str) and chat_id.strip() == "":
+                        chat_id = None
+                        
+                    if chat_id is None:
+                        # Create new chat for cached response
+                        yield sse("status", json.dumps({"phase": "title:generating", "label": "Creating a descriptive title for this conversation..."}))
+                        title = await generate_title_from_prompt(request.prompt, session)
+                        yield sse("status", json.dumps({"phase": "title:done", "label": "Title created successfully."}))
+
+                        yield sse("status", json.dumps({"phase": "summary:generating", "label": "Summarizing the conversation for future reference..."}))
+                        summary = await generate_summary_from_content(request.prompt, cached_response, session)
+                        yield sse("status", json.dumps({"phase": "summary:done", "label": "Summary saved."}))
+
+                        yield sse("status", json.dumps({"phase": "persistence:saving", "label": "Saving conversation to your history..."}))
+                        new_chat = Chat(user_id=user_id, title=title, summary=summary)
+                        session.add(new_chat)
+                        await session.commit()
+                        await session.refresh(new_chat)
+
+                        new_message = Message(
+                            chat_id=new_chat.id,
+                            user_query=request.prompt,
+                            bot_solution=cached_response,
+                        )
+                        session.add(new_message)
+                        await session.commit()
+                        yield sse("status", json.dumps({"phase": "persistence:done", "label": "Conversation saved successfully."}))
+
+                        payload = {
+                            "chatId": str(new_chat.id),
+                            "chatTitle": title,
+                            "new_message": cached_response,
+                        }
+                        yield sse("result", json.dumps(payload))
+                    else:
+                        # Add to existing chat
+                        result = await session.execute(
+                            select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id)
+                        )
+                        existing_chat = result.scalar_one_or_none()
+
+                        if not existing_chat:
+                            yield sse("error", "Chat not found")
+                            return
+
+                        yield sse("status", json.dumps({"phase": "summary:generating", "label": "Summarizing the conversation for future reference..."}))
+                        updated_summary = await update_chat_summary(
+                            existing_chat.summary or "", request.prompt, cached_response, session
+                        )
+                        yield sse("status", json.dumps({"phase": "summary:done", "label": "Summary saved."}))
+
+                        yield sse("status", json.dumps({"phase": "persistence:saving", "label": "Saving conversation to your history..."}))
+                        new_message = Message(
+                            chat_id=existing_chat.id,
+                            user_query=request.prompt,
+                            bot_solution=cached_response,
+                        )
+                        session.add(new_message)
+                        existing_chat.summary = updated_summary
+                        await session.commit()
+                        yield sse("status", json.dumps({"phase": "persistence:done", "label": "Conversation saved successfully."}))
+
+                        payload = {
+                            "chatId": str(existing_chat.id),
+                            "chatTitle": existing_chat.title,
+                            "new_message": cached_response,
+                        }
+                        yield sse("result", json.dumps(payload))
+
+                    yield sse("end", "bye")
+                    return
+                else:
+                    print(f"[CACHE MISS] No cached response found for: '{request.prompt[:50]}...'")
+                    
+            except Exception as e:
+                print(f"[CACHE ERROR] Error reading from cache: {e}")
+                # Continue with normal processing if cache fails
+
             chat_id = request.chatId
             if chat_id is not None and isinstance(chat_id, str) and chat_id.strip() == "":
                 chat_id = None
@@ -167,6 +256,13 @@ async def get_chat_prompt(
                 async for chunk in pump_events(crew_task):
                     yield chunk
                 bot_response = await crew_task
+
+                # Store response in cache
+                try:
+                    add_to_cache(request.prompt, bot_response)
+                    print(f"[CACHE STORED] Cached response for: '{request.prompt[:50]}...'")
+                except Exception as e:
+                    print(f"[CACHE ERROR] Error storing to cache: {e}")
 
                 yield sse("status", json.dumps({"phase": "title:generating", "label": "Creating a descriptive title for this conversation..."}))
                 title = await generate_title_from_prompt(request.prompt, session)
@@ -252,6 +348,13 @@ async def get_chat_prompt(
                 async for chunk in pump_events(crew_task):
                     yield chunk
                 bot_response = await crew_task
+
+                # Store response in cache
+                try:
+                    add_to_cache(request.prompt, bot_response)
+                    print(f"[CACHE STORED] Cached response for: '{request.prompt[:50]}...'")
+                except Exception as e:
+                    print(f"[CACHE ERROR] Error storing to cache: {e}")
 
                 yield sse("status", json.dumps({"phase": "summary:generating", "label": "Summarizing the conversation for future reference..."}))
                 updated_summary = await update_chat_summary(
