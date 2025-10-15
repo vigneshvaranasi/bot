@@ -2,7 +2,7 @@ import logging
 import argparse
 logging.getLogger('absl').setLevel(logging.ERROR)
 
-from copilot.graph import create_agent_graph
+from src.copilot.graph import create_agent_graph
 from langchain_core.messages import AIMessage, ToolMessage
 
 if __name__ == "__main__":

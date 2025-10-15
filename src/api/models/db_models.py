@@ -2,13 +2,12 @@ import uuid
 from datetime import datetime
 from sqlalchemy import (
     Boolean, Column, String, Text, ForeignKey, DateTime,
-    UniqueConstraint, Table
+    Table
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
-
 
 # Association Tables
 role_permissions = Table(
@@ -24,7 +23,6 @@ user_permissions = Table(
     Column("user_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
     Column("permission_id", UUID(as_uuid=True), ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True)
 )
-
 
 # Core Tables
 class Role(Base):

@@ -1,4 +1,3 @@
-from langchain_core.documents import Document
 from langchain_core.tools import tool
 from qdrant_client import QdrantClient
 from sentence_transformers import SentenceTransformer

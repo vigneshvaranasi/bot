@@ -1,13 +1,10 @@
 from typing import Annotated, Sequence, TypedDict
 from langchain_core.messages import BaseMessage, SystemMessage
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
-from langchain_google_genai import ChatGoogleGenerativeAI
 from .tools import get_incident_report
 from langchain.chat_models import init_chat_model
-from langchain_ollama.chat_models import ChatOllama
 
 from langgraph.checkpoint.postgres import PostgresSaver
 from psycopg import Connection

@@ -1,227 +1,120 @@
 [project]
-name = "support_bot"
+name = "support-bot"
 version = "0.1.0"
-description = "AI-powered support bot using CrewAI and Qdrant vector database"
-authors = [{ name = "Your Name", email = "you@example.com" }]
-requires-python = ">=3.10,<3.14"
+description = "Support Bot"
 readme = "README.md"
-license = { text = "MIT" }
-keywords = ["ai", "support", "chatbot", "crewai", "qdrant", "gemini"]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-]
-
+requires-python = ">=3.11"
 dependencies = [
-    # Core AI and ML dependencies
-    "crewai[tools]>=0.152.0,<1.0.0",
-    "google-genai>=1.28.0",
-    "sentence-transformers>=2.2.0",
-    "transformers>=4.36.0",
-    "torch>=2.0.0",
-    # Vector database and data processing
-    "qdrant-client>=1.7.0",
-    "numpy>=1.24.0",
-    # Utilities and configuration
-    "python-dotenv>=1.0.0",
-    "pydantic>=2.0.0",
-    "requests>=2.31.0",
-    # Optional dependencies for enhanced functionality
-    "colorama>=0.4.6", # For colored terminal output
-    "rich>=13.0.0", # For rich console output
-    "click>=8.0.0", # For CLI improvements
-    # API service dependencies
-    "fastapi>=0.110.0",
-    "uvicorn[standard]>=0.29.0",
-    # PII detection
-    "presidio-analyzer",
-    "presidio-anonymizer",
-    # Database integration
-    "sqlalchemy[asyncio]>=1.4.0",
-    "asyncpg>=0.27.0",
-    "psycopg2-binary>=2.9.0",
-    "alembic>=1.11.0",
-    "python-jose[cryptography]>=3.5.0",
-    "passlib[bcrypt]>=1.7.4",
-    "python-multipart>=0.0.20",
-    "email-validator>=2.2.0",
-    "bcrypt>=4.3.0",
-]
-
-[project.optional-dependencies]
-dev = [
-    # Testing
-    "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
-    "pytest-asyncio>=0.21.0",
-    "pytest-mock>=3.11.0",
+    # Core Framework
+    "fastapi==0.115.5",
+    "uvicorn==0.34.0",
+    "pydantic==2.12.0",
+    "pydantic-settings==2.11.0",
     
-    # Code quality and formatting
-    "black>=23.0.0",
-    "isort>=5.12.0",
-    "flake8>=6.0.0",
-    "mypy>=1.5.0",
-    "pre-commit>=3.3.0",
+    # Database
+    "sqlalchemy==2.0.43",
+    "psycopg==3.2.3",
+    "psycopg-binary==3.2.3",
     
-    # Documentation
-    "mkdocs>=1.5.0",
-    "mkdocs-material>=9.0.0",
+    # Authentication
+    "passlib[bcrypt]==1.7.4",
+    "python-jose[cryptography]==3.3.0",
     
-    # Development utilities
-    "ipython>=8.0.0",
-    "jupyter>=1.0.0",
+    # Environment & Config
+    "python-dotenv==1.1.1",
+    
+    # AI/ML Core
+    "langchain==0.3.27",
+    "langchain-core==0.3.78",
+    "langchain-google-genai==2.1.12",
+    "langchain-ollama==0.3.10",
+    "langchain-community==0.3.31",
+    "langchain-text-splitters==0.3.11",
+    
+    # LangGraph
+    "langgraph==0.6.8",
+    "langgraph-checkpoint==2.1.2",
+    "langgraph-checkpoint-postgres==2.0.10",
+    "langgraph-prebuilt==0.6.4",
+    "langgraph-sdk==0.2.9",
+    
+    # Monitoring
+    "langsmith==0.4.33",
+    
+    # Vector Database
+    "qdrant-client==1.12.1",
+    "sentence-transformers==3.1.1",
+    
+    # HTTP
+    "httpx==0.28.1",
+    "requests==2.32.5",
+    
+    # ML Dependencies (required by sentence-transformers)
+    "torch==2.8.0",
+    "transformers==4.57.0",
+    "huggingface-hub==0.35.3",
+    "tokenizers==0.22.1",
+    "safetensors==0.6.2",
+    
+    # Scientific Computing
+    "numpy==2.3.3",
+    "scipy==1.16.2",
+    "scikit-learn==1.7.2",
+    "joblib==1.5.2",
+    "threadpoolctl==3.6.0",
+    
+    # Utilities
+    "tqdm==4.67.1",
+    "tenacity==9.1.2",
+    "pyyaml==6.0.3",
+    "packaging==25.0",
+    "typing-extensions==4.15.0",
+    
+    # Image Processing
+    "pillow==11.3.0",
+    
+    # Async Support
+    "anyio==4.11.0",
+    "sniffio==1.3.1",
+    
+    # JSON/Data Processing
+    "orjson==3.11.3",
+    "jsonpatch==1.33",
+    "jsonpointer==3.0.0",
+    
+    # Template/Text Processing
+    "jinja2==3.1.6",
+    "markupsafe==3.0.3",
+    
+    # Networking/Protocols
+    "certifi==2025.10.5",
+    "charset-normalizer==3.4.3",
+    "idna==3.10",
+    "urllib3==2.5.0",
+    
+    # Google API
+    "google-api-core==2.25.2",
+    "google-auth==2.41.1",
+    "google-ai-generativelanguage==0.7.0",
+    "googleapis-common-protos==1.70.0",
+    "grpcio==1.75.1",
+    "grpcio-status==1.75.1",
+    "proto-plus==1.26.1",
+    "protobuf==6.32.1",
+    
+    # Additional required dependencies
+    "aiohttp==3.13.0",
+    "aiosignal==1.4.0",
+    "multidict==6.7.0",
+    "yarl==1.22.0",
+    "frozenlist==1.8.0",
+    "attrs==25.4.0",
+    "async-timeout",
 ]
-
-performance = [
-    # Performance optimizations
-    "uvloop>=0.17.0; sys_platform != 'win32'",
-    "orjson>=3.9.0",  # Faster JSON processing
-    "httpx>=0.24.0",  # Async HTTP client
-]
-
-all = [
-    "support_bot[dev,performance]"
-]
-
-[project.scripts]
-# Main application scripts
-support-bot = "support_bot.main:run"
-support-bot-train = "support_bot.main:train"
-support-bot-replay = "support_bot.main:replay"
-support-bot-test = "support_bot.main:test"
-
-# Alias for CrewAI CLI compatibility
-run_crew = "support_bot.main:run"
-
-# Utility scripts for database management
-populate-qdrant = "support_bot.scripts.populate_qdrant:main"
-cleanup-qdrant = "support_bot.scripts.cleanup_qdrant:main"
-test-embeddings = "support_bot.scripts.test_embeddings:main"
-test-gemini-api = "support_bot.scripts.test_gemini_api:main"
-
-# Development and maintenance scripts
-analyze-incidents = "support_bot.scripts.analyze_incidents:main"
-
-# API service script
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.crewai]
-type = "crew"
-
-# UV configuration
-[tool.uv]
-dev-dependencies = [
-    "pytest>=7.4.0",
-    "black>=23.0.0",
-    "isort>=5.12.0",
-    "mypy>=1.5.0",
-]
-
-# Black configuration
-[tool.black]
-line-length = 88
-target-version = ['py310', 'py311', 'py312']
-include = '\\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \\.eggs
-  | \\.git
-  | \\.hg
-  | \\.mypy_cache
-  | \\.tox
-  | \\.venv
-  | build
-  | dist
-)/
-'''
-
-# isort configuration
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-ensure_newline_before_comments = true
-line_length = 88
-skip_gitignore = true
-
-# MyPy configuration
-[tool.mypy]
-python_version = "3.10"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
-
-[[tool.mypy.overrides]]
-module = [
-    "crewai.*",
-    "qdrant_client.*",
-    "sentence_transformers.*",
-    "transformers.*",
-    "torch.*",
-    "google.genai.*",
-]
-ignore_missing_imports = true
-
-# Pytest configuration
-[tool.pytest.ini_options]
-minversion = "7.0"
-addopts = "-ra -q --strict-markers --strict-config"
-testpaths = ["tests"]
-python_files = ["test_*.py", "*_test.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-pythonpath = ["."]
-asyncio_mode = "auto"
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
-    "asyncio: marks tests as async",
-]
-
-# Coverage configuration
-[tool.coverage.run]
-source = ["src"]
-omit = [
-    "*/tests/*",
-    "*/test_*",
-    "*/__pycache__/*",
-    "*/scripts/*",
-]
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if self.debug:",
-    "if settings.DEBUG",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if 0:",
-    "if __name__ == .__main__.:",
-    "class .*\\bProtocol\\):",
-    "@(abc\\.)?abstractmethod",
-]
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
