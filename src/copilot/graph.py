@@ -8,14 +8,13 @@ from langchain.chat_models import init_chat_model
 
 from langgraph.checkpoint.postgres import PostgresSaver
 from psycopg import Connection
-from .config import DATABASE_URL
+from .config import VECTOR_DATABASE_URL
 
 # DB Initializing
 connection_kwargs = {
     "prepare_threshold": 0,
     "autocommit": True,
 }
-
 
 # Initialize the LLM and bind tools
 
@@ -38,7 +37,7 @@ llm = init_chat_model(
 #         base_url="http://ollama.trackcode.in",
 #         max_retries=2
 #     )
-    
+
 # Configure the tools the agent can use
 allowed_tools = [get_incident_report]
 
@@ -83,7 +82,7 @@ def wants_qdrant_tool(state: AgentState):
 # 4. Assemble the Graph
 def create_agent_graph():
     """Creates and Compiles Copilot Agent Graph."""
-    conn = Connection.connect(DATABASE_URL, **connection_kwargs)
+    conn = Connection.connect(VECTOR_DATABASE_URL, **connection_kwargs)
     checkpointer = PostgresSaver(conn)
     checkpointer.setup()
     

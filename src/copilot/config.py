@@ -11,4 +11,4 @@ EMBEDDING_MODEL_NAME = "models/embedding-001"
 LLM_MODEL_NAME = "gemini-2.5-pro"
 
 # DB URL
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:admin@localhost:5432/postgres?sslmode=disable")
+VECTOR_DATABASE_URL = os.getenv("VECTOR_DATABASE_URL")

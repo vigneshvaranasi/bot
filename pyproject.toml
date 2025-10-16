@@ -92,6 +92,7 @@ dependencies = [
     "frozenlist==1.8.0",
     "attrs==25.4.0",
     "async-timeout",
+    "alembic>=1.17.0",
 ]
 
 [build-system]
