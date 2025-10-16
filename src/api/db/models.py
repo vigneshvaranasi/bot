@@ -19,7 +19,6 @@ UserPermission = Table(
     Column("permission_id", String, ForeignKey("permissions.id", ondelete="NO ACTION"), primary_key=True),
 )
 
-
 class Role(Base):
     __tablename__ = "roles"
 

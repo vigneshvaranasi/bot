@@ -93,6 +93,7 @@ dependencies = [
     "attrs==25.4.0",
     "async-timeout",
     "alembic>=1.17.0",
+    "psycopg2-binary>=2.9.11",
 ]
 
 [build-system]

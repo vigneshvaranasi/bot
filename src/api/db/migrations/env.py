@@ -3,8 +3,11 @@ import sys
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
-
+from dotenv import load_dotenv
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
+from pathlib import Path
+dotenv_path = Path(__file__).parents[2] / ".env"
+load_dotenv(dotenv_path)
 
 from src.api.db.base import Base
 from src.api.db import models
