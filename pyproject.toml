@@ -8,7 +8,7 @@ dependencies = [
     # Core Framework
     "fastapi==0.115.5",
     "uvicorn==0.34.0",
-    "pydantic==2.12.0",
+    "pydantic[all,email]==2.12.0",
     "pydantic-settings==2.11.0",
     # Database
     "sqlalchemy==2.0.43",
@@ -94,6 +94,9 @@ dependencies = [
     "async-timeout",
     "alembic>=1.17.0",
     "psycopg2-binary>=2.9.11",
+    "asyncpg>=0.30.0",
+    "greenlet>=3.2.4",
+    "bcrypt<4.1",
 ]
 
 [build-system]
