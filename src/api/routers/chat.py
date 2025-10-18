@@ -2,13 +2,14 @@ from datetime import datetime
 from fastapi import HTTPException
 import json
 from sqlalchemy import asc, func, select
+from src.copilot.guardrails.prompt_guardrails import PromptGuardrail
 from src.api.utils.auth import get_current_user
 from src.copilot.graph import create_agent_graph
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from src.api.schemas.chat_schema import ChatListItem, ChatRenameRequest, PromptModel
-from langchain_core.messages import AIMessage,AIMessageChunk
-from src.api.db.models import Chat,Message
+from langchain_core.messages import AIMessage, AIMessageChunk
+from src.api.db.models import Chat, Message, Setting
 from src.api.db.session import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,35 +19,24 @@ router = APIRouter()
 @router.get("/")
 async def get_user_chats(
     current_user: dict = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
 ):
-    
     """Get all chats for the authenticated user with only id, title, and created_at."""
     try:
         user_id = current_user["user_id"]
-        
         result = await session.execute(
             select(Chat.id, Chat.title, Chat.updated_at)
             .where(Chat.user_id == user_id)
             .where(Chat.archived_at == None)
             .order_by(Chat.updated_at.desc())
         )
-        
         chats_data = result.all()
-        
         chat_items = [
-            ChatListItem(
-                id=str(chat.id),
-                title=chat.title,
-                updated_at=chat.updated_at
-            )
+            ChatListItem(id=str(chat.id), title=chat.title, updated_at=chat.updated_at)
             for chat in chats_data
         ]
-        
-        return {
-            "error":False,
-            "chats": chat_items
-        }
+
+        return {"error": False, "chats": chat_items}
 
     except Exception as e:
         print(f"Error retrieving user chats: {e}")
@@ -55,23 +45,46 @@ async def get_user_chats(
             "message": f"Could not retrieve chats: {e}",
         }
 
+
 # Build graph
 support_bot_graph = create_agent_graph()
 
-async def get_or_create_chat(chat_id: str | None, user_id: str, session: AsyncSession) -> tuple[str, dict]:
+
+async def validate_prompt(prompt: str, session: AsyncSession):
+    """Validate the prompt using the provided guardrail."""
+    try:
+        result = await session.execute(
+            select(Setting).order_by(Setting.updated_at.desc())
+        )
+        settings = result.scalars().first()
+        try:
+            guard = PromptGuardrail(deny_words=settings.deny_words if settings else "")
+            is_valid, reject_msg = guard.validate_or_reject(prompt=prompt)
+            return is_valid, reject_msg, settings
+        except Exception as e:
+            raise ValueError(f"An error occurred while validating the prompt: {e}")
+    except Exception as e:
+        raise ValueError(f"An error occurred while accessing the Settings: {e}")
+
+
+async def get_or_create_chat(
+    chat_id: str | None, user_id: str, session: AsyncSession
+) -> tuple[str, dict]:
     """
     Get existing chat or create new chat for the user.
-    
+
     Returns:
         tuple: (actual_chat_id, thread_config)
-    
+
     Raises:
         ValueError: If chat is not found or cannot be created
     """
     if chat_id is not None and str(chat_id).strip():
         # Verify if Chat exists and user has access
         result = await session.execute(
-            select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id, Chat.archived_at.is_(None))
+            select(Chat).where(
+                Chat.id == chat_id, Chat.user_id == user_id, Chat.archived_at.is_(None)
+            )
         )
         existing_chat = result.scalar_one_or_none()
         if not existing_chat:
@@ -80,7 +93,7 @@ async def get_or_create_chat(chat_id: str | None, user_id: str, session: AsyncSe
         actual_chat_id = chat_id
     else:
         # create new chat
-        try:  
+        try:
             new_chat = Chat(user_id=user_id, title="New Chat")
             session.add(new_chat)
             await session.commit()
@@ -90,42 +103,54 @@ async def get_or_create_chat(chat_id: str | None, user_id: str, session: AsyncSe
         except Exception as e:
             await session.rollback()
             raise ValueError(f"An error occurred while creating a new chat: {e}")
-    
+
     return str(actual_chat_id), thread_config
 
+
 @router.post("/prompt/stream")
-async def prompt_stream(request: PromptModel, current_user: dict = Depends(get_current_user), session:AsyncSession = Depends(get_session)):
+async def prompt_stream(
+    request: PromptModel,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
     """Post a new prompt and get response"""
     humanMessage = request.message
     chat_id = request.chat_id
     user_id = current_user["user_id"]
     new_chat = None
     try:
-        actual_chat_id, thread_config = await get_or_create_chat(chat_id, user_id, session)
+        is_valid, reject_msg, settings = await validate_prompt(humanMessage, session)
+        if not is_valid:
+            return {
+                "success": False,
+                "message": reject_msg,
+            }
+        actual_chat_id, thread_config = await get_or_create_chat(
+            chat_id, user_id, session
+        )
         inputs = {"messages": [("user", humanMessage)]}
+
         async def stream_generator():
             answer = ""
             memory_saved = False
             # Streaming mode
-            for mode,chunk in support_bot_graph.stream(
-                config=thread_config,
-                input=inputs,
-                stream_mode=["custom", "messages"]
+            for mode, chunk in support_bot_graph.stream(
+                config=thread_config, input=inputs, stream_mode=["custom", "messages"]
             ):
-                if(mode=="custom"):
-                    status_payload ={
-                        "message": chunk["status"]
-                    }
+                if mode == "custom":
+                    status_payload = {"message": chunk["status"]}
                     yield f"event: status\ndata: {json.dumps(status_payload)}\n\n"
-                    if( "Almost done, wrapping up the details" in chunk["status"] and not memory_saved ):
-                        final_data = {
-                            "answer": answer,
-                            "chat_id": str(actual_chat_id)
-                        }
+                    if (
+                        "Almost done, wrapping up the details" in chunk["status"]
+                        and not memory_saved
+                    ):
+                        final_data = {"answer": answer, "chat_id": str(actual_chat_id)}
                         yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
                         # Finalize and save message to DB
                         try:
-                            message = Message(chat_id=actual_chat_id, human=humanMessage, bot=answer)
+                            message = Message(
+                                chat_id=actual_chat_id, human=humanMessage, bot=answer
+                            )
                             session.add(message)
                             memory_saved = True
                             await session.commit()
@@ -133,13 +158,14 @@ async def prompt_stream(request: PromptModel, current_user: dict = Depends(get_c
                             await session.rollback()
                             print(f"Error saving message to database: {e}")
 
-                elif(mode == "messages"):
+                elif mode == "messages":
                     for message_chunk in chunk:
-                        if isinstance(message_chunk, AIMessageChunk) and message_chunk.content:
+                        if (
+                            isinstance(message_chunk, AIMessageChunk)
+                            and message_chunk.content
+                        ):
                             answer += message_chunk.content
-                            chunk_payload = {
-                                "chunk": message_chunk.content
-                            }
+                            chunk_payload = {"chunk": message_chunk.content}
                             yield f"event: final_answer\ndata: {json.dumps(chunk_payload)}\n\n"
 
         return StreamingResponse(
@@ -160,12 +186,15 @@ async def prompt_stream(request: PromptModel, current_user: dict = Depends(get_c
             "message": f"An error occurred while processing the prompt: {e}",
         }
 
-async def get_graph_response_non_stream(inputs, config, support_bot_graph=support_bot_graph):
+
+async def get_graph_response_non_stream(
+    inputs, config, support_bot_graph=support_bot_graph
+):
     """Helper function to get non-streaming response from the support bot graph."""
     try:
         result = support_bot_graph.invoke(inputs, config=config)
         final_message = result["messages"][-1]
-        
+
         if isinstance(final_message, AIMessage):
             answer = str(final_message.content)
         else:
@@ -175,18 +204,33 @@ async def get_graph_response_non_stream(inputs, config, support_bot_graph=suppor
         print(f"Error in get_graph_response_non_stream: {e}")
         raise e
 
+
 @router.post("/prompt")
-async def prompt(request: PromptModel, current_user: dict = Depends(get_current_user), session:AsyncSession = Depends(get_session)):
+async def prompt(
+    request: PromptModel,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
     """Post a new prompt and get response"""
     humanMessage = request.message
     chat_id = request.chat_id
     user_id = current_user["user_id"]
     new_chat = None
     try:
-        actual_chat_id, thread_config = await get_or_create_chat(chat_id, user_id, session)
+        is_valid, reject_msg, settings = await validate_prompt(humanMessage, session)
+        if not is_valid:
+            return {
+                "success": False,
+                "message": reject_msg,
+            }
+        actual_chat_id, thread_config = await get_or_create_chat(
+            chat_id, user_id, session
+        )
         inputs = {"messages": [("user", humanMessage)]}
-        answer = await get_graph_response_non_stream(inputs, thread_config, support_bot_graph) 
-        message = Message(chat_id=actual_chat_id,human=humanMessage,bot=answer)
+        answer = await get_graph_response_non_stream(
+            inputs, thread_config, support_bot_graph
+        )
+        message = Message(chat_id=actual_chat_id, human=humanMessage, bot=answer)
         session.add(message)
         await session.commit()
         return {"answer": answer, "chat_id": actual_chat_id}
@@ -201,13 +245,19 @@ async def prompt(request: PromptModel, current_user: dict = Depends(get_current_
 
 # /messages/{chat_id} -> Get all messages in a chat
 @router.get("/messages/{chat_id}")
-async def get_chat_with_messages(chat_id: str, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_user)):
+async def get_chat_with_messages(
+    chat_id: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
     """Retrieve a chat and its messages by chat id, with messages sorted by creation time."""
     try:
         user_id = current_user["user_id"]
         # Get the chat
         result = await session.execute(
-            select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id, Chat.archived_at == None)
+            select(Chat).where(
+                Chat.id == chat_id, Chat.user_id == user_id, Chat.archived_at == None
+            )
         )
         chat = result.scalar_one_or_none()
         if not chat:
@@ -215,7 +265,9 @@ async def get_chat_with_messages(chat_id: str, session: AsyncSession = Depends(g
 
         # Get messages for the chat, sorted by created_at ascending
         messages_result = await session.execute(
-            select(Message).where(Message.chat_id == chat_id).order_by(asc(Message.created_at))
+            select(Message)
+            .where(Message.chat_id == chat_id)
+            .order_by(asc(Message.created_at))
         )
         messages = messages_result.scalars().all()
 
@@ -246,9 +298,15 @@ async def get_chat_with_messages(chat_id: str, session: AsyncSession = Depends(g
             "message": f"Chat messages could not be retrieved: {e}",
         }
 
+
 # /rename/{chat_id} -> Rename a chat
 @router.put("/rename/{chat_id}")
-async def rename_chat(chat_id: str, request: ChatRenameRequest, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_user)):
+async def rename_chat(
+    chat_id: str,
+    request: ChatRenameRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
     """Rename a chat by chat id."""
     user_id = current_user["user_id"]
     result = await session.execute(
@@ -259,11 +317,20 @@ async def rename_chat(chat_id: str, request: ChatRenameRequest, session: AsyncSe
         raise HTTPException(status_code=404, detail="Chat not found")
     chat.title = request.title
     await session.commit()
-    return {"error":False, "detail": "Chat renamed successfully", "new_title": request.title}
+    return {
+        "error": False,
+        "detail": "Chat renamed successfully",
+        "new_title": request.title,
+    }
+
 
 # /archive/{chat_id} -> Archive a chat
 @router.delete("/archive/{chat_id}")
-async def archive_chat(chat_id: str, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_user)):
+async def archive_chat(
+    chat_id: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
     """Archive a chat and its messages by chat id."""
     try:
         user_id = current_user["user_id"]
