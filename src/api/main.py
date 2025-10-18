@@ -50,3 +50,9 @@ app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 
 from src.api.routers import roles
 app.include_router(roles.router, prefix="/roles", tags=["Roles"])
+
+from src.api.routers import chat
+app.include_router(chat.router, prefix="/chats", tags=["Chat"])
+
+from src.api.routers import settings
+app.include_router(settings.router, prefix="/settings", tags=["Settings"])

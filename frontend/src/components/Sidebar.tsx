@@ -110,7 +110,7 @@ function Sidebar() {
             allMyChats.chats.map((chat: any) => ({
               chatId: chat.id,
               chatTitle: chat.title,
-              date: chat.created_at,
+              date: chat.updated_at,
             }))
           );
         } else {
@@ -294,7 +294,7 @@ function Sidebar() {
               </div>
             )}
           </div>
-          <div className="flex bg-[#eaedef] m-4 p-2 rounded-lg items-center justify-between">
+          <div className="flex bg-[#eaedef] mb-6 m-4 p-2 rounded-lg items-center justify-between ">
             <div className="flex items-center gap-2">
               <img
                 src="https://t3.ftcdn.net/jpg/08/05/28/22/360_F_805282248_LHUxw7t2pnQ7x8lFEsS2IZgK8IGFXePS.jpg"
@@ -304,7 +304,7 @@ function Sidebar() {
               />
               <p>{user?.email.split("@")[0] || "Guest"}</p>
             </div>
-            <div className="flex items-center gap-2 ">
+            <div className="flex items-center gap-2">
               <Link to="/settings" className="hover:bg-gray-300 p-1 rounded">
                 <img
                   src={gearIcon}

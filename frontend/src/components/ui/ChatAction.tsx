@@ -125,16 +125,9 @@ export const ChatAction: React.FC<ChatActionButtonProps> = ({
              transition-opacity duration-200 whitespace-nowrap'
         >
           {responseMetrics &&
-          responseMetrics.timeToFirstChunk !== undefined &&
           responseMetrics.timeToFirstToken !== undefined &&
           responseMetrics.totalResponseTime !== undefined ? (
             <div className='flex flex-col gap-1'>
-              <p className='opacity-100'>
-                Time To First Chunk:{' '}
-                <span className='opacity-75 font-semibold'>
-                  {formatDuration(responseMetrics.timeToFirstChunk)}
-                </span>
-              </p>
               <p>
                 Time To First Token:{' '}
                 <span className='opacity-75 font-semibold'>

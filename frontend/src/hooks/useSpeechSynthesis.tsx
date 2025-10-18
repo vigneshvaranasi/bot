@@ -18,7 +18,7 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
     if (!isSupported) return;
     const loadVoices = () => {
       const voices = speechSynthesis.getVoices();
-      console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
+      // console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
     };
     loadVoices();
     speechSynthesis.addEventListener('voiceschanged', loadVoices);
@@ -87,11 +87,11 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
         if (markVoice) {
           utterance.voice = markVoice;
           utterance.lang = markVoice.lang;
-          console.log('Using Mark voice:', markVoice.name, markVoice.lang);
+          // console.log('Using Mark voice:', markVoice.name, markVoice.lang);
         } 
         else {
           utterance.lang = 'en-US';
-          console.log('Mark voice not found, using default voice with en-US language');
+          // console.log('Mark voice not found, using default voice with en-US language');
         }
         
         // speech settings
@@ -100,12 +100,12 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
         utterance.volume = 0.9;
 
         utterance.onstart = () => {
-          console.log('Speech started');
+          // console.log('Speech started');
           setIsSpeaking(true);
         };
 
         utterance.onend = () => {
-          console.log('Speech ended');
+          // console.log('Speech ended');
           setIsSpeaking(false);
         };
 
@@ -118,12 +118,12 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
         };
 
         utterance.onpause = () => {
-          console.log('Speech paused');
+          // console.log('Speech paused');
           setIsSpeaking(false);
         };
 
         utterance.onresume = () => {
-          console.log('Speech resumed');
+          // console.log('Speech resumed');
           setIsSpeaking(true);
         };
 

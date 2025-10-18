@@ -14,6 +14,7 @@ load_dotenv()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT configuration
+
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = os.getenv("JWT_ALGORITHM")
 ACCESS_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_EXPIRY"))
@@ -43,11 +44,11 @@ def verify_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except JWTError:
+    except JWTError as e:
+        print("JWTError:", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Could not validate credentials"
         )
 
 def create_user_token(email: str, user_id: uuid.UUID, role_id: uuid.UUID) -> str:
@@ -68,7 +69,6 @@ async def get_current_user(
 ) -> dict:
     """Get current user from JWT token in Authorization header."""
     token = credentials.credentials
-    
     try:
         payload = verify_token(token)
         email: str = payload.get("email")

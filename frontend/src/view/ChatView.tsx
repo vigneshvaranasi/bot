@@ -53,8 +53,8 @@ const ChatView = () => {
         if (res && Array.isArray(res)) {
           freshMessages = res.map((message: any) => ({
             id: message.id,
-            userMessage: message.user_query || "",
-            botMessage: message.bot_solution || "",
+            userMessage: message.human || "",
+            botMessage: message.bot || "",
           }));
           // get and attach metrics to the last message
           const metrics = readChatMetrics(chatId);

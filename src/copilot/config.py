@@ -1,7 +1,8 @@
 import os
 from dotenv import load_dotenv
-
-load_dotenv()
+from pathlib import Path
+dotenv_path = Path(__file__).parents[2] / ".env"
+load_dotenv(dotenv_path)
 
 # API Keys
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")

@@ -147,6 +147,7 @@ const Settings: React.FC = () => {
   ];
 
   const modelOptions = [
+    { value: "gpt-oss:20b", label: "GPT-OSS: 20B" },
     { value: "gemma3:1b", label: "Gemma3: 1B" },
     { value: "gemma3:4b", label: "Gemma3: 4B" },
     { value: "gemini-2.0-flash", label: "Gemini: 2.0 Flash" },
@@ -495,7 +496,7 @@ const Settings: React.FC = () => {
                     </div>
                   </div>
                 )}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:gap-6">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-1 mt-2 xl:gap-6">
                   {/* Select of Models (Gemma3:1b, Gemma3:4b) */}
                   <div className="flex flex-col justify-between space-y-3 h-full">
                     <div className="flex flex-row  items-center text-sm md:text-medium text-black min-w-fit">

@@ -21,7 +21,6 @@ const Navbar = () => {
         <p className='pb-1 text-2xl'>+</p>
         <button
           className='font-medium'
-          onClick={() => console.log('New chat clicked')}
         >
           New
         </button>
