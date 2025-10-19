@@ -9,10 +9,10 @@ import {
   newMessageHandler,
   // newMessageHandlerNoStream,
 } from "../handlers/chatHandler";
-import type { ChatSSEEvent } from "../handlers/chatHandler";
 import { useAuthContext } from "../hooks/useAuthContext";
 import { saveChatMetrics } from "../utils/metrics";
 import { saveChatToCache } from "../utils/chatCache";
+import { createMessageStreamer } from "../utils/streaming";
 import micOn from "../assets/chat/micOn.svg";
 import micOff from "../assets/chat/micOff.svg";
 
@@ -105,15 +105,10 @@ function ChatPage() {
     setChatInput("");
 
     try {
-      const t0 = performance.now();
-      // let firstChunkAt: number | null = null;
-      let firstTokenAt: number | null = null;
-      let endAt: number | null = null;
       let currChatId = chatId || "";
       console.log("currChatId: ", currChatId);
 
       const newMessageId = Date.now().toString();
-      // todo: Performance metrics
 
       setCurrentChat((prevChat: any) => ({
         chatId: currChatId,
@@ -129,104 +124,20 @@ function ChatPage() {
       }));
       setIsLoading(true);
 
+      // streamer
+      const streamer = createMessageStreamer({
+        setCurrentChat,
+        messageId: newMessageId,
+      });
+      streamer.markStart();
+
       const res = await newMessageHandler(
         currChatId,
         prompt,
         user?.token,
-        (evt: ChatSSEEvent) => {
-          if (!evt) return;
-
-          if (evt.event === "final_answer") {
-            let chunk = evt.data.chunk;
-            setCurrentChat((prevChat: any) => {
-              const updatedMessages = prevChat?.allMessages?.map((m: any) => {
-                if (m.id === newMessageId) {
-                  // Use a buffer to accumulate the full answer for Markdown rendering
-                  let buffer = m._streamBuffer || "";
-                  if (!m._finalAnswerStarted) {
-                    // Remove a single leading code fence (if present)
-                    chunk = chunk.replace(/^```[a-zA-Z0-9]*\n?/, "");
-                    buffer = chunk;
-                    return {
-                      ...m,
-                      botMessage: buffer,
-                      streaming: true,
-                      _finalAnswerStarted: true,
-                      _streamBuffer: buffer,
-                    };
-                  } else {
-                    // Remove a single trailing code fence (if present)
-                    // FIRST CHUNK
-                    firstTokenAt = performance.now();
-                    chunk = chunk.replace(/```$/, "");
-                    console.log(chunk);
-                    buffer += chunk;
-                    return {
-                      ...m,
-                      botMessage: buffer,
-                      streaming: true,
-                      _streamBuffer: buffer,
-                    };
-                  }
-                }
-                return m;
-              });
-              return {
-                ...prevChat,
-                allMessages: updatedMessages,
-              };
-            });
-          } else if (evt.event === "status") {
-            // Update Stream
-            setCurrentChat((prevChat: any) => ({
-              ...prevChat,
-              allMessages: prevChat?.allMessages?.map((m: any) => {
-                if (m.id === newMessageId) {
-                  if (m._finalAnswerStarted || m._finalAnswerDone) return m;
-                  return {
-                    ...m,
-                    botMessage: evt.data.message || "",
-                    streaming: true,
-                  };
-                }
-                return m;
-              }),
-            }));
-          } else if (evt.event === "complete") {
-            // FINAL CHUNK
-            endAt = performance.now();
-
-            // Compute metrics
-            const metrics = {
-              timeToFirstToken: firstTokenAt
-                ? Math.round(firstTokenAt - t0)
-                : undefined,
-              totalResponseTime: Math.round((endAt ?? performance.now()) - t0),
-            };
-            console.log("metrics: ", metrics);
-            setCurrentChat((prevChat: any) => ({
-              ...prevChat,
-              allMessages: prevChat?.allMessages?.map((m: any) => {
-                if (m.id === newMessageId) {
-                  return {
-                    ...m,
-                    streaming: false,
-                    _finalAnswerDone: true,
-                    responseMetrics: metrics,
-                  };
-                }
-                return m;
-              }),
-            }));
-          }
-        }
+        streamer.onEvent
       );
-      const metrics = {
-        timeToFirstToken: firstTokenAt
-          ? Math.round(firstTokenAt - t0)
-          : undefined,
-        totalResponseTime: Math.round(endAt! - t0),
-      };
+      const metrics = streamer.getMetrics();
       if (currChatId === "") {
         if (res?.chat_id) {
           saveChatMetrics(res.chat_id, metrics);
@@ -235,7 +146,6 @@ function ChatPage() {
         navigate(`/${res.chat_id}`);
         return;
       }
-
 
 
       try {
