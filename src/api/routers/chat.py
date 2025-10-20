@@ -133,30 +133,52 @@ async def prompt_stream(
         async def stream_generator():
             answer = ""
             memory_saved = False
+            accumulate_answer = True
             # Streaming mode
             for mode, chunk in support_bot_graph.stream(
                 config=thread_config, input=inputs, stream_mode=["custom", "messages"]
             ):
                 if mode == "custom":
-                    status_payload = {"message": chunk["status"]}
-                    yield f"event: status\ndata: {json.dumps(status_payload)}\n\n"
-                    if (
-                        "Almost done, wrapping up the details" in chunk["status"]
-                        and not memory_saved
-                    ):
-                        final_data = {"answer": answer, "chat_id": str(actual_chat_id)}
-                        yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
-                        # Finalize and save message to DB
+                    # Title event
+                    if isinstance(chunk, dict) and "title" in chunk:
+                        generated_title = chunk["title"]
+                        yield f"event: title\ndata: {json.dumps({'title': generated_title})}\n\n"
                         try:
-                            message = Message(
-                                chat_id=actual_chat_id, human=humanMessage, bot=answer
+                            result = await session.execute(
+                                select(Chat).where(Chat.id == actual_chat_id, Chat.user_id == user_id)
                             )
-                            session.add(message)
-                            memory_saved = True
-                            await session.commit()
+                            chat_row = result.scalar_one_or_none()
+                            if chat_row and (not chat_row.title or chat_row.title.strip() in ("", "New Chat")):
+                                chat_row.title = generated_title
+                                await session.commit()
                         except Exception as e:
                             await session.rollback()
-                            print(f"Error saving message to database: {e}")
+                            print(f"Error saving generated title to database: {e}")
+
+                    # Status event
+                    if isinstance(chunk, dict) and "status" in chunk:
+                        status_payload = {"message": chunk["status"]}
+                        yield f"event: status\ndata: {json.dumps(status_payload)}\n\n"
+                        # Once title generation begins, stop accumulating answer chunks
+                        if "Generating title for the incident report" in chunk["status"]:
+                            accumulate_answer = False
+                        if (
+                            "Almost done, wrapping up the details" in chunk["status"]
+                            and not memory_saved
+                        ):
+                            final_data = {"answer": answer, "chat_id": str(actual_chat_id)}
+                            yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
+                            # Finalize and save message to DB
+                            try:
+                                message = Message(
+                                    chat_id=actual_chat_id, human=humanMessage, bot=answer
+                                )
+                                session.add(message)
+                                memory_saved = True
+                                await session.commit()
+                            except Exception as e:
+                                await session.rollback()
+                                print(f"Error saving message to database: {e}")
 
                 elif mode == "messages":
                     for message_chunk in chunk:
@@ -164,9 +186,10 @@ async def prompt_stream(
                             isinstance(message_chunk, AIMessageChunk)
                             and message_chunk.content
                         ):
-                            answer += message_chunk.content
-                            chunk_payload = {"chunk": message_chunk.content}
-                            yield f"event: final_answer\ndata: {json.dumps(chunk_payload)}\n\n"
+                            if accumulate_answer:
+                                answer += message_chunk.content
+                                chunk_payload = {"chunk": message_chunk.content}
+                                yield f"event: final_answer\ndata: {json.dumps(chunk_payload)}\n\n"
 
         return StreamingResponse(
             stream_generator(),
@@ -199,7 +222,8 @@ async def get_graph_response_non_stream(
             answer = str(final_message.content)
         else:
             answer = str(final_message.content)
-        return answer
+        title = result.get("title") if isinstance(result, dict) else None
+        return answer, title
     except Exception as e:
         print(f"Error in get_graph_response_non_stream: {e}")
         raise e
@@ -227,9 +251,21 @@ async def prompt(
             chat_id, user_id, session
         )
         inputs = {"messages": [("user", humanMessage)]}
-        answer = await get_graph_response_non_stream(
+        answer, title = await get_graph_response_non_stream(
             inputs, thread_config, support_bot_graph
         )
+        if title:
+            try:
+                result = await session.execute(
+                    select(Chat).where(Chat.id == actual_chat_id, Chat.user_id == user_id)
+                )
+                chat_row = result.scalar_one_or_none()
+                if chat_row and (not chat_row.title or chat_row.title.strip() in ("", "New Chat")):
+                    chat_row.title = title
+                    await session.commit()
+            except Exception as e:
+                await session.rollback()
+                print(f"Error saving generated title (non-stream) to database: {e}")
         message = Message(chat_id=actual_chat_id, human=humanMessage, bot=answer)
         session.add(message)
         await session.commit()

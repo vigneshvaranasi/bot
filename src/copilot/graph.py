@@ -1,5 +1,5 @@
-from typing import Annotated, Sequence, TypedDict
-from langchain_core.messages import BaseMessage, SystemMessage,AIMessage,AIMessageChunk
+from typing import Annotated, Sequence, TypedDict,Optional
+from langchain_core.messages import BaseMessage, SystemMessage,AIMessageChunk
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama import ChatOllama
 from langgraph.graph import StateGraph, END
@@ -48,11 +48,12 @@ model_with_tools = llm.bind_tools(allowed_tools)
 # stream modes
 stream_modes = ["custom","messages"]
 
-# 1. Define the Agent's State
+# Define the Agent's State
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
+    title: Optional[str]
 
-# 2. Define the Agent's Nodes
+# Define the Agent's Nodes
 def call_model(state: AgentState):
     """Node To Call the LLM."""
     print("---NODE: CALLING MODEL---")
@@ -69,7 +70,7 @@ def call_model(state: AgentState):
 
 qdrant_tool_node = ToolNode([get_incident_report])
 
-# 3. Define the Conditional Edge
+# Define the Conditional Edge
 def wants_qdrant_tool(state: AgentState):
     """
     Decide whether the model wants to call the Qdrant search tool or finish.
@@ -78,11 +79,18 @@ def wants_qdrant_tool(state: AgentState):
     print("---CONDITIONAL EDGE: WANTS QDRANT TOOL?---")
     last_message = state["messages"][-1]
     if not getattr(last_message, "tool_calls", None):
-        writer({
-            "status": "Almost done, wrapping up the details"
-        })
-        print("DECISION: End of process.")
-        return "end"
+        if not state.get("title"):
+            writer({
+                "status": "Generating title for the incident report..."
+            })
+            print("DECISION: Call Title Generation Node.")
+            return "title_generation"
+        else:
+            writer({
+                "status": "Almost done, wrapping up the details"
+            })
+            print("DECISION: End of process.")
+            return "end"
     else:
         writer({
             "status": "Analyzing your request... please hold on."
@@ -90,7 +98,40 @@ def wants_qdrant_tool(state: AgentState):
         print("DECISION: Call Qdrant tool.")
         return "continue"
 
-# 4. Assemble the Graph
+
+# Title Generation Node
+def title_generation_node(state: AgentState):
+    """Node To Generate Title for the Incident Report."""
+    writer = get_stream_writer()
+    print("---NODE: GENERATING TITLE---")
+    
+    chat_text = "\n".join(
+        f"{m.type.upper()}: {getattr(m, 'content', '')}"
+        for m in state["messages"]
+    )
+
+    prompt = SystemMessage(
+        "Generate a concise, 2-4 word title by using the chat history. "
+        "The title should clearly represent the main theme or subject of the conversation. "
+        "Here is a conversation transcript:\n"
+        f"{chat_text}\n\n"
+        "Prioritize accuracy over excessive creativity; keep it clear and simple. "
+        "The output must be only the title, without any markdown code fences or other encapsulating text."
+    )
+    response = llm.invoke([prompt])
+    title_text = response.content.strip()
+    if not title_text:
+        title_text = "Untitled Chat"
+    print(f"Generated Title: {title_text}")
+    writer({
+        "title": title_text
+    })
+    writer({
+        "status": "Almost done, wrapping up the details"
+    })
+    return {"title": title_text}
+
+# Assemble the Graph
 def create_agent_graph():
     """Creates and Compiles Copilot Agent Graph."""
     conn = Connection.connect(config.VECTOR_DATABASE_URL, **connection_kwargs)
@@ -100,16 +141,18 @@ def create_agent_graph():
     
     workflow.add_node("support_bot", call_model)
     workflow.add_node("qdrant_search", qdrant_tool_node)
+    workflow.add_node("title_generation", title_generation_node)
     
     workflow.set_entry_point("support_bot")
     
     workflow.add_conditional_edges(
         "support_bot",
         wants_qdrant_tool,
-        {"continue": "qdrant_search", "end": END},
+        {"continue": "qdrant_search", "title_generation": "title_generation", "end": END},
     )
     
     workflow.add_edge("qdrant_search", "support_bot")
+    workflow.add_edge("title_generation", END)
     
     # Use an in-memory checkpointer so state persists across turns (per process)
     # memory = MemorySaver()
