@@ -45,9 +45,8 @@ except Exception as e:
 print(f"Starting to ingest {len(incidents)} incidents...")
 
 for i, incident in enumerate(incidents):
-    # Create text for embedding (combining incident text and response)
-    text = f"{incident['text']} {incident['response']}"
-    
+    # Create text for embedding (combining incident text and action taken)
+    text = f"{incident['incident_description']} {incident['action_taken']}"
     # Generate embedding
     vector = model.encode(text).tolist()
     
@@ -60,10 +59,10 @@ for i, incident in enumerate(incidents):
                     "id": i + 1,
                     "vector": vector,
                     "payload": {
-                        "incident_id": incident["Incident ID"],
-                        "main_issue": incident["Main Issue"],
-                        "text": incident["text"],
-                        "response": incident["response"]
+                        "incident_id": incident["incident_id"],
+                        "incident_title": incident["incident_title"],
+                        "incident_description": incident["incident_description"],
+                        "action_taken": incident["action_taken"]
                     }
                 }
             ]
