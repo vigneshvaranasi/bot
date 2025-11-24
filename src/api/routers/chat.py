@@ -7,6 +7,7 @@ from src.copilot.guardrails.prompt_guardrails import PromptGuardrail
 from src.api.utils.auth import get_current_user
 from cache import check_cache_for_query, store_chat_response
 from src.copilot.graph import create_agent_graph
+from src.copilot.utils import should_ask_clarification
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from src.api.schemas.chat_schema import ChatListItem, ChatRenameRequest, PromptModel
@@ -130,12 +131,36 @@ async def prompt_stream(
         actual_chat_id, thread_config = await get_or_create_chat(
             chat_id, user_id, session
         )
+        
+        # Check if there's conversation history in this chat
+        has_conversation_history = False
+        if chat_id is not None and str(chat_id).strip():
+            # Check if there are existing messages in this chat
+            message_count_result = await session.execute(
+                select(func.count(Message.id)).where(Message.chat_id == actual_chat_id)
+            )
+            message_count = message_count_result.scalar()
+            has_conversation_history = message_count > 0
+            print(f"[CONVERSATION CHECK] Chat {actual_chat_id} has {message_count} messages")
+        
+        # Check if we should ask for clarification on context-dependent queries
+        should_clarify, clarification_message = should_ask_clarification(humanMessage, has_conversation_history)
+        if should_clarify:
+            print(f"[CLARIFICATION NEEDED] Query requires clarification: '{humanMessage[:50]}...'")
+            return {
+                "success": False,
+                "message": clarification_message,
+                "needs_clarification": True
+            }
+        
         inputs = {"messages": [("user", humanMessage)]}
 
         async def stream_generator():
             # Check cache first before processing with LangGraph
+            # Only use cache for self-contained queries without conversation context
             print(f"[CACHE CHECK] Checking cache for query: '{humanMessage[:50]}...'")
-            cached_response = check_cache_for_query(humanMessage)
+            print(f"[CACHE CHECK] Has conversation history: {has_conversation_history}")
+            cached_response = check_cache_for_query(humanMessage, has_conversation_history=has_conversation_history)
             
             if cached_response:
                 print(f"[CACHE HIT] Found cached response, streaming from cache")
