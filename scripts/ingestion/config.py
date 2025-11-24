@@ -22,7 +22,7 @@ class QdrantConfig:
 
 class DataConfig:
     """Configuration for the data sources."""
-    INCIDENT_JSON_PATH = "data/incidents.json"
+    INCIDENT_JSON_PATH = "data/tmp.json"
 
 class TextSplitterConfig:
     """Configuration for the text chunking."""

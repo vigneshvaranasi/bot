@@ -1,4 +1,3 @@
-# ingest.py
 import json
 import logging
 from typing import List, Dict, Any, Generator
@@ -15,7 +14,6 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Qdrant
 
-# Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def load_incidents(json_path: str) -> List[Dict[str, Any]]:
