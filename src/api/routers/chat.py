@@ -1,9 +1,11 @@
 from datetime import datetime
 from fastapi import HTTPException
 import json
+import asyncio
 from sqlalchemy import asc, func, select
 from src.copilot.guardrails.prompt_guardrails import PromptGuardrail
 from src.api.utils.auth import get_current_user
+from cache import check_cache_for_query, store_chat_response
 from src.copilot.graph import create_agent_graph
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -131,6 +133,47 @@ async def prompt_stream(
         inputs = {"messages": [("user", humanMessage)]}
 
         async def stream_generator():
+            # Check cache first before processing with LangGraph
+            print(f"[CACHE CHECK] Checking cache for query: '{humanMessage[:50]}...'")
+            cached_response = check_cache_for_query(humanMessage)
+            
+            if cached_response:
+                print(f"[CACHE HIT] Found cached response, streaming from cache")
+                # Stream cached response
+                yield f"event: status\ndata: {json.dumps({'message': 'Found cached response, delivering instantly...'})}\n\n"
+                
+                # Save cached response to database (if new chat)
+                try:
+                    new_message = Message(
+                        chat_id=actual_chat_id,
+                        human=humanMessage,
+                        bot=cached_response,
+                    )
+                    session.add(new_message)
+                    await session.commit()
+                    await session.refresh(new_message)
+                except Exception as e:
+                    await session.rollback()
+                    print(f"Error saving cached response to database: {e}")
+                
+                # Stream the cached answer - send content chunks preserving markdown
+                print(f"[CACHE STREAM] Streaming cached response with markdown formatting")
+                
+                # Split by characters to preserve newlines and markdown formatting
+                chunk_size = 5  # Send 5 characters at a time for smooth streaming
+                for i in range(0, len(cached_response), chunk_size):
+                    chunk_text = cached_response[i:i + chunk_size]
+                    chunk_payload = {"chunk": chunk_text}
+                    yield f"event: final_answer\ndata: {json.dumps(chunk_payload)}\n\n"
+                    await asyncio.sleep(0.01)  # Small delay for streaming effect
+                
+                # Send completion event with full answer
+                final_data = {"answer": cached_response, "chat_id": str(actual_chat_id)}
+                yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
+                print(f"[CACHE STREAM] Stream completed successfully")
+                return
+            
+            print(f"[CACHE MISS] No cached response found, processing with LangGraph")
             answer = ""
             memory_saved = False
             accumulate_answer = True
@@ -168,6 +211,15 @@ async def prompt_stream(
                         ):
                             final_data = {"answer": answer, "chat_id": str(actual_chat_id)}
                             yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
+                            
+                            # Store response in cache for future use
+                            try:
+                                print(f"[CACHE STORE] Storing response in cache for query: '{humanMessage[:50]}...'")
+                                store_chat_response(humanMessage, answer)
+                                print(f"[CACHE STORE] Successfully cached response")
+                            except Exception as e:
+                                print(f"[CACHE ERROR] Error storing response in cache: {e}")
+                            
                             # Finalize and save message to DB
                             try:
                                 message = Message(
@@ -250,6 +302,34 @@ async def prompt(
         actual_chat_id, thread_config = await get_or_create_chat(
             chat_id, user_id, session
         )
+        
+        # Check cache first before processing with LangGraph
+        print(f"[CACHE CHECK] Checking cache for query: '{humanMessage[:50]}...'")
+        cached_response = check_cache_for_query(humanMessage)
+        
+        if cached_response:
+            print(f"[CACHE HIT] Found cached response, returning from cache")
+            # Save cached response to database
+            try:
+                new_message = Message(
+                    chat_id=actual_chat_id,
+                    human=humanMessage,
+                    bot=cached_response,
+                )
+                session.add(new_message)
+                await session.commit()
+                await session.refresh(new_message)
+            except Exception as e:
+                await session.rollback()
+                print(f"Error saving cached response to database: {e}")
+            
+            return {
+                "success": True,
+                "message": cached_response,
+                "chat_id": str(actual_chat_id)
+            }
+        
+        print(f"[CACHE MISS] No cached response found, processing with LangGraph")
         inputs = {"messages": [("user", humanMessage)]}
         answer, title = await get_graph_response_non_stream(
             inputs, thread_config, support_bot_graph
@@ -266,6 +346,15 @@ async def prompt(
             except Exception as e:
                 await session.rollback()
                 print(f"Error saving generated title (non-stream) to database: {e}")
+        
+        # Store response in cache for future use
+        try:
+            print(f"[CACHE STORE] Storing response in cache for query: '{humanMessage[:50]}...'")
+            store_chat_response(humanMessage, answer)
+            print(f"[CACHE STORE] Successfully cached response")
+        except Exception as e:
+            print(f"[CACHE ERROR] Error storing response in cache: {e}")
+        
         message = Message(chat_id=actual_chat_id, human=humanMessage, bot=answer)
         session.add(message)
         await session.commit()
