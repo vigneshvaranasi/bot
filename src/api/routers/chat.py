@@ -160,7 +160,7 @@ async def prompt_stream(
             # Only use cache for self-contained queries without conversation context
             print(f"[CACHE CHECK] Checking cache for query: '{humanMessage[:50]}...'")
             print(f"[CACHE CHECK] Has conversation history: {has_conversation_history}")
-            cached_response = check_cache_for_query(humanMessage, has_conversation_history=has_conversation_history)
+            cached_response = check_cache_for_query(humanMessage)
             
             if cached_response:
                 print(f"[CACHE HIT] Found cached response, streaming from cache")

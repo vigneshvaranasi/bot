@@ -38,7 +38,8 @@ load_dotenv()
 
 # Cache configuration
 CACHE_FILE = os.path.join(os.path.dirname(__file__), "data", "cache.json")
-SIMILARITY_THRESHOLD = 0.75  # Threshold for fuzzy matching (0.0-1.0)
+SIMILARITY_THRESHOLD = 0.92  # Threshold for fuzzy matching (0.0-1.0) - Very conservative to prevent mismatches
+MIN_TOPIC_OVERLAP = 0.70  # Minimum topic overlap required (0.0-1.0)
 
 # Define common stopwords to ignore in topic extraction
 STOPWORDS = {
@@ -135,38 +136,55 @@ def _calculate_similarity(text1: str, text2: str) -> float:
     """
     Calculate similarity between two texts using multiple factors:
     - Basic string similarity
-    - Topic/keyword overlap
+    - Topic/keyword overlap (STRICT)
     - Numeric differences (heavy penalty for mismatches)
+    
+    Conservative approach: Requires BOTH high text similarity AND topic overlap
     """
     # Basic string similarity using SequenceMatcher
     base_sim = SequenceMatcher(None, text1, text2).ratio()
+    
+    # If base similarity is very high (>0.90), likely same query with minor variations
+    if base_sim >= 0.90:
+        # Still check for numeric differences
+        nums1 = set(re.findall(r'\d+', text1))
+        nums2 = set(re.findall(r'\d+', text2))
+        if nums1 and nums2 and nums1 != nums2:
+            return 0.0  # Different numbers = different queries
+        return base_sim
     
     # Extract topics from both texts
     topics1 = _extract_topics(text1)
     topics2 = _extract_topics(text2)
     
-    # Check for numeric differences (apply heavy penalty)
+    # Check for numeric differences (complete rejection for mismatches)
     nums1 = set(re.findall(r'\d+', text1))
     nums2 = set(re.findall(r'\d+', text2))
     if nums1 and nums2 and nums1 != nums2:
-        return base_sim * 0.1  # Heavy penalty for numeric mismatches
+        return 0.0  # Different numbers = different queries
     
     # Calculate topic-based similarity if both texts have topics
     if topics1 and topics2:
         common_topics = topics1.intersection(topics2)
         total_unique_topics = len(topics1.union(topics2))
         
-        if common_topics:
-            # Boost similarity based on topic overlap ratio
-            topic_overlap_ratio = len(common_topics) / total_unique_topics
-            boost = topic_overlap_ratio * 0.2
-            boosted_sim = min(1.0, base_sim + boost)
-            return boosted_sim
-        else:
-            # No common topics - apply penalty only if base similarity is low
-            if base_sim < 0.6:
-                return base_sim * 0.3
+        if not common_topics:
+            # No common topics - completely different queries
+            return 0.0
+        
+        # Calculate topic overlap ratio
+        topic_overlap_ratio = len(common_topics) / total_unique_topics
+        
+        # STRICT: Require significant topic overlap
+        if topic_overlap_ratio < MIN_TOPIC_OVERLAP:
+            return 0.0
+        
+        # Both text similarity AND topic overlap must be high
+        # Use the minimum of the two (most conservative)
+        final_similarity = min(base_sim, topic_overlap_ratio)
+        return final_similarity
     
+    # If no topics extracted, rely solely on text similarity
     return base_sim
 
 def _create_cache_key(query: str) -> str:
@@ -195,7 +213,7 @@ def _save_json_cache(data: Dict[str, Any]) -> None:
         print(f"[JSON CACHE ERROR] Could not save cache file: {e}")
 
 def _find_similar_cache_key(target_key: str, cache_keys: list) -> Optional[str]:
-    """Find a similar cache key using fuzzy matching."""
+    """Find a similar cache key using STRICT fuzzy matching."""
     best_match = None
     best_similarity = 0.0
     
@@ -204,6 +222,10 @@ def _find_similar_cache_key(target_key: str, cache_keys: list) -> Optional[str]:
         if similarity > best_similarity and similarity >= SIMILARITY_THRESHOLD:
             best_similarity = similarity
             best_match = cached_key
+            print(f"[CACHE SIMILARITY] Matched '{target_key[:50]}...' with '{cached_key[:50]}...' (score: {similarity:.3f})")
+    
+    if best_match:
+        print(f"[CACHE FUZZY MATCH] Best match score: {best_similarity:.3f} (threshold: {SIMILARITY_THRESHOLD})")
     
     return best_match
 
