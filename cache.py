@@ -50,6 +50,15 @@ STOPWORDS = {
     "what", "when", "where", "why", "how", "which", "who", "whom"
 }
 
+# Context-dependent query patterns
+CONTEXT_PATTERNS = [
+    r'\b(it|this|that|these|those|them|they|he|she)\b',  # Pronouns referring to previous context
+    r'\b(above|previous|last|earlier|before|related to it|about it)\b',  # References to previous messages
+    r'\b(same|similar|like that|such as)\b',  # Comparisons to previous context
+    r'\bmore (details|info|information)\b',  # Asking for elaboration
+    r'\b(continue|go on|keep going|elaborate)\b',  # Continuation requests
+]
+
 def _parse_redis_config():
     """Parse Redis configuration from REDIS_URL or individual environment variables."""
     redis_url = os.getenv("REDIS_URL")
@@ -131,6 +140,58 @@ def _extract_topics(text: str) -> set:
             continue
         topics.add(word)
     return topics
+
+def _is_context_dependent_llm(query: str) -> bool:
+    """Use LLM to intelligently detect if a query depends on conversation context."""
+    try:
+        from langchain_ollama import ChatOllama
+        from langchain_core.messages import SystemMessage
+        
+        llm = ChatOllama(
+            model="gpt-oss:20b",
+            base_url="http://ollama.trackcode.in",
+            temperature=0.0  # Deterministic
+        )
+        
+        prompt = SystemMessage(
+            f"Analyze this query and determine if it requires previous conversation context to be answered.\n\n"
+            f"Query: '{query}'\n\n"
+            f"A query is context-dependent if it:\n"
+            f"- Uses pronouns like 'it', 'this', 'that', 'them' referring to previous messages\n"
+            f"- References 'related', 'similar', 'same' without specifying what\n"
+            f"- Asks for 'more details' or 'elaboration' without stating the topic\n"
+            f"- Contains phrases like 'about that', 'like before', 'as mentioned'\n\n"
+            f"Answer with only 'YES' if context-dependent, or 'NO' if self-contained."
+        )
+        
+        response = llm.invoke([prompt])
+        answer = response.content.strip().upper()
+        
+        is_dependent = "YES" in answer
+        if is_dependent:
+            print(f"[CONTEXT DETECTION - LLM] Query is context-dependent: '{query[:50]}...'")
+        return is_dependent
+        
+    except Exception as e:
+        print(f"[CONTEXT DETECTION - LLM ERROR] Falling back to pattern matching: {e}")
+        return _is_context_dependent_fallback(query)
+
+def _is_context_dependent_fallback(query: str) -> bool:
+    """Fallback pattern-based context detection if LLM is unavailable."""
+    query_lower = query.lower()
+    
+    # Check for context-dependent patterns
+    for pattern in CONTEXT_PATTERNS:
+        if re.search(pattern, query_lower):
+            print(f"[CONTEXT DETECTION - PATTERN] Query is context-dependent (matched pattern: {pattern})")
+            return True
+    
+    return False
+
+def _is_context_dependent(query: str) -> bool:
+    """Check if a query depends on conversation context using LLM + pattern fallback."""
+    # Try LLM first, fall back to patterns if it fails
+    return _is_context_dependent_llm(query)
 
 def _calculate_similarity(text1: str, text2: str) -> float:
     """
@@ -308,6 +369,11 @@ def get_from_cache(query: str, bypass_cache: bool = False) -> Optional[Any]:
         print(f"[CACHE BYPASSED] User requested no cache for: '{query[:50]}...'")
         return None
     
+    # Check if query is context-dependent
+    if _is_context_dependent(query):
+        print(f"[CACHE SKIPPED] Query is context-dependent: '{query[:50]}...'")
+        return None
+    
     normalized_key = _create_cache_key(query)
     
     # Try Redis first (if enabled)
@@ -345,6 +411,11 @@ def add_to_cache(query: str, response: Any, ttl: Optional[int] = None) -> None:
         ttl (Optional[int]): Time-to-live in seconds for Redis cache
     """
     if response is None:
+        return
+    
+    # Don't cache context-dependent queries
+    if _is_context_dependent(query):
+        print(f"[CACHE SKIPPED] Not caching context-dependent query: '{query[:50]}...'")
         return
     
     normalized_key = _create_cache_key(query)

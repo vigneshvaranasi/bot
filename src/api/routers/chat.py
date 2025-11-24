@@ -167,6 +167,45 @@ async def prompt_stream(
                 # Stream cached response
                 yield f"event: status\ndata: {json.dumps({'message': 'Found cached response, delivering instantly...'})}\n\n"
                 
+                # Generate title for new chat
+                try:
+                    result = await session.execute(
+                        select(Chat).where(Chat.id == actual_chat_id, Chat.user_id == user_id)
+                    )
+                    chat_row = result.scalar_one_or_none()
+                    if chat_row and (not chat_row.title or chat_row.title.strip() in ("", "New Chat")):
+                        # Generate title from the user's query
+                        from langchain_ollama import ChatOllama
+                        from langchain_core.messages import SystemMessage
+                        
+                        llm = ChatOllama(
+                            model="gpt-oss:20b",
+                            base_url="http://ollama.trackcode.in",
+                            temperature=0.1
+                        )
+                        
+                        prompt = SystemMessage(
+                            "Generate a concise, 2-4 word title for this query. "
+                            "The title should clearly represent the main theme or subject. "
+                            f"Query: {humanMessage}\n\n"
+                            "Prioritize accuracy over excessive creativity; keep it clear and simple. "
+                            "The output must be only the title, without any markdown code fences or other encapsulating text."
+                        )
+                        response = llm.invoke([prompt])
+                        generated_title = response.content.strip()
+                        if not generated_title:
+                            generated_title = "Untitled Chat"
+                        
+                        chat_row.title = generated_title
+                        await session.commit()
+                        
+                        # Send title event to frontend
+                        yield f"event: title\ndata: {json.dumps({'title': generated_title})}\n\n"
+                        print(f"[CACHE] Generated title: {generated_title}")
+                except Exception as e:
+                    await session.rollback()
+                    print(f"Error generating title for cached response: {e}")
+                
                 # Save cached response to database (if new chat)
                 try:
                     new_message = Message(
