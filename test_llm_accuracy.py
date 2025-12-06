@@ -1,6 +1,6 @@
 """Test LLM-based context detection accuracy on edge cases."""
 
-from cache import _is_context_dependent
+from scripts.cache import _is_context_dependent
 
 test_cases = [
     ("Can you give me the related incident from the database", True, "Your screenshot example"),

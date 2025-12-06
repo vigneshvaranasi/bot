@@ -5,7 +5,7 @@ import asyncio
 from sqlalchemy import asc, func, select
 from src.copilot.guardrails.prompt_guardrails import PromptGuardrail
 from src.api.utils.auth import get_current_user
-from cache import check_cache_for_query, store_chat_response
+from scripts.cache import check_cache_for_query, store_chat_response
 from src.copilot.graph import create_agent_graph
 from src.copilot.utils import should_ask_clarification
 from fastapi import APIRouter, Depends

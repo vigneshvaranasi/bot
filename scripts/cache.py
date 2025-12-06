@@ -13,7 +13,7 @@ Integration Points:
 - Environment-based configuration
 
 Usage:
-    from cache import get_from_cache, add_to_cache
+    from scripts.cache import get_from_cache, add_to_cache
     
     # Check cache before processing
     cached_response = get_from_cache(user_query)
