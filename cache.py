@@ -2,11 +2,11 @@
 Cache Implementation for LangGraph Support Bot
 ==============================================
 
-This module provides a comprehensive caching system with support for both Redis and JSON file caching.
+This module provides a Redis-based caching system for the support bot.
 Features include fuzzy text matching, similarity scoring, and automatic cache management.
 
 Integration Points:
-- Redis cache (primary) with JSON file fallback
+- Redis cache with semantic similarity matching
 - Fuzzy text matching for similar queries
 - Cache bypass functionality
 - Automatic cache invalidation
@@ -32,14 +32,30 @@ import redis
 from typing import Any, Dict, Optional
 from difflib import SequenceMatcher
 from dotenv import load_dotenv
+from sentence_transformers import SentenceTransformer
+import numpy as np
 
 # Load environment variables from .env file
 load_dotenv()
 
+# Initialize sentence transformer for semantic similarity (cached globally)
+_embedding_model = None
+
+def _get_embedding_model():
+    """Get or initialize the sentence transformer model (cached)."""
+    global _embedding_model
+    if _embedding_model is None:
+        try:
+            _embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+            print("[CACHE] Sentence transformer model loaded for semantic similarity")
+        except Exception as e:
+            print(f"[CACHE ERROR] Failed to load sentence transformer: {e}")
+            _embedding_model = False  # Mark as failed to avoid retrying
+    return _embedding_model if _embedding_model else None
+
 # Cache configuration
-CACHE_FILE = os.path.join(os.path.dirname(__file__), "data", "cache.json")
-SIMILARITY_THRESHOLD = 0.92  # Threshold for fuzzy matching (0.0-1.0) - Very conservative to prevent mismatches
-MIN_TOPIC_OVERLAP = 0.70  # Minimum topic overlap required (0.0-1.0)
+SIMILARITY_THRESHOLD = 0.85  # Threshold for semantic similarity (0.0-1.0) - Balanced for good matches
+MIN_TOPIC_OVERLAP = 0.70  # Minimum topic overlap required (0.0-1.0) - Not used with sentence transformers
 
 # Define common stopwords to ignore in topic extraction
 STOPWORDS = {
@@ -57,6 +73,15 @@ CONTEXT_PATTERNS = [
     r'\b(same|similar|like that|such as)\b',  # Comparisons to previous context
     r'\bmore (details|info|information)\b',  # Asking for elaboration
     r'\b(continue|go on|keep going|elaborate)\b',  # Continuation requests
+    r'\b(the|that|this)\s+(related|relevant|associated|corresponding)\b',  # "the related incident", "the relevant issue"
+    r'\brelated\s+(incident|issue|problem|error|case)\b',  # "related incident from database"
+    r'\bfrom\s+(the\s+)?(database|above|context|discussion)\b',  # "from the database", "from above"
+    r'\b(tell|show|give|get)\s+me\s+(the|that|this|more|another)\s+(related|relevant|one|example)\b',  # "give me the related...", "show me that example"
+    r'\b(what|which|who)\s+(was|is|were|are)\s+(that|this)\b',  # "what was that...", "which is this..." (not "the")
+    r'\b(another|other|different)\s+(one|example|case|incident)\b',  # "another example", "other case"
+    r'\bfor\s+(this|that|the\s+same|it)\b',  # "for this", "for that issue"
+    r'\babout\s+(this|that|it)\b',  # "about this", "about that"
+    r'\b(explain|describe|detail)\s+(this|that|it)\b',  # "explain this", "describe that"
 ]
 
 def _parse_redis_config():
@@ -141,137 +166,62 @@ def _extract_topics(text: str) -> set:
         topics.add(word)
     return topics
 
-def _is_context_dependent_llm(query: str) -> bool:
-    """Use LLM to intelligently detect if a query depends on conversation context."""
-    try:
-        from langchain_ollama import ChatOllama
-        from langchain_core.messages import SystemMessage
-        
-        llm = ChatOllama(
-            model="gpt-oss:20b",
-            base_url="http://ollama.trackcode.in",
-            temperature=0.0  # Deterministic
-        )
-        
-        prompt = SystemMessage(
-            f"Analyze this query and determine if it requires previous conversation context to be answered.\n\n"
-            f"Query: '{query}'\n\n"
-            f"A query is context-dependent if it:\n"
-            f"- Uses pronouns like 'it', 'this', 'that', 'them' referring to previous messages\n"
-            f"- References 'related', 'similar', 'same' without specifying what\n"
-            f"- Asks for 'more details' or 'elaboration' without stating the topic\n"
-            f"- Contains phrases like 'about that', 'like before', 'as mentioned'\n\n"
-            f"Answer with only 'YES' if context-dependent, or 'NO' if self-contained."
-        )
-        
-        response = llm.invoke([prompt])
-        answer = response.content.strip().upper()
-        
-        is_dependent = "YES" in answer
-        if is_dependent:
-            print(f"[CONTEXT DETECTION - LLM] Query is context-dependent: '{query[:50]}...'")
-        return is_dependent
-        
-    except Exception as e:
-        print(f"[CONTEXT DETECTION - LLM ERROR] Falling back to pattern matching: {e}")
-        return _is_context_dependent_fallback(query)
-
-def _is_context_dependent_fallback(query: str) -> bool:
-    """Fallback pattern-based context detection if LLM is unavailable."""
+def _is_context_dependent(query: str) -> bool:
+    """
+    Fast pattern-based context detection using regex.
+    Much faster than LLM-based detection while still being effective.
+    """
     query_lower = query.lower()
     
     # Check for context-dependent patterns
     for pattern in CONTEXT_PATTERNS:
         if re.search(pattern, query_lower):
-            print(f"[CONTEXT DETECTION - PATTERN] Query is context-dependent (matched pattern: {pattern})")
+            print(f"[CONTEXT DETECTION] Query is context-dependent (matched pattern: {pattern})")
             return True
     
     return False
 
-def _is_context_dependent(query: str) -> bool:
-    """Check if a query depends on conversation context using LLM + pattern fallback."""
-    # Try LLM first, fall back to patterns if it fails
-    return _is_context_dependent_llm(query)
-
 def _calculate_similarity(text1: str, text2: str) -> float:
     """
-    Calculate similarity between two texts using multiple factors:
-    - Basic string similarity
-    - Topic/keyword overlap (STRICT)
-    - Numeric differences (heavy penalty for mismatches)
+    Calculate similarity between two texts using semantic embeddings.
+    Much faster and more accurate than LLM-based or pure string matching.
     
-    Conservative approach: Requires BOTH high text similarity AND topic overlap
+    Uses sentence transformers for semantic understanding while still 
+    checking for numeric differences.
     """
-    # Basic string similarity using SequenceMatcher
-    base_sim = SequenceMatcher(None, text1, text2).ratio()
-    
-    # If base similarity is very high (>0.90), likely same query with minor variations
-    if base_sim >= 0.90:
-        # Still check for numeric differences
-        nums1 = set(re.findall(r'\d+', text1))
-        nums2 = set(re.findall(r'\d+', text2))
-        if nums1 and nums2 and nums1 != nums2:
-            return 0.0  # Different numbers = different queries
-        return base_sim
-    
-    # Extract topics from both texts
-    topics1 = _extract_topics(text1)
-    topics2 = _extract_topics(text2)
-    
-    # Check for numeric differences (complete rejection for mismatches)
+    # Check for numeric differences first (fast rejection)
     nums1 = set(re.findall(r'\d+', text1))
     nums2 = set(re.findall(r'\d+', text2))
     if nums1 and nums2 and nums1 != nums2:
         return 0.0  # Different numbers = different queries
     
-    # Calculate topic-based similarity if both texts have topics
-    if topics1 and topics2:
-        common_topics = topics1.intersection(topics2)
-        total_unique_topics = len(topics1.union(topics2))
-        
-        if not common_topics:
-            # No common topics - completely different queries
-            return 0.0
-        
-        # Calculate topic overlap ratio
-        topic_overlap_ratio = len(common_topics) / total_unique_topics
-        
-        # STRICT: Require significant topic overlap
-        if topic_overlap_ratio < MIN_TOPIC_OVERLAP:
-            return 0.0
-        
-        # Both text similarity AND topic overlap must be high
-        # Use the minimum of the two (most conservative)
-        final_similarity = min(base_sim, topic_overlap_ratio)
-        return final_similarity
+    # Try semantic similarity using sentence transformers
+    model = _get_embedding_model()
+    if model is not None:
+        try:
+            # Generate embeddings
+            embeddings = model.encode([text1, text2], convert_to_numpy=True)
+            
+            # Normalize embeddings
+            norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+            norms[norms == 0] = 1.0
+            embeddings = embeddings / norms
+            
+            # Calculate cosine similarity
+            similarity = float(np.dot(embeddings[0], embeddings[1]))
+            return max(0.0, min(1.0, similarity))  # Clamp to [0, 1]
+        except Exception as e:
+            print(f"[CACHE WARNING] Semantic similarity failed, falling back to string matching: {e}")
     
-    # If no topics extracted, rely solely on text similarity
+    # Fallback to basic string similarity if semantic model unavailable
+    base_sim = SequenceMatcher(None, text1, text2).ratio()
     return base_sim
 
 def _create_cache_key(query: str) -> str:
     """Create a normalized cache key from the query text."""
     return _normalize_text(query)
 
-def _load_json_cache() -> Dict[str, Any]:
-    """Load cache from JSON file."""
-    if os.path.exists(CACHE_FILE):
-        try:
-            with open(CACHE_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except (json.JSONDecodeError, IOError):
-            print(f"[JSON CACHE WARNING] Could not read cache file: {CACHE_FILE}")
-            return {}
-    return {}
 
-def _save_json_cache(data: Dict[str, Any]) -> None:
-    """Save cache back to JSON file."""
-    try:
-        cache_dir = os.path.dirname(CACHE_FILE)
-        os.makedirs(cache_dir, exist_ok=True)
-        with open(CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-    except IOError as e:
-        print(f"[JSON CACHE ERROR] Could not save cache file: {e}")
 
 def _find_similar_cache_key(target_key: str, cache_keys: list) -> Optional[str]:
     """Find a similar cache key using STRICT fuzzy matching."""
@@ -376,26 +326,12 @@ def get_from_cache(query: str, bypass_cache: bool = False) -> Optional[Any]:
     
     normalized_key = _create_cache_key(query)
     
-    # Try Redis first (if enabled)
+    # Try Redis cache (if enabled)
     if USE_REDIS:
         redis_result = _get_from_redis(normalized_key)
         if redis_result:
             print(f"[REDIS HIT] Found cached response for: '{query[:50]}...'")
             return _add_cache_indicator(redis_result, "Redis")
-    
-    # Fall back to JSON cache
-    json_cache = _load_json_cache()
-    
-    # Try exact match in JSON cache
-    if normalized_key in json_cache:
-        print(f"[JSON HIT - EXACT] Found exact match for: '{query[:50]}...'")
-        return _add_cache_indicator(json_cache[normalized_key], "JSON")
-    
-    # Try fuzzy match in JSON cache
-    similar_key = _find_similar_cache_key(normalized_key, list(json_cache.keys()))
-    if similar_key:
-        print(f"[JSON HIT - FUZZY] Similar query found for: '{query[:50]}...'")
-        return _add_cache_indicator(json_cache[similar_key], "JSON")
     
     print(f"[CACHE MISS] No match found for: '{query[:50]}...'")
     return None
@@ -439,31 +375,17 @@ def add_to_cache(query: str, response: Any, ttl: Optional[int] = None) -> None:
             except Exception as e:
                 print(f"[CACHE WARNING] Error checking for similar keys: {e}")
     
-    # Also check JSON cache for similar keys if Redis didn't find one
-    if existing_key == normalized_key:
-        json_cache = _load_json_cache()
-        similar_key = _find_similar_cache_key(normalized_key, list(json_cache.keys()))
-        if similar_key and similar_key != normalized_key:
-            print(f"[CACHE UPDATE] Found similar existing entry '{similar_key}' in JSON, updating instead of creating new")
-            existing_key = similar_key
-    
     # Save to Redis if available (using the existing key if found)
-    redis_saved = False
     if USE_REDIS:
         redis_saved = _set_to_redis(existing_key, response, ttl)
         if redis_saved:
             ttl_msg = f" (TTL: {ttl}s)" if ttl else ""
             action = "Updated" if existing_key != normalized_key else "Saved"
             print(f"[REDIS STORED] {action} response for: '{query[:50]}...'{ttl_msg}")
-    
-    # Always save to JSON as backup (using the existing key if found)
-    json_cache = _load_json_cache()
-    json_cache[existing_key] = response
-    _save_json_cache(json_cache)
-    
-    if not redis_saved:
-        action = "Updated" if existing_key != normalized_key else "Saved"
-        print(f"[JSON STORED] {action} response for: '{query[:50]}...'")
+        else:
+            print(f"[CACHE SKIPPED] Failed to save to Redis for: '{query[:50]}...'")
+    else:
+        print(f"[CACHE SKIPPED] Redis cache is disabled")
 
 def clear_cache(pattern: Optional[str] = None) -> bool:
     """
@@ -488,19 +410,12 @@ def clear_cache(pattern: Optional[str] = None) -> bool:
                 if keys:
                     redis_client.delete(*keys)
                     print(f"[REDIS CLEARED] Deleted {len(keys)} keys")
-        
-        # Clear JSON cache
-        if pattern:
-            json_cache = _load_json_cache()
-            keys_to_delete = [k for k in json_cache.keys() if pattern in k]
-            for key in keys_to_delete:
-                del json_cache[key]
-            _save_json_cache(json_cache)
-            print(f"[JSON CLEARED] Deleted {len(keys_to_delete)} keys")
+                else:
+                    print("[REDIS] No keys to clear")
+            else:
+                print("[REDIS] Not connected")
         else:
-            # Clear entire JSON cache
-            _save_json_cache({})
-            print("[JSON CLEARED] Cleared entire cache")
+            print("[CACHE] Redis cache is disabled")
         
         return True
     except Exception as e:
@@ -517,7 +432,6 @@ def get_cache_stats() -> Dict[str, Any]:
     stats = {
         "redis_enabled": USE_REDIS,
         "redis_connected": _get_redis_client() is not None,
-        "json_cache_file": CACHE_FILE,
         "similarity_threshold": SIMILARITY_THRESHOLD
     }
     
@@ -531,13 +445,6 @@ def get_cache_stats() -> Dict[str, Any]:
             stats["redis_entries"] = 0
     else:
         stats["redis_entries"] = 0
-    
-    # JSON cache stats
-    try:
-        json_cache = _load_json_cache()
-        stats["json_entries"] = len(json_cache)
-    except Exception:
-        stats["json_entries"] = 0
     
     return stats
 
@@ -568,15 +475,14 @@ def store_chat_response(query: str, response: str, ttl: Optional[int] = 86400) -
     add_to_cache(query, response, ttl)
 
 def is_cache_enabled() -> bool:
-    """Check if caching is enabled (either Redis or JSON)."""
-    return True  # JSON cache is always available as fallback
+    """Check if Redis caching is enabled."""
+    return USE_REDIS and _get_redis_client() is not None
 
 def get_cache_config() -> Dict[str, Any]:
     """Get current cache configuration."""
     return {
         "use_redis": USE_REDIS,
         "redis_config": REDIS_CONFIG if USE_REDIS else None,
-        "cache_file": CACHE_FILE,
         "similarity_threshold": SIMILARITY_THRESHOLD
     }
 
