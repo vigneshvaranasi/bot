@@ -297,15 +297,16 @@ async def prompt_stream(
                                 print(f"Error saving message to database: {e}")
 
                 elif mode == "messages":
-                    for message_chunk in chunk:
-                        if (
-                            isinstance(message_chunk, AIMessageChunk)
-                            and message_chunk.content
-                        ):
-                            if accumulate_answer:
-                                answer += message_chunk.content
-                                chunk_payload = {"chunk": message_chunk.content}
-                                yield f"event: final_answer\ndata: {json.dumps(chunk_payload)}\n\n"
+                    token_chunk, metadata = chunk
+                    if (
+                        metadata.get('langgraph_node')!='qdrant_search'
+                        and isinstance(token_chunk, AIMessageChunk)
+                        and token_chunk.content
+                    ):
+                        if accumulate_answer:
+                            answer += token_chunk.content
+                            chunk_payload = {"chunk": token_chunk.content}
+                            yield f"event: final_answer\ndata: {json.dumps(chunk_payload)}\n\n"
 
         return StreamingResponse(
             stream_generator(),

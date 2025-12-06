@@ -5,72 +5,67 @@ from langchain_ollama import ChatOllama
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
-from src.copilot.tools import get_incident_report
+from src.copilot.tools.qdrantretriever import get_incident_report, available_tools
 from langchain.chat_models import init_chat_model
 import src.copilot.config as config
 from langgraph.config import get_stream_writer
 from langgraph.checkpoint.postgres import PostgresSaver
 from psycopg import Connection
+import logging
 
-# DB Initializing
 connection_kwargs = {
     "prepare_threshold": 0,
     "autocommit": True,
 }
 
-# Initialize the LLM and bind tools
-# ChatGoogleGenerativeAI
-# llm = ChatGoogleGenerativeAI(
-#     model=config.LLM_MODEL_NAME,
-#     temperature=0,
-#     max_retries=2,
-#     google_api_key=config.GEMINI_API_KEY,
-# )
-
-# llm = init_chat_model(
-#     "google_genai:gemini-2.0-flash",
-#     temperature=0,
-#     max_retries=2
-# )
-
 llm = ChatOllama(
         model="gpt-oss:20b",
-        temperature=0.5,
+        temperature=0.33,
         base_url="http://ollama.trackcode.in",
         max_retries=2
     )
 
-# Configure the tools the agent can use
-allowed_tools = [get_incident_report]
+model_with_tools = llm.bind_tools(available_tools)
 
-model_with_tools = llm.bind_tools(allowed_tools)
-
-# stream modes
 stream_modes = ["custom","messages"]
 
-# Define the Agent's State
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
     title: Optional[str]
 
-# Define the Agent's Nodes
+
+system_message_prompt = SystemMessage(
+    """
+    You are an expert incident resolution assistant, and you have a perfect memory of this conversation.
+
+    Your primary goal is to answer the user's questions. Follow this logic:
+
+    1.  **Check Memory First:** Carefully review the *entire* chat history (the 'messages'). If the user's latest question can be answered completely using information *already present* in the history (e.g., they are asking "what was that ID again?" about an incident you just discussed), then answer it directly from memory.
+
+    2.  **Use Tool if Needed:** You MUST use the `get_incident_report` tool to search the knowledge base.
+
+    3.  **Tool Usage Rules (When you use the tool):**
+        * The tool will return one or more "Retrieved Context" blocks from past incidents.
+        * You must base your answer *ONLY* on this "Retrieved Context".
+        * You MUST cite the source by mentioning the "Source Incident ID" (e.g., "Based on incident INC-2025-08-24-001...") or "From Knowledge Base".
+        * If the tool finds no relevant information, state that the information is not available in the knowledge base and suggest asking about the incidents that are nearer to user's message.
+
+    4.  **Final Rule:** Do not make up information or answer questions outside of this scope. Be concise and factual and never use \n```\n to encapsulate your responses.
+    """
+)
+
+
 def call_model(state: AgentState):
     """Node To Call the LLM."""
     print("---NODE: CALLING MODEL---")
-    system_message = SystemMessage(
-        "You are an incident resolution assistant. Your role is to help users by providing information only from the incident reports available in the knowledge base. "
-        "use the get_incident_report tool to search for relevant information. "
-        "If the incident transcripts do not contain the requested information, explicitly state that the information is not available in the knowledge base. "
-        "Do not generate, assume, or provide information that is not present in the retrieved incident reports. "
-        "Be concise and directly reference the incident data in your responses."
-    )
-    messages = [system_message] + list(state["messages"])
+    
+    messages = [system_message_prompt] + list(state["messages"])
+    
     response = model_with_tools.invoke(messages)
     return {"messages": [response]}
 
-qdrant_tool_node = ToolNode([get_incident_report])
+qdrant_tool_node = ToolNode(available_tools)
 
-# Define the Conditional Edge
 def wants_qdrant_tool(state: AgentState):
     """
     Decide whether the model wants to call the Qdrant search tool or finish.
@@ -99,7 +94,6 @@ def wants_qdrant_tool(state: AgentState):
         return "continue"
 
 
-# Title Generation Node
 def title_generation_node(state: AgentState):
     """Node To Generate Title for the Incident Report."""
     writer = get_stream_writer()
@@ -131,9 +125,9 @@ def title_generation_node(state: AgentState):
     })
     return {"title": title_text}
 
-# Assemble the Graph
 def create_agent_graph():
     """Creates and Compiles Copilot Agent Graph."""
+    
     conn = Connection.connect(config.VECTOR_DATABASE_URL, **connection_kwargs)
     checkpointer = PostgresSaver(conn)
     checkpointer.setup()
@@ -154,14 +148,12 @@ def create_agent_graph():
     workflow.add_edge("qdrant_search", "support_bot")
     workflow.add_edge("title_generation", END)
     
-    # Use an in-memory checkpointer so state persists across turns (per process)
-    # memory = MemorySaver()
     return workflow.compile(checkpointer=checkpointer)
 
 # app = create_agent_graph()
-# for mode,chunk in app.stream(
-#     config={"configurable": {"thread_id": "02"}},
-#     input={"messages": [("user", "tell about swift delay")]},
+# for mode, chunk in app.stream(
+#     config={"configurable": {"thread_id": "hfsshffffbhjabshjdbd5454dssdvvbfgsdgg"}},
+#     input={"messages": [("user", "What was the action taken?")]},
 #     stream_mode=stream_modes
 # ):
 #     if(mode=="custom"):
@@ -169,10 +161,6 @@ def create_agent_graph():
 #         print("Update:",chunk)
 #         print("+"*20)
 #     elif(mode == "messages"):
-#         for message_chunk in chunk:
-#             if isinstance(message_chunk, AIMessageChunk) and message_chunk.content:
-#                 print(message_chunk.content, end="", flush=True)
-
-# png_data = app.get_graph().draw_mermaid_png()
-# with open("agent_graph.png", "wb") as f:
-#     f.write(png_data)
+#         token_chunk, metadata = chunk
+#         if metadata.get('langgraph_node')!='qdrant_search' and isinstance(token_chunk, AIMessageChunk) and token_chunk.content:
+#             print(token_chunk.content, end="", flush=True)

@@ -33,18 +33,15 @@ class PromptGuardrail:
         self._denylist_embeddings = None
 
         self._load_denylist()
-        # try to initialize semantic model lazily
         if SEMANTIC_AVAILABLE:
             try:
                 self._init_semantic_model()
             except Exception:
-                # don't fail init if model load fails; semantic checks will be disabled
                 self._semantic_model = None
 
     def _load_denylist(self) -> None:
         raw = []
         
-        # Load from file if path exists
         try:
             with open(self.denylist_path, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -55,7 +52,6 @@ class PromptGuardrail:
         except Exception:
             pass
 
-        # Add comma-separated deny_words if provided
         if self.deny_words:
             settings_words = [
                 word.strip() for word in self.deny_words.split(",") if word.strip()
@@ -63,7 +59,6 @@ class PromptGuardrail:
             raw.extend(settings_words)
 
         entries = [str(x).strip().lower() for x in raw if x]
-        # phrases (contain whitespace) vs single words
         self.phrases = [p for p in entries if " " in p]
         self.words = set(p for p in entries if " " not in p)
 
@@ -72,16 +67,13 @@ class PromptGuardrail:
             return False
         lowered = text.lower()
         
-        # check phrases first (substring)
         for phrase in self.phrases:
             if phrase in lowered:
                 return True
 
-        # check individual words
         tokens = re.findall(r"\w+", lowered)
         token_set = set(tokens)
         
-        # check against words from denylist
         if any(word in token_set for word in self.words):
             return True
 
@@ -110,11 +102,11 @@ class PromptGuardrail:
             return
         if self._semantic_model is None:
             self._semantic_model = SentenceTransformer(self.semantic_model_name)
-        # Prepare denylist embeddings
+        
         self._entries = list(self.phrases) + list(self.words)
         if self._entries:
             embeds = self._semantic_model.encode(self._entries, convert_to_numpy=True)
-            # normalize
+        
             norms = np.linalg.norm(embeds, axis=1, keepdims=True)
             norms[norms == 0] = 1.0
             self._denylist_embeddings = embeds / norms
@@ -130,14 +122,10 @@ class PromptGuardrail:
                 self._init_semantic_model()
             if self._semantic_model is None:
                 return False
-
-            # embed input once
             emb = self._semantic_model.encode([text], convert_to_numpy=True)
             norm = np.linalg.norm(emb, axis=1, keepdims=True)
             norm[norm == 0] = 1.0
             emb = emb / norm
-
-            # check denylist entries
             if getattr(self, "_denylist_embeddings", None) is not None:
                 try:
                     sims = np.dot(self._denylist_embeddings, emb.T).squeeze()
@@ -148,7 +136,6 @@ class PromptGuardrail:
                     pass
 
         except Exception:
-            # fail-open on any semantic errors
             return False
         return False
 
@@ -156,7 +143,6 @@ class PromptGuardrail:
         self, prompt: str, isContext: bool = False
     ) -> Tuple[bool, str]:
         """Return (True, "") when allowed, or (False, message) when rejected."""
-        # 1) Fast regex heuristics for programming prompts
         try:
             if self._matches_programming_regex(prompt):
                 msg = "I cannot help with programming, may be I can help you with an query regarding incidents"
@@ -164,16 +150,13 @@ class PromptGuardrail:
         except Exception:
             pass
 
-        # 2) Exact denylist token/phrase matches
         if self.contains_denylist_keyword(prompt):
             msg = "I cannot help with that, may be I can help you with an query regarding incidents"
             return False, msg
 
-        # If it's context, allow anything
         if isContext:
             return True, ""
 
-        # 3) Semantic checks
         try:
             if self._semantic_check(prompt):
                 msg = "I cannot help with that, may be I can help you with an query regarding incidents"
