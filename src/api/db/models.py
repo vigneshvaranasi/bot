@@ -113,6 +113,7 @@ class Setting(Base):
     temperature = Column(String, default="0.2")
     deleted_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=False)
+    langfuse_enabled = Column(Boolean, default=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     user = relationship("User", back_populates="settings")

@@ -4,6 +4,7 @@ export type Settings = {
   deny_words: string;
   model: Model;
   temperature: string;
+  langfuse_enabled: boolean;
 }
 
 export type FileRecord = {

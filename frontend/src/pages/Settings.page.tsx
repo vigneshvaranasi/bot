@@ -71,6 +71,7 @@ const Settings: React.FC = () => {
   const [requestPastIncidents, setRequestPastIncidents] = useState(false);
   const [versionControl, setVersionControl] = useState(true);
   const [purgeEnabled, setPurgeEnabled] = useState(true);
+  const [langfuseEnabled, setLangfuseEnabled] = useState(true);
 
   // convert comma-separated string to array
   const stringToWordsArray = useCallback((str: string): DenyWordRecord[] => {
@@ -163,6 +164,7 @@ const Settings: React.FC = () => {
         deny_words: totalDenyWords,
         model,
         temperature,
+        langfuse_enabled: langfuseEnabled,
       };
       const token = user?.token || null;
       if (!token) {
@@ -178,6 +180,7 @@ const Settings: React.FC = () => {
         }
         setModel(saveSettings.model);
         setTemperature(saveSettings.temperature);
+        setLangfuseEnabled(saveSettings.langfuse_enabled ?? true);
       } else {
         alert("Failed to save settings");
       }
@@ -195,6 +198,7 @@ const Settings: React.FC = () => {
           setDenyWordsArray(stringToWordsArray(denyWordsFromBackend));
           setModel(settings.model);
           setTemperature(settings.temperature);
+          setLangfuseEnabled(settings.langfuse_enabled ?? true);
         }
       } catch (error) {
         console.error("Error fetching settings:", error);
@@ -543,6 +547,24 @@ const Settings: React.FC = () => {
                       step={0.1}
                       min={0}
                       max={1}
+                    />
+                  </div>
+                </div>
+                {/* Langfuse Toggle */}
+                <div className="mt-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <div className="flex flex-row items-center text-sm md:text-medium text-gray-900 min-w-fit">
+                      <span>Enable Langfuse Tracing</span>
+                      <InfoHint
+                        text="Toggle Langfuse tracing for observability."
+                        position="top"
+                        gap={2}
+                      />
+                    </div>
+                    <Toggle
+                      id="langfuse-toggle"
+                      enabled={langfuseEnabled}
+                      onChange={setLangfuseEnabled}
                     />
                   </div>
                 </div>

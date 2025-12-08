@@ -16,6 +16,7 @@ class SettingCreate(BaseModel):
     deny_words: str = ""
     model: ModelEnum = ModelEnum.GEMINI_2_5_FLASH
     temperature: str = "0.2"
+    langfuse_enabled: bool = True
 
 class SettingResponse(BaseModel):
     id: UUID4
@@ -23,12 +24,14 @@ class SettingResponse(BaseModel):
     deny_words: str
     model: ModelEnum
     temperature: str
+    langfuse_enabled: bool
     updated_at: datetime
     
 class SettingUpdate(BaseModel):
     deny_words: str = None
     model: ModelEnum = None
     temperature: str = None
+    langfuse_enabled: bool = None
     
 class SettingListResponse(BaseModel):
     settings: List[SettingResponse]

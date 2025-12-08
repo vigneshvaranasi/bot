@@ -16,6 +16,7 @@ from src.api.db.models import Chat, Message, Setting
 from src.api.db.session import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
 from langfuse import get_client, propagate_attributes
+from src.api.utils.tracing import conditional_observation
 langfuse = get_client()
 
 
@@ -162,7 +163,8 @@ async def prompt_stream(
         )
         current_title = result.scalar_one_or_none()
         
-        inputs = {"messages": [("user", humanMessage)], "session_id": actual_chat_id,"user_id": str(user_id) }
+        langfuse_enabled = settings.langfuse_enabled if settings else True
+        inputs = {"messages": [("user", humanMessage)], "session_id": actual_chat_id,"user_id": str(user_id), "langfuse_enabled": langfuse_enabled }
 
         async def stream_generator():
             # Check cache first before processing with LangGraph
@@ -252,7 +254,8 @@ async def prompt_stream(
             accumulate_answer = True
             generated_title = current_title
 
-            workflow_observation = langfuse.start_as_current_observation(
+            workflow_observation = conditional_observation(
+                enabled=langfuse_enabled,
                 as_type="agent",
                 name="copilot-chat",
                 input=humanMessage,

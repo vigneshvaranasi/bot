@@ -68,19 +68,26 @@ def call_model(state: AgentState):
     
     messages = [system_message_prompt] + list(state["messages"])
     
+    callbacks = []
+    if state.get("langfuse_enabled", True):
+        callbacks = [langfuse_handler]
+    
     with propagate_attributes(session_id=state.get("session_id"), user_id=state.get("user_id")):
         response = model_with_tools.invoke(
             messages,
-            config={"callbacks": [langfuse_handler],"run_name": "Support Bot LLM"},
+            config={"callbacks": callbacks ,"run_name": "Support Bot LLM"},
         )
     return {"messages": [response]}
 
 qdrant_tool_node = ToolNode(available_tools)
 def tool_wrapper(state: AgentState):
+    callbacks = []
+    if state.get("langfuse_enabled", True):
+        callbacks = [langfuse_handler]
     with propagate_attributes(session_id=state.get("session_id"), user_id=state.get("user_id")):
         return qdrant_tool_node.invoke(
             state,
-            config={"callbacks": [langfuse_handler],"run_name": "Incident Report Qdrant Tool"},
+            config={"callbacks": callbacks,"run_name": "Incident Report Qdrant Tool"},
         )
 
 def wants_qdrant_tool(state: AgentState):
@@ -129,10 +136,13 @@ def title_generation_node(state: AgentState):
         "Prioritize accuracy over excessive creativity; keep it clear and simple. "
         "The output must be only the title, without any markdown code fences or other encapsulating text."
     )
+    callbacks = []
+    if state.get("langfuse_enabled", True):
+        callbacks = [langfuse_handler]
     with propagate_attributes(session_id=state.get("session_id"), user_id=state.get("user_id")):
         response = llm.invoke(
         [prompt],
-        config={"callbacks": [langfuse_handler], "run_name": "Title Generator LLM"},
+        config={"callbacks": callbacks, "run_name": "Title Generator LLM"},
     )
     title_text = response.content.strip()
     if not title_text:

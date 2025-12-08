@@ -27,7 +27,8 @@ async def create_setting(setting: SettingCreate, db: AsyncSession = Depends(get_
     if last_setting and (
         last_setting.deny_words == setting.deny_words and
         last_setting.model == setting.model and
-        last_setting.temperature == setting.temperature
+        last_setting.temperature == setting.temperature and
+        last_setting.langfuse_enabled == setting.langfuse_enabled
     ):
         # No change, return the existing last setting
         print("No changes detected, returning existing setting with deny_words:", last_setting.deny_words)
@@ -38,7 +39,8 @@ async def create_setting(setting: SettingCreate, db: AsyncSession = Depends(get_
         user_id=current_user["user_id"],
         deny_words=setting.deny_words,
         model=setting.model,
-        temperature=setting.temperature
+        temperature=setting.temperature,
+        langfuse_enabled=setting.langfuse_enabled
     )
     db.add(new_setting)
     await db.commit()
