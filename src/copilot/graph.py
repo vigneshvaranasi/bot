@@ -12,6 +12,10 @@ from langgraph.config import get_stream_writer
 from langgraph.checkpoint.postgres import PostgresSaver
 from psycopg import Connection
 import logging
+from langfuse import propagate_attributes
+from langfuse.langchain import CallbackHandler
+
+langfuse_handler = CallbackHandler()
 
 connection_kwargs = {
     "prepare_threshold": 0,
@@ -32,6 +36,9 @@ stream_modes = ["custom","messages"]
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
     title: Optional[str]
+    session_id: Optional[str]
+    user_id: Optional[str]
+    langfuse_enabled: Optional[bool]
 
 
 system_message_prompt = SystemMessage(
@@ -61,10 +68,20 @@ def call_model(state: AgentState):
     
     messages = [system_message_prompt] + list(state["messages"])
     
-    response = model_with_tools.invoke(messages)
+    with propagate_attributes(session_id=state.get("session_id"), user_id=state.get("user_id")):
+        response = model_with_tools.invoke(
+            messages,
+            config={"callbacks": [langfuse_handler],"run_name": "Support Bot LLM"},
+        )
     return {"messages": [response]}
 
 qdrant_tool_node = ToolNode(available_tools)
+def tool_wrapper(state: AgentState):
+    with propagate_attributes(session_id=state.get("session_id"), user_id=state.get("user_id")):
+        return qdrant_tool_node.invoke(
+            state,
+            config={"callbacks": [langfuse_handler],"run_name": "Incident Report Qdrant Tool"},
+        )
 
 def wants_qdrant_tool(state: AgentState):
     """
@@ -112,7 +129,11 @@ def title_generation_node(state: AgentState):
         "Prioritize accuracy over excessive creativity; keep it clear and simple. "
         "The output must be only the title, without any markdown code fences or other encapsulating text."
     )
-    response = llm.invoke([prompt])
+    with propagate_attributes(session_id=state.get("session_id"), user_id=state.get("user_id")):
+        response = llm.invoke(
+        [prompt],
+        config={"callbacks": [langfuse_handler], "run_name": "Title Generator LLM"},
+    )
     title_text = response.content.strip()
     if not title_text:
         title_text = "Untitled Chat"
@@ -134,7 +155,7 @@ def create_agent_graph():
     workflow = StateGraph(AgentState)
     
     workflow.add_node("support_bot", call_model)
-    workflow.add_node("qdrant_search", qdrant_tool_node)
+    workflow.add_node("qdrant_search", tool_wrapper)
     workflow.add_node("title_generation", title_generation_node)
     
     workflow.set_entry_point("support_bot")

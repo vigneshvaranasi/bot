@@ -15,6 +15,9 @@ from langchain_core.messages import AIMessage, AIMessageChunk
 from src.api.db.models import Chat, Message, Setting
 from src.api.db.session import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
+from langfuse import get_client, propagate_attributes
+langfuse = get_client()
+
 
 router = APIRouter()
 
@@ -152,8 +155,14 @@ async def prompt_stream(
                 "message": clarification_message,
                 "needs_clarification": True
             }
+
+        # Fetch current title for the chat
+        result = await session.execute(
+            select(Chat.title).where(Chat.id == actual_chat_id)
+        )
+        current_title = result.scalar_one_or_none()
         
-        inputs = {"messages": [("user", humanMessage)]}
+        inputs = {"messages": [("user", humanMessage)], "session_id": actual_chat_id,"user_id": str(user_id) }
 
         async def stream_generator():
             # Check cache first before processing with LangGraph
@@ -241,72 +250,91 @@ async def prompt_stream(
             answer = ""
             memory_saved = False
             accumulate_answer = True
-            # Streaming mode
-            for mode, chunk in support_bot_graph.stream(
-                config=thread_config, input=inputs, stream_mode=["custom", "messages"]
-            ):
-                if mode == "custom":
-                    # Title event
-                    if isinstance(chunk, dict) and "title" in chunk:
-                        generated_title = chunk["title"]
-                        yield f"event: title\ndata: {json.dumps({'title': generated_title})}\n\n"
-                        try:
-                            result = await session.execute(
-                                select(Chat).where(Chat.id == actual_chat_id, Chat.user_id == user_id)
-                            )
-                            chat_row = result.scalar_one_or_none()
-                            if chat_row and (not chat_row.title or chat_row.title.strip() in ("", "New Chat")):
-                                chat_row.title = generated_title
-                                await session.commit()
-                        except Exception as e:
-                            await session.rollback()
-                            print(f"Error saving generated title to database: {e}")
+            generated_title = current_title
 
-                    # Status event
-                    if isinstance(chunk, dict) and "status" in chunk:
-                        status_payload = {"message": chunk["status"]}
-                        yield f"event: status\ndata: {json.dumps(status_payload)}\n\n"
-                        # Once title generation begins, stop accumulating answer chunks
-                        if "Generating title for the incident report" in chunk["status"]:
-                            accumulate_answer = False
-                        if (
-                            "Almost done, wrapping up the details" in chunk["status"]
-                            and not memory_saved
-                        ):
-                            final_data = {"answer": answer, "chat_id": str(actual_chat_id)}
-                            yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
-                            
-                            # Store response in cache for future use
-                            try:
-                                print(f"[CACHE STORE] Storing response in cache for query: '{humanMessage[:50]}...'")
-                                store_chat_response(humanMessage, answer)
-                                print(f"[CACHE STORE] Successfully cached response")
-                            except Exception as e:
-                                print(f"[CACHE ERROR] Error storing response in cache: {e}")
-                            
-                            # Finalize and save message to DB
-                            try:
-                                message = Message(
-                                    chat_id=actual_chat_id, human=humanMessage, bot=answer
-                                )
-                                session.add(message)
-                                memory_saved = True
-                                await session.commit()
-                            except Exception as e:
-                                await session.rollback()
-                                print(f"Error saving message to database: {e}")
-
-                elif mode == "messages":
-                    token_chunk, metadata = chunk
-                    if (
-                        metadata.get('langgraph_node')!='qdrant_search'
-                        and isinstance(token_chunk, AIMessageChunk)
-                        and token_chunk.content
+            workflow_observation = langfuse.start_as_current_observation(
+                as_type="agent",
+                name="copilot-chat",
+                input=humanMessage,
+                metadata={"type": "streaming", "chat_id": str(actual_chat_id)}
+            )
+            try:
+                with workflow_observation as observation:
+                    with propagate_attributes(
+                        session_id=str(actual_chat_id),
+                        user_id=str(user_id)
                     ):
-                        if accumulate_answer:
-                            answer += token_chunk.content
-                            chunk_payload = {"chunk": token_chunk.content}
-                            yield f"event: final_answer\ndata: {json.dumps(chunk_payload)}\n\n"
+                        # Streaming mode
+                        for mode, chunk in support_bot_graph.stream(
+                            config=thread_config, input=inputs, stream_mode=["custom", "messages"]
+                        ):
+                            if mode == "custom":
+                                # Title event
+                                if isinstance(chunk, dict) and "title" in chunk:
+                                    generated_title = chunk["title"]
+                                    yield f"event: title\ndata: {json.dumps({'title': generated_title})}\n\n"
+                                    try:
+                                        result = await session.execute(
+                                            select(Chat).where(Chat.id == actual_chat_id, Chat.user_id == user_id)
+                                        )
+                                        chat_row = result.scalar_one_or_none()
+                                        if chat_row and (not chat_row.title or chat_row.title.strip() in ("", "New Chat")):
+                                            chat_row.title = generated_title
+                                            await session.commit()
+                                    except Exception as e:
+                                        await session.rollback()
+                                        print(f"Error saving generated title to database: {e}")
+
+                                # Status event
+                                if isinstance(chunk, dict) and "status" in chunk:
+                                    status_payload = {"message": chunk["status"]}
+                                    yield f"event: status\ndata: {json.dumps(status_payload)}\n\n"
+                                    # Once title generation begins, stop accumulating answer chunks
+                                    if "Generating title for the incident report" in chunk["status"]:
+                                        accumulate_answer = False
+                                    if (
+                                        "Almost done, wrapping up the details" in chunk["status"]
+                                        and not memory_saved
+                                    ):
+                                        final_data = {"answer": answer, "chat_id": str(actual_chat_id)}
+                                        yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
+                                        
+                                        # Store response in cache for future use
+                                        try:
+                                            print(f"[CACHE STORE] Storing response in cache for query: '{humanMessage[:50]}...'")
+                                            store_chat_response(humanMessage, answer)
+                                            print(f"[CACHE STORE] Successfully cached response")
+                                        except Exception as e:
+                                            print(f"[CACHE ERROR] Error storing response in cache: {e}")
+                                        
+                                        # Finalize and save message to DB
+                                        try:
+                                            message = Message(
+                                                chat_id=actual_chat_id, human=humanMessage, bot=answer
+                                            )
+                                            session.add(message)
+                                            memory_saved = True
+                                            await session.commit()
+                                        except Exception as e:
+                                            await session.rollback()
+                                            print(f"Error saving message to database: {e}")
+
+                            elif mode == "messages":
+                                token_chunk, metadata = chunk
+                                if (
+                                    metadata.get('langgraph_node')!='qdrant_search'
+                                    and isinstance(token_chunk, AIMessageChunk)
+                                    and token_chunk.content
+                                ):
+                                    if accumulate_answer:
+                                        answer += token_chunk.content
+                                        chunk_payload = {"chunk": token_chunk.content}
+                                        yield f"event: final_answer\ndata: {json.dumps(chunk_payload)}\n\n"
+                        
+                        observation.update(output=answer,name=generated_title)
+            except Exception as e:
+                print(f"Error during streaming response: {e}")
+                raise e
 
         return StreamingResponse(
             stream_generator(),

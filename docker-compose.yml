@@ -31,7 +31,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_DB: bot_db
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - bot_db_data:/var/lib/postgresql/data
 
