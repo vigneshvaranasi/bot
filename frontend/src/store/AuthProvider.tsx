@@ -64,7 +64,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
     localStorage.removeItem("token");
     removeAllChatCache();
-    window.location.href = "/login";
+    window.location.href = "/auth";
   };
 
   return (

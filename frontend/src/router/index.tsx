@@ -3,8 +3,7 @@ import Layout from './Layout'
 import HomePage from '../pages/Home.page'
 import ChatPage from '../pages/Chat.page'
 import ChatView from '../view/ChatView'
-import Login from '../pages/LogIn.page'
-import Signup from '../pages/Signup.page'
+import AuthPage from '../pages/Auth.page'
 import SettingsPage from '../pages/Settings.page'
 import UserManagementPage from '../pages/UserManagement.page'
 import ProtectedRoute from './ProtectedRoute'
@@ -14,20 +13,16 @@ const normalRoutes: RouteObject = {
   element: <Layout />,
   children: [
     {
+      path: '/auth',
+      element: <AuthPage />
+    },
+    {
       path: '/auth/callback/:provider',
       element: <OAuthCallback />
     },
     {
       path: '/home',
       element: <HomePage />
-    },
-    {
-      path:'/login',
-      element:<Login/>
-    },
-    {
-      path:'/signup',
-      element:<Signup/>
     },
     {
       path: '/settings',

@@ -15,7 +15,9 @@ const handleResponse = async (response: Response) => {
   if (response.status === 401) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '/login';
+    if (!window.location.pathname.startsWith('/auth')) {
+      window.location.href = '/auth';
+    }
     return Promise.reject(new Error('Unauthorized'));
   }
   

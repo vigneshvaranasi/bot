@@ -27,10 +27,10 @@ const OAuthCallback = () => {
         })
         .catch((error) => {
           console.error("OAuth callback failed", error);
-          navigate("/login");
+          navigate("/auth");
         });
     } else {
-        navigate("/login");
+        navigate("/auth");
     }
   }, [searchParams, provider, navigate, login]);
 
