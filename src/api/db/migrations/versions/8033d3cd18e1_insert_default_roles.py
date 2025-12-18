@@ -25,8 +25,8 @@ def upgrade() -> None:
     op.execute(
         f"""
         INSERT INTO roles (id, name)
-        VALUES (gen_random_uuid(), 'Support Admin'),
-               (gen_random_uuid(), 'IT Engineer')
+        VALUES (gen_random_uuid(), 'admin'),
+               (gen_random_uuid(), 'user')
         ON CONFLICT (name) DO NOTHING;
     """
     )
@@ -37,7 +37,7 @@ def downgrade() -> None:
     """Downgrade schema."""
     op.execute(
         f"""
-        DELETE FROM roles WHERE name IN ('Support Admin', 'IT Engineer');
+        DELETE FROM roles WHERE name IN ('admin', 'user');
     """
     )
 

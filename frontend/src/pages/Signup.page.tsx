@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import InputBox from "../components/ui/InputBox";
 import Dropdown from "../components/ui/Dropdown";
-import { getAllRolesHandler, signUpHandler } from "../handlers/authHandlers";
+import { getAllRolesHandler, signUpHandler, loginHandler } from "../handlers/authHandlers";
 import { Button } from "../components/ui/Button";
 import type { RolesDropDown } from "../types/Roles";
 import { useAuthContext } from "../hooks/useAuthContext";
 import { useNavigate } from "react-router-dom";
+import http from "../utils/http";
+
 function Signup() {
   const [userData, setUserData] = useState<{
     email: string;
@@ -20,6 +22,7 @@ function Signup() {
   const navigate = useNavigate();
 
   const [allRoles, setAllRoles] = useState<RolesDropDown>([]);
+  const [providers, setProviders] = useState<string[]>([]);
 
   const { login, loading } = useAuthContext();
 
@@ -38,6 +41,16 @@ function Signup() {
       }
     };
     fetchRoles();
+
+    const fetchProviders = async () => {
+      try {
+        const response = await http.get("/auth/providers");
+        setProviders(response.data.providers);
+      } catch (error) {
+        console.error("Failed to fetch providers", error);
+      }
+    };
+    fetchProviders();
   }, []);
 
   if (loading) {
@@ -50,20 +63,27 @@ function Signup() {
 
   const handleSignup = async () => {
     const { email, password, role_id } = userData;
-    const signUpData = await signUpHandler(email, password, role_id);
-    if (signUpData.success) {
-      login({
-        email: signUpData.email,
-        role_id: signUpData.role_id,
-      }, signUpData.jwt);
+    try {
+      await signUpHandler(email, password, role_id);
+      const loginData = await loginHandler(email, password);
+      await login(loginData.access_token);
       navigate("/");
-    } else {
-      console.error("Signup failed:", signUpData.message);
-    }
-    if (signUpData) {
-      console.log("Sign Up Successful:", signUpData);
+    } catch (error) {
+      console.error("Signup failed:", error);
+      alert("Signup failed. Please try again.");
     }
   };
+
+  const handleOAuthLogin = async (provider: string) => {
+    try {
+      const response = await http.get(`/auth/oauth/${provider}`);
+      window.location.href = response.data.authorization_url;
+    } catch (error) {
+      console.error("OAuth init failed", error);
+    }
+  };
+
+  const isLocalEnabled = providers.includes("local");
 
   return (
     <div
@@ -72,38 +92,53 @@ function Signup() {
     >
       <h1 className="text-3xl font-bold mb-6">Sign Up</h1>
       <div className="bg-white p-8 rounded shadow-md w-full max-w-sm flex flex-col gap-4">
-        <InputBox
-          type="email"
-          variant="primary"
-          placeholder="Enter your email"
-          value={userData.email}
-          onChange={(value) => setUserData({ ...userData, email: value })}
-        />
-        <InputBox
-          variant="primary"
-          type="password"
-          placeholder="Enter your password"
-          value={userData.password}
-          onChange={(value) => setUserData({ ...userData, password: value })}
-        />
-        <Dropdown
-          options={[
-            { label: "Select Role", value: "" },
-            ...allRoles.map((role) => ({
-              label: role.label,
-              value: role.value,
-            })),
-          ]}
-          placeholder="Select your role"
-          value={userData.role_id}
-          onChange={(value) => setUserData({ ...userData, role_id: value })}
-        />
-        <Button
-          variant="secondary"
-          className="mt-4"
-          onClick={handleSignup}
-          children="Sign Up"
-        />
+        {isLocalEnabled && (
+          <>
+            <InputBox
+              type="email"
+              variant="primary"
+              placeholder="Enter your email"
+              value={userData.email}
+              onChange={(value) => setUserData({ ...userData, email: value })}
+            />
+            <InputBox
+              variant="primary"
+              type="password"
+              placeholder="Enter your password"
+              value={userData.password}
+              onChange={(value) => setUserData({ ...userData, password: value })}
+            />
+            <Dropdown
+              options={[
+                { label: "Select Role", value: "" },
+                ...allRoles.map((role) => ({
+                  label: role.label,
+                  value: role.value,
+                })),
+              ]}
+              placeholder="Select your role"
+              value={userData.role_id}
+              onChange={(value) => setUserData({ ...userData, role_id: value })}
+            />
+            <Button
+              variant="secondary"
+              className="mt-4"
+              onClick={handleSignup}
+              children="Sign Up"
+            />
+          </>
+        )}
+
+        {providers.filter(p => p !== 'local').map(provider => (
+          <Button
+            key={provider}
+            variant="primary"
+            className="mt-2 capitalize"
+            onClick={() => handleOAuthLogin(provider)}
+          >
+            Sign up with {provider}
+          </Button>
+        ))}
       </div>
     </div>
   );

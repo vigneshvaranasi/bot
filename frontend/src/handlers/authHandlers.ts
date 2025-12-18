@@ -1,4 +1,5 @@
 import { BE_URL } from "../config/config";
+import http from "../utils/http";
 
 
 // handler for user signup
@@ -84,3 +85,12 @@ export const getAllRolesHandler = async()=>{
         throw error;
     }
 }
+export const updatePasswordHandler = async (password: string) => {
+    try {
+        const response = await http.post("/auth/password", { password });
+        return response.data;
+    } catch (error) {
+        console.error("Error updating password:", error);
+        throw error;
+    }
+};

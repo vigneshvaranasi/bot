@@ -12,6 +12,7 @@ import SettingsNavbar from "../components/SettingsNavbar";
 import SettingsCard from "../components/ui/SettingsCard";
 import arrowLeftIcon from "../assets/arrow-left.svg";
 import { fetchSettings, updateSettings } from "../handlers/settingsHandlers";
+import { updatePasswordHandler } from "../handlers/authHandlers";
 import type { Model, DenyWordRecord, FileRecord } from "../types/Settings";
 import { useAuthContext } from "../hooks/useAuthContext";
 import InfoHint from "../components/ui/InfoHint";
@@ -56,6 +57,7 @@ const Settings: React.FC = () => {
     },
   ]);
   const { user } = useAuthContext();
+  const isAdmin = user?.role === "admin";
 
   const [selectedRole, setSelectedRole] = useState("Support");
   const [versionsTracked, setVersionsTracked] = useState("5");
@@ -72,6 +74,14 @@ const Settings: React.FC = () => {
   const [versionControl, setVersionControl] = useState(true);
   const [purgeEnabled, setPurgeEnabled] = useState(true);
   const [langfuseEnabled, setLangfuseEnabled] = useState(true);
+  const [authGoogleEnabled, setAuthGoogleEnabled] = useState(true);
+  const [authGithubEnabled, setAuthGithubEnabled] = useState(true);
+  const [authMicrosoftEnabled, setAuthMicrosoftEnabled] = useState(true);
+  const [authLocalEnabled, setAuthLocalEnabled] = useState(true);
+  
+  const [showPasswordUpdate, setShowPasswordUpdate] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   // convert comma-separated string to array
   const stringToWordsArray = useCallback((str: string): DenyWordRecord[] => {
@@ -128,6 +138,26 @@ const Settings: React.FC = () => {
     setDenyWords("");
   };
 
+  const handleUpdatePassword = async () => {
+    if (!newPassword) {
+        alert("Please enter a password");
+        return;
+    }
+    if (newPassword !== confirmPassword) {
+        alert("Passwords do not match");
+        return;
+    }
+    try {
+        await updatePasswordHandler(newPassword);
+        alert("Password updated successfully");
+        setNewPassword("");
+        setConfirmPassword("");
+    } catch (error) {
+        console.error("Failed to update password", error);
+        alert("Failed to update password");
+    }
+  };
+
   // remove a deny word
   const handleRemoveDenyWord = (wordId: string) => {
     const updatedDenyWordsArray = denyWordsArray.filter(
@@ -165,8 +195,12 @@ const Settings: React.FC = () => {
         model,
         temperature,
         langfuse_enabled: langfuseEnabled,
+        auth_google_enabled: authGoogleEnabled,
+        auth_github_enabled: authGithubEnabled,
+        auth_microsoft_enabled: authMicrosoftEnabled,
+        auth_local_enabled: authLocalEnabled,
       };
-      const token = user?.token || null;
+      const token = localStorage.getItem("token");
       if (!token) {
         alert("User not authenticated");
         return;
@@ -181,6 +215,10 @@ const Settings: React.FC = () => {
         setModel(saveSettings.model);
         setTemperature(saveSettings.temperature);
         setLangfuseEnabled(saveSettings.langfuse_enabled ?? true);
+        setAuthGoogleEnabled(saveSettings.auth_google_enabled ?? true);
+        setAuthGithubEnabled(saveSettings.auth_github_enabled ?? true);
+        setAuthMicrosoftEnabled(saveSettings.auth_microsoft_enabled ?? true);
+        setAuthLocalEnabled(saveSettings.auth_local_enabled ?? true);
       } else {
         alert("Failed to save settings");
       }
@@ -199,6 +237,10 @@ const Settings: React.FC = () => {
           setModel(settings.model);
           setTemperature(settings.temperature);
           setLangfuseEnabled(settings.langfuse_enabled ?? true);
+          setAuthGoogleEnabled(settings.auth_google_enabled ?? true);
+          setAuthGithubEnabled(settings.auth_github_enabled ?? true);
+          setAuthMicrosoftEnabled(settings.auth_microsoft_enabled ?? true);
+          setAuthLocalEnabled(settings.auth_local_enabled ?? true);
         }
       } catch (error) {
         console.error("Error fetching settings:", error);
@@ -396,6 +438,145 @@ const Settings: React.FC = () => {
                 </div>
               </SettingsCard>
 
+              {/* Authentication & Authorization */}
+              <SettingsCard title="Authentication & Authorization" hidden={false}>
+                {isAdmin && (
+                  <div className="space-y-4 mb-6 border-b pb-6 border-gray-200">
+                    <h3 className="text-md font-medium text-gray-900 mb-3">
+                      Authentication Methods
+                    </h3>
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm md:text-medium text-gray-900">
+                          Basic Authentication
+                        </span>
+                        <Toggle
+                          enabled={authLocalEnabled}
+                          onChange={setAuthLocalEnabled}
+                          id="authLocalToggle"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm md:text-medium text-gray-900">
+                          Google Authentication
+                        </span>
+                        <Toggle
+                          enabled={authGoogleEnabled}
+                          onChange={setAuthGoogleEnabled}
+                          id="authGoogleToggle"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm md:text-medium text-gray-900">
+                          GitHub Authentication
+                        </span>
+                        <Toggle
+                          enabled={authGithubEnabled}
+                          onChange={setAuthGithubEnabled}
+                          id="authGithubToggle"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm md:text-medium text-gray-900">
+                          Microsoft Authentication
+                        </span>
+                        <Toggle
+                          enabled={authMicrosoftEnabled}
+                          onChange={setAuthMicrosoftEnabled}
+                          id="authMicrosoftToggle"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {isAdmin && (
+                  <div className="mb-6 border-b pb-6 border-gray-200">
+                    <h3 className="text-md font-medium text-gray-900 mb-3">
+                      User Management
+                    </h3>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">
+                        Manage users and their roles.
+                      </span>
+                      <Button
+                        variant="secondary"
+                        className="font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer w-full sm:w-auto"
+                        onClick={handleEditUsers}
+                      >
+                        EDIT USERS
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <h3 className="text-md font-medium text-gray-900 mb-3">
+                    Account Security
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Update your password to secure your account.
+                  </p>
+
+                  {!showPasswordUpdate ? (
+                    <Button
+                      variant="secondary"
+                      className="font-semibold text-xs px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md"
+                      onClick={() => setShowPasswordUpdate(true)}
+                    >
+                      UPDATE PASSWORD
+                    </Button>
+                  ) : (
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            New Password
+                          </label>
+                          <InputBox
+                            variant="primary"
+                            type="password"
+                            value={newPassword}
+                            onChange={setNewPassword}
+                            placeholder="Enter new password"
+                            className="w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Confirm Password
+                          </label>
+                          <InputBox
+                            variant="primary"
+                            type="password"
+                            value={confirmPassword}
+                            onChange={setConfirmPassword}
+                            placeholder="Confirm new password"
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="secondary"
+                          className="bg-gray-300 text-gray-800 hover:bg-gray-400"
+                          onClick={() => {
+                            setShowPasswordUpdate(false);
+                            setNewPassword("");
+                            setConfirmPassword("");
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button variant="primary" onClick={handleUpdatePassword}>
+                          Update
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </SettingsCard>
+
               {/* Configurations */}
               <SettingsCard title="Configurations" hidden={false}>
                 <div className="grid grid-cols-1 xl:grid-cols-1 gap-4 xl:gap-6">
@@ -570,16 +751,7 @@ const Settings: React.FC = () => {
                 </div>
               </SettingsCard>
 
-              {/* User Management */}
-              <SettingsCard title="User Management" hidden={true}>
-                <Button
-                  variant="secondary"
-                  className="font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer w-full sm:w-auto"
-                  onClick={handleEditUsers}
-                >
-                  EDIT USERS
-                </Button>
-              </SettingsCard>
+
             </div>
           </div>
 

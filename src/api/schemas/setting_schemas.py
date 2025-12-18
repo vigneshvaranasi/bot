@@ -17,6 +17,10 @@ class SettingCreate(BaseModel):
     model: ModelEnum = ModelEnum.GEMINI_2_5_FLASH
     temperature: str = "0.2"
     langfuse_enabled: bool = True
+    auth_google_enabled: bool = True
+    auth_github_enabled: bool = True
+    auth_microsoft_enabled: bool = True
+    auth_local_enabled: bool = True
 
 class SettingResponse(BaseModel):
     id: UUID4
@@ -25,6 +29,10 @@ class SettingResponse(BaseModel):
     model: ModelEnum
     temperature: str
     langfuse_enabled: bool
+    auth_google_enabled: bool
+    auth_github_enabled: bool
+    auth_microsoft_enabled: bool
+    auth_local_enabled: bool
     updated_at: datetime
     
 class SettingUpdate(BaseModel):
@@ -32,6 +40,10 @@ class SettingUpdate(BaseModel):
     model: ModelEnum = None
     temperature: str = None
     langfuse_enabled: bool = None
+    auth_google_enabled: bool = None
+    auth_github_enabled: bool = None
+    auth_microsoft_enabled: bool = None
+    auth_local_enabled: bool = None
     
 class SettingListResponse(BaseModel):
     settings: List[SettingResponse]

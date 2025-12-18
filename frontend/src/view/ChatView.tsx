@@ -48,7 +48,9 @@ const ChatView = () => {
         }
 
         // Always fetch from server in the bg
-        const res = await getChatMessagesById(user?.token, chatId);
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        const res = await getChatMessagesById(token, chatId);
         let freshMessages: any[] = [];
         if (res && Array.isArray(res)) {
           freshMessages = res.map((message: any) => ({

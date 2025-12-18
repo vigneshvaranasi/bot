@@ -5,6 +5,10 @@ export type Settings = {
   model: Model;
   temperature: string;
   langfuse_enabled: boolean;
+  auth_google_enabled: boolean;
+  auth_github_enabled: boolean;
+  auth_microsoft_enabled: boolean;
+  auth_local_enabled: boolean;
 }
 
 export type FileRecord = {

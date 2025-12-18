@@ -8,10 +8,15 @@ import Signup from '../pages/Signup.page'
 import SettingsPage from '../pages/Settings.page'
 import UserManagementPage from '../pages/UserManagement.page'
 import ProtectedRoute from './ProtectedRoute'
+import OAuthCallback from '../pages/OAuthCallback.page'
 const normalRoutes: RouteObject = {
   path: '/',
   element: <Layout />,
   children: [
+    {
+      path: '/auth/callback/:provider',
+      element: <OAuthCallback />
+    },
     {
       path: '/home',
       element: <HomePage />
