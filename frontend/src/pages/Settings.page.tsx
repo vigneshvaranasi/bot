@@ -14,10 +14,29 @@ import arrowLeftIcon from "../assets/arrow-left.svg";
 import { fetchSettings, updateSettings } from "../handlers/settingsHandlers";
 import { updatePasswordHandler } from "../handlers/authHandlers";
 import type { Model, DenyWordRecord, FileRecord } from "../types/Settings";
+import {
+  AUTH_SCHEMAS,
+  type Integration,
+  type IntegrationSyncStatus,
+} from "../types/Integrations";
+import {
+  fetchIntegrations,
+  createIntegration,
+  updateIntegration,
+  deleteIntegration,
+  syncIntegration,
+  type IntegrationPayload,
+} from "../handlers/integrationHandlers";
+import IntegrationControl from "../components/IntegrationControl";
 import { useAuthContext } from "../hooks/useAuthContext";
 import InfoHint from "../components/ui/InfoHint";
 
 const Settings: React.FC = () => {
+  type IntegrationItem = Omit<Integration, "auth_type" | "config"> & {
+    auth_type?: keyof typeof AUTH_SCHEMAS;
+    config?: Record<string, string>;
+    isNew?: boolean;
+  };
   const navigate = useNavigate();
   const [uploadedFiles, setUploadedFiles] = useState<FileRecord[]>([
     {
@@ -78,10 +97,16 @@ const Settings: React.FC = () => {
   const [authGithubEnabled, setAuthGithubEnabled] = useState(true);
   const [authMicrosoftEnabled, setAuthMicrosoftEnabled] = useState(true);
   const [authLocalEnabled, setAuthLocalEnabled] = useState(true);
-  
+
   const [showPasswordUpdate, setShowPasswordUpdate] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [integrations, setIntegrations] = useState<IntegrationItem[]>([]);
+  const [integrationsLoading, setIntegrationsLoading] = useState(false);
+  const [integrationsError, setIntegrationsError] = useState<string | null>(
+    null
+  );
 
   // convert comma-separated string to array
   const stringToWordsArray = useCallback((str: string): DenyWordRecord[] => {
@@ -140,21 +165,21 @@ const Settings: React.FC = () => {
 
   const handleUpdatePassword = async () => {
     if (!newPassword) {
-        alert("Please enter a password");
-        return;
+      alert("Please enter a password");
+      return;
     }
     if (newPassword !== confirmPassword) {
-        alert("Passwords do not match");
-        return;
+      alert("Passwords do not match");
+      return;
     }
     try {
-        await updatePasswordHandler(newPassword);
-        alert("Password updated successfully");
-        setNewPassword("");
-        setConfirmPassword("");
+      await updatePasswordHandler(newPassword);
+      alert("Password updated successfully");
+      setNewPassword("");
+      setConfirmPassword("");
     } catch (error) {
-        console.error("Failed to update password", error);
-        alert("Failed to update password");
+      console.error("Failed to update password", error);
+      alert("Failed to update password");
     }
   };
 
@@ -248,6 +273,127 @@ const Settings: React.FC = () => {
     };
     fetchData();
   }, [stringToWordsArray]);
+
+  useEffect(() => {
+    const loadIntegrations = async () => {
+      setIntegrationsLoading(true);
+      setIntegrationsError(null);
+      try {
+        const result = await fetchIntegrations();
+        if (result) {
+          setIntegrations(result);
+        } else {
+          setIntegrationsError("Unable to load integrations");
+        }
+      } catch (error) {
+        console.error("Error fetching integrations:", error);
+        setIntegrationsError("Failed to fetch integrations");
+      } finally {
+        setIntegrationsLoading(false);
+      }
+    };
+
+    loadIntegrations();
+  }, [user]);
+
+  const mapSyncStatus = (
+    status?: string | null,
+    lastSyncedAt?: string | null
+  ): IntegrationSyncStatus => {
+    if (!status && !lastSyncedAt) return "never";
+    if (status === "error") return "error";
+    return "success";
+  };
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return undefined;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return undefined;
+    return date.toLocaleString();
+  };
+
+  const handleAddIntegration = () => {
+    const tempId = `new-${Date.now()}`;
+    setIntegrations((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        service_name: "",
+        auth_type: undefined,
+        config: {},
+        is_active: true,
+        last_sync_error: null,
+        last_synced_at: null,
+        last_sync_status: null,
+        updated_at: undefined,
+        isNew: true,
+      },
+    ]);
+  };
+
+  const handleIntegrationSave = async (
+    payload: IntegrationPayload & { id?: string; isNew?: boolean }
+  ) => {
+    const { id, isNew, ...body } = payload;
+    setIntegrationsError(null);
+
+    if (isNew) {
+      const created = await createIntegration(body);
+      if (!created) {
+        setIntegrationsError("Failed to add integration");
+        throw new Error("Failed to add integration");
+      }
+      setIntegrations((prev) =>
+        prev.map((item) => (item.id === id ? { ...created } : item))
+      );
+      return;
+    }
+
+    if (!id) {
+      setIntegrationsError("Integration ID missing for update");
+      throw new Error("Integration ID missing for update");
+    }
+
+    const updated = await updateIntegration(id, body);
+    if (!updated) {
+      setIntegrationsError("Failed to update integration");
+      throw new Error("Failed to update integration");
+    }
+
+    setIntegrations((prev) =>
+      prev.map((item) => (item.id === id ? { ...updated } : item))
+    );
+  };
+
+  const handleIntegrationDelete = async (id?: string, isNew?: boolean) => {
+    if (!id) return;
+    if (isNew) {
+      setIntegrations((prev) => prev.filter((item) => item.id !== id));
+      return;
+    }
+
+    const deleted = await deleteIntegration(id);
+    if (!deleted) {
+      setIntegrationsError("Failed to delete integration");
+      return;
+    }
+
+    setIntegrations((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleIntegrationSync = async (id?: string) => {
+    if (!id) return;
+
+    const updated = await syncIntegration(id);
+    if (!updated) {
+      setIntegrationsError("Failed to sync integration");
+      return;
+    }
+
+    setIntegrations((prev) =>
+      prev.map((item) => (item.id === id ? { ...updated } : item))
+    );
+  };
 
   const handleDeleteFile = (fileId: string) => {
     setUploadedFiles((files) => files.filter((file) => file.id !== fileId));
@@ -439,7 +585,10 @@ const Settings: React.FC = () => {
               </SettingsCard>
 
               {/* Authentication & Authorization */}
-              <SettingsCard title="Authentication & Authorization" hidden={false}>
+              <SettingsCard
+                title="Authentication & Authorization"
+                hidden={false}
+              >
                 {isAdmin && (
                   <div className="space-y-4 mb-6 border-b pb-6 border-gray-200">
                     <h3 className="text-md font-medium text-gray-900 mb-3">
@@ -568,7 +717,10 @@ const Settings: React.FC = () => {
                         >
                           Cancel
                         </Button>
-                        <Button variant="primary" onClick={handleUpdatePassword}>
+                        <Button
+                          variant="primary"
+                          onClick={handleUpdatePassword}
+                        >
                           Update
                         </Button>
                       </div>
@@ -751,7 +903,71 @@ const Settings: React.FC = () => {
                 </div>
               </SettingsCard>
 
-
+              {/* Integrations */}
+              {isAdmin && (
+                <SettingsCard title="Integrations" hidden={false}>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full justify-between">
+                      <span className="flex flex-row items-center gap-1">
+                        <span className="text-sm md:text-medium text-black flex-1">
+                          Manage integrations with external data sources
+                        </span>
+                        <InfoHint
+                          text="Integrations with platforms like ServiceNow, Jira allow continuous data synchronization."
+                          position="top"
+                          gap={0.3}
+                        />
+                      </span>
+                      <Button
+                        variant="primary"
+                        className="font-semibold text-xs px-4 py-1 transition-colors duration-200  text-white rounded-md cursor-pointer w-full sm:w-auto"
+                        onClick={handleAddIntegration}
+                      >
+                        ADD
+                      </Button>
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      {integrationsLoading && (
+                        <span className="text-sm text-gray-600">
+                          Loading integrations...
+                        </span>
+                      )}
+                      {integrationsError && (
+                        <span className="text-sm text-red-500 ">
+                          {integrationsError}
+                        </span>
+                      )}
+                      {!integrationsLoading &&
+                        !integrationsError &&
+                        integrations.length === 0 && (
+                          <span className="text-sm text-gray-600">
+                            No integrations configured yet.
+                          </span>
+                        )}
+                      {integrations.map((integration) => (
+                        <IntegrationControl
+                          key={integration.id}
+                          id={integration.id}
+                          serviceName={integration.service_name}
+                          enabled={integration.is_active}
+                          syncStatus={mapSyncStatus(
+                            integration.last_sync_status,
+                            integration.last_synced_at
+                          )}
+                          lastSyncedAt={formatDate(integration.last_synced_at)}
+                          lastError={integration.last_sync_error || undefined}
+                          authType={integration.auth_type}
+                          config={integration.config}
+                          isNew={integration.isNew}
+                          onSave={handleIntegrationSave}
+                          onDelete={handleIntegrationDelete}
+                          onSync={handleIntegrationSync}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </SettingsCard>
+              )}
             </div>
           </div>
 
@@ -838,7 +1054,12 @@ const Settings: React.FC = () => {
                 <span className="sm:hidden">Back</span>
               </Button>
 
-              <Button variant="primary" rounded="full" onClick={onSave} title="Save Settings">
+              <Button
+                variant="primary"
+                rounded="full"
+                onClick={onSave}
+                title="Save Settings"
+              >
                 SAVE
               </Button>
             </ButtonGroup>
