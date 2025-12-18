@@ -31,6 +31,7 @@ async def create_setting(setting: SettingCreate, db: AsyncSession = Depends(get_
         last_setting.langfuse_enabled == setting.langfuse_enabled and
         last_setting.auth_google_enabled == setting.auth_google_enabled and
         last_setting.auth_github_enabled == setting.auth_github_enabled and
+        last_setting.auth_microsoft_enabled == setting.auth_microsoft_enabled and
         last_setting.auth_local_enabled == setting.auth_local_enabled
     ):
         # No change, return the existing last setting
@@ -46,6 +47,7 @@ async def create_setting(setting: SettingCreate, db: AsyncSession = Depends(get_
         langfuse_enabled=setting.langfuse_enabled,
         auth_google_enabled=setting.auth_google_enabled,
         auth_github_enabled=setting.auth_github_enabled,
+        auth_microsoft_enabled=setting.auth_microsoft_enabled,
         auth_local_enabled=setting.auth_local_enabled
     )
     db.add(new_setting)

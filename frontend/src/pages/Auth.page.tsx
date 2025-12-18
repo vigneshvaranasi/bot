@@ -12,8 +12,26 @@ const AuthPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [providers, setProviders] = useState<string[]>([]);
+  const [fetchingProviders, setFetchingProviders] = useState(true);
   const { login, user } = useAuthContext();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchProviders = async () => {
+      try {
+        const response = await http.get("/auth/providers");
+        if (response.data?.providers) {
+          setProviders(response.data.providers);
+        }
+      } catch (error) {
+        console.error("Failed to fetch providers", error);
+      } finally {
+        setFetchingProviders(false);
+      }
+    };
+    fetchProviders();
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -42,7 +60,7 @@ const AuthPage = () => {
           await login(response.data.access_token);
           return;
         }
-      } catch (loginError: any) {        
+      } catch (loginError: any) {
         await http.post("/auth/signup", { 
             email, 
             password
@@ -67,67 +85,82 @@ const AuthPage = () => {
           Log in or Sign up
         </h1>
         <div className="space-y-3">
-          <Button
-            onClick={() => handleOAuthLogin("google")}
-            className="w-full flex justify-center items-center gap-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
-          >
-            <img src={GoogleIcon} alt="Google" className="w-5 h-5" />
-            <span>Continue with Google</span>
-          </Button>
-          <Button
-            onClick={() => handleOAuthLogin("github")}
-            className="w-full flex justify-center items-center gap-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
-          >
-            <img src={GithubIcon} alt="GitHub" className="w-5 h-5" />
-            <span>Continue with GitHub</span>
-          </Button>
-          <Button
-            onClick={() => handleOAuthLogin("microsoft")}
-            className="w-full flex justify-center items-center gap-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
-          >
-            <img src={MicrosoftIcon} alt="Microsoft" className="w-5 h-5" />
-            <span>Continue with Microsoft</span>
-          </Button>
+          {!fetchingProviders && providers.length === 0 && (
+            <div className="text-center text-gray-500 py-4">
+              No authentication methods enabled.
+            </div>
+          )}
+          {providers.includes("google") && (
+            <Button
+              onClick={() => handleOAuthLogin("google")}
+              className="w-full flex justify-center items-center gap-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
+            >
+              <img src={GoogleIcon} alt="Google" className="w-5 h-5" />
+              <span>Continue with Google</span>
+            </Button>
+          )}
+          {providers.includes("github") && (
+            <Button
+              onClick={() => handleOAuthLogin("github")}
+              className="w-full flex justify-center items-center gap-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
+            >
+              <img src={GithubIcon} alt="GitHub" className="w-5 h-5" />
+              <span>Continue with GitHub</span>
+            </Button>
+          )}
+          {providers.includes("microsoft") && (
+            <Button
+              onClick={() => handleOAuthLogin("microsoft")}
+              className="w-full flex justify-center items-center gap-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
+            >
+              <img src={MicrosoftIcon} alt="Microsoft" className="w-5 h-5" />
+              <span>Continue with Microsoft</span>
+            </Button>
+          )}
         </div>
 
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
+        {providers.includes("local") && providers.some(p => ["google", "github", "microsoft"].includes(p)) && (
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">OR</span>
+            </div>
           </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">OR</span>
-          </div>
-        </div>
+        )}
 
-        <form onSubmit={handleEmailLogin} className="space-y-4">
-          <div>
-            <InputBox
-              value={email}
-              onChange={setEmail}
-              placeholder="Email address"
-              type="email"
-              variant="primary"
-              className="w-full"
-            />
-          </div>
-          <div>
-            <InputBox
-              value={password}
-              onChange={setPassword}
-              placeholder="Password"
-              type="password"
-              variant="primary"
-              className="w-full"
-            />
-          </div>
-          <Button
-            type="submit"
-            disabled={loading}
-            className="w-full !bg-gray-900 hover:!bg-gray-800 !text-white font-medium py-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "Loading..." : "Continue"}
-          </Button>
-        </form>
+        {providers.includes("local") && (
+          <form onSubmit={handleEmailLogin} className="space-y-4">
+            <div>
+              <InputBox
+                value={email}
+                onChange={setEmail}
+                placeholder="Email address"
+                type="email"
+                variant="primary"
+                className="w-full"
+              />
+            </div>
+            <div>
+              <InputBox
+                value={password}
+                onChange={setPassword}
+                placeholder="Password"
+                type="password"
+                variant="primary"
+                className="w-full"
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full !bg-gray-900 hover:!bg-gray-800 !text-white font-medium py-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Loading..." : "Continue"}
+            </Button>
+          </form>
+        )}
       </div>
     </div>
   );
