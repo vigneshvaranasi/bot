@@ -5,7 +5,6 @@ import HomePage from '../pages/Home.page'
 import ChatPage from '../pages/Chat.page'
 import ChatView from '../view/ChatView'
 import AuthPage from '../pages/Auth.page'
-import SettingsPage from '../pages/Settings.page'
 import UserManagementPage from "../pages/settings/UserManagement.page";
 import ProtectedRoute from './ProtectedRoute'
 import OAuthCallback from '../pages/OAuthCallback.page'
