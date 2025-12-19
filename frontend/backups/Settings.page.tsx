@@ -1,24 +1,24 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "../components/ui/Button";
-import InputBox from "../components/ui/InputBox";
-import Dropdown from "../components/ui/Dropdown";
-import UploadFiles from "../components/ui/UploadFiles";
-import Checkbox from "../components/ui/Checkbox";
-import Toggle from "../components/ui/Toggle";
-import { ConfigurableTable } from "../components/ui/Table";
-import ButtonGroup from "../components/ui/ButtonGroup";
-import SettingsNavbar from "../components/SettingsNavbar";
-import SettingsCard from "../components/ui/SettingsCard";
-import arrowLeftIcon from "../assets/arrow-left.svg";
-import { fetchSettings, updateSettings } from "../handlers/settingsHandlers";
-import { updatePasswordHandler } from "../handlers/authHandlers";
-import type { Model, DenyWordRecord, FileRecord } from "../types/Settings";
+import { Button } from "../src/components/ui/Button";
+import InputBox from "../src/components/ui/InputBox";
+import Dropdown from "../src/components/ui/Dropdown";
+import UploadFiles from "../src/components/ui/UploadFiles";
+import Checkbox from "../src/components/ui/Checkbox";
+import Toggle from "../src/components/ui/Toggle";
+import { ConfigurableTable } from "../src/components/ui/Table";
+import ButtonGroup from "../src/components/ui/ButtonGroup";
+import SettingsNavbar from "../src/components/SettingsNavbar";
+import SettingsCard from "../src/components/ui/SettingsCard";
+// import arrowLeftIcon from "../assets/arrow-left.svg";
+import { fetchSettings, updateSettings } from "../src/handlers/settingsHandlers";
+import { updatePasswordHandler } from "../src/handlers/authHandlers";
+import type { Model, DenyWordRecord, FileRecord } from "../src/types/Settings";
 import {
   AUTH_SCHEMAS,
   type Integration,
   type IntegrationSyncStatus,
-} from "../types/Integrations";
+} from "../src/types/Integrations";
 import {
   fetchIntegrations,
   createIntegration,
@@ -26,10 +26,10 @@ import {
   deleteIntegration,
   syncIntegration,
   type IntegrationPayload,
-} from "../handlers/integrationHandlers";
-import IntegrationControl from "../components/IntegrationControl";
-import { useAuthContext } from "../hooks/useAuthContext";
-import InfoHint from "../components/ui/InfoHint";
+} from "../src/handlers/integrationHandlers";
+import IntegrationControl from "../src/components/IntegrationControl";
+import { useAuthContext } from "../src/hooks/useAuthContext";
+import InfoHint from "../src/components/ui/InfoHint";
 
 const Settings: React.FC = () => {
   type IntegrationItem = Omit<Integration, "auth_type" | "config"> & {
@@ -1049,7 +1049,7 @@ const Settings: React.FC = () => {
                 onClick={handleGoToChat}
                 className="bg-transparent hover:bg-gray-50 hover:rounded-full text-gray-900 px-4 md:px-6 py-2 rounded-full flex items-center justify-center gap-2 flex-1 sm:flex-none"
               >
-                <img src={arrowLeftIcon} alt="arrow left" className="w-4 h-4" />
+                {/* <img src={arrowLeftIcon} alt="arrow left" className="w-4 h-4" /> */}
                 <span className="hidden sm:inline">Go to Chat</span>
                 <span className="sm:hidden">Back</span>
               </Button>

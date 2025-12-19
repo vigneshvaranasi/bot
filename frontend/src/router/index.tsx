@@ -1,14 +1,22 @@
 import type { RouteObject } from 'react-router'
+import { Navigate } from "react-router-dom";
 import Layout from './Layout'
 import HomePage from '../pages/Home.page'
 import ChatPage from '../pages/Chat.page'
 import ChatView from '../view/ChatView'
 import Login from '../pages/LogIn.page'
 import Signup from '../pages/Signup.page'
-import SettingsPage from '../pages/Settings.page'
-import UserManagementPage from '../pages/UserManagement.page'
+import UserManagementPage from "../pages/settings/UserManagement.page";
 import ProtectedRoute from './ProtectedRoute'
 import OAuthCallback from '../pages/OAuthCallback.page'
+import SettingsLayout from "../components/settings/SettingsLayout";
+import MyAccountPage from "../pages/settings/MyAccount.page";
+// import SystemConfigPage from "../pages/settings/System.page";
+import AiMlConfigPage from "../pages/settings/AiMl.page";
+import IntegrationsPage from "../pages/settings/Integrations.page";
+// import AuditPage from "../pages/settings/Audit.page";
+import AdminRoute from "./AdminRoute";
+
 const normalRoutes: RouteObject = {
   path: '/',
   element: <Layout />,
@@ -30,14 +38,29 @@ const normalRoutes: RouteObject = {
       element:<Signup/>
     },
     {
-      path: '/settings',
-      element: <SettingsPage />
+      path: "/settings",
+      element: <ProtectedRoute />,
+      children: [
+        {
+          element: <SettingsLayout />,
+          children: [
+            { index: true, element: <Navigate to="/settings/my-account" replace /> },
+            { path: "my-account", element: <MyAccountPage /> },
+                { path: "security", element: <Navigate to="/settings/my-account" replace /> },
+            {
+              element: <AdminRoute />,
+              children: [
+                { path: "ai-ml", element: <AiMlConfigPage /> },
+                { path: "integrations", element: <IntegrationsPage /> },
+                { path: "user-management", element: <UserManagementPage /> },
+                // { path: "audit", element: <AuditPage /> },
+                // { path: "system", element: <SystemConfigPage /> },
+              ],
+            },
+          ],
+        },
+      ],
     },
-    {
-      path: '/user-management',
-      element: <UserManagementPage />
-    },
-    // Protected Chat Route
     {
       path: '/',
       element: <ProtectedRoute/>,
