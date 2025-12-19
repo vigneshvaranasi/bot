@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { SidebarProvider } from "./store/SidebarContext.tsx";
 import AuthProvider from "./store/AuthProvider.tsx";
 import { FileProvider } from "./store/FileProvider.tsx";
+import { Toaster } from "react-hot-toast";
 
 createRoot(document.getElementById("root")!).render(
   <AuthProvider>
@@ -12,6 +13,7 @@ createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         <SidebarProvider>
           <App />
+          <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
         </SidebarProvider>
       </BrowserRouter>
     </FileProvider>
