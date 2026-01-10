@@ -2,7 +2,6 @@ import { useState, useRef, useCallback } from "react";
 import { Button } from "./Button";
 import { useFileContext } from "../../hooks/useFileContext";
 import type { UploadedFile } from "../../store/FileProvider";
-import { sup } from "motion/react-client";
 
 interface UploadFilesProps {
   maxFiles?: number; // Optional prop to limit number of files (undefined = no limit)

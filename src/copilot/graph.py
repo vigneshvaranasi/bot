@@ -25,7 +25,7 @@ connection_kwargs = {
 llm = ChatOllama(
         model="gpt-oss:20b",
         temperature=0.33,
-        base_url="http://ollama.trackcode.in",
+        base_url="https://ollama.trackcode.in",
         max_retries=2
     )
 

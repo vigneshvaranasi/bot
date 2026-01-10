@@ -1,4 +1,4 @@
-import { createContext, useState } from "react";
+import { createContext, useState, type ReactNode } from "react";
 import type { ChatInSidebar } from "../types/Chats";
 import type { ResponseMetrics } from "../utils/metrics";
 
@@ -44,23 +44,13 @@ export const SidebarContext = createContext<SidebarContextType>({
 export const SidebarProvider = ({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) => {
   const [isSidebarOpen, setSidebarOpen] = useState<boolean>(localStorage.getItem("isSidebarOpen") === "true" || false);
   const [chats, setChats] = useState<ChatInSidebar[]>([]);
   const [currentChat, setCurrentChat] = useState<currentChatType | null>(null);
   const [isSidebarLoading, setIsSidebarLoading] = useState<boolean>(false);
   const [refreshChatsTick, setRefreshChatsTick] = useState<number>(0);
-
-  const closeSidebar = () => {
-    setSidebarOpen(false);
-    localStorage.setItem("isSidebarOpen", "false");
-  };
-
-  const openSidebar = () => {
-    setSidebarOpen(true);
-    localStorage.setItem("isSidebarOpen", "true");
-  };
 
   const toggleSidebar = () => {
     setSidebarOpen((prev) => !prev);

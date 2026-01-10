@@ -17,8 +17,8 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
   useEffect(() => {
     if (!isSupported) return;
     const loadVoices = () => {
-      const voices = speechSynthesis.getVoices();
-      // console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
+      // touch voices to warm cache; lint-safe
+      speechSynthesis.getVoices();
     };
     loadVoices();
     speechSynthesis.addEventListener('voiceschanged', loadVoices);

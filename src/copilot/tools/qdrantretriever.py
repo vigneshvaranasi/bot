@@ -13,6 +13,7 @@ from langchain.chains.query_constructor.base import (
 from langchain_community.query_constructors.qdrant  import QdrantTranslator
 from langgraph.config import get_stream_writer
 import logging
+import os
 import re
 import traceback
 # logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -66,7 +67,7 @@ try:
     llm = ChatOllama(
         model="gpt-oss:20b",
         temperature=0,
-        base_url="http://ollama.trackcode.in",
+        base_url="https://ollama.trackcode.in",
         max_retries=2,
         disable_streaming=True
     )
@@ -77,7 +78,7 @@ try:
         encode_kwargs={'normalize_embeddings': True}
     )
 
-    client = QdrantClient(url="http://localhost:6333")
+    client = QdrantClient(url=os.getenv("QDRANT_URL"))
 
     vector_store = QdrantVectorStore(
         client=client,
@@ -235,6 +236,7 @@ def get_incident_report(message: str) -> str:
 
     except Exception as e:
         logging.error(f"Error in get_incident_report (Self-Query): {e}")
+        traceback.print_exc()
         return f"An error occurred while searching for incident reports. This may be due to a malformed query. Error: {e}"
 
 available_tools = [get_incident_report]
