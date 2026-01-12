@@ -15,6 +15,7 @@ import { toast } from "react-hot-toast";
 import Toggle from "../../components/ui/Toggle";
 import { fetchSettings, updateSettings } from "../../handlers/settingsHandlers";
 import type { Settings } from "../../types/Settings";
+import { logger } from "../../utils/logger";
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -51,7 +52,7 @@ const UserManagement: React.FC = () => {
           setAuthLocalEnabled(settings.auth_local_enabled ?? true);
         }
       } catch (error) {
-        console.error("Failed to load data", error);
+        logger.error("Failed to load data", error);
         toast.error("Failed to load users");
       } finally {
         setLoading(false);
@@ -82,7 +83,7 @@ const UserManagement: React.FC = () => {
       setEditingUser(null);
       toast.success("User updated");
     } catch (error) {
-      console.error("Failed to update user", error);
+      logger.error("Failed to update user", error);
       toast.error("Failed to update user");
     } finally {
       setSaving(false);
@@ -92,21 +93,16 @@ const UserManagement: React.FC = () => {
   const handleSaveAuth = async () => {
     try {
       setAuthSaving(true);
-      const token = localStorage.getItem("token");
-      if (!token) {
-        toast.error("User not authenticated");
-        return;
-      }
       const authPayload: Partial<Settings> = {
         auth_google_enabled: authGoogleEnabled,
         auth_github_enabled: authGithubEnabled,
         auth_microsoft_enabled: authMicrosoftEnabled,
         auth_local_enabled: authLocalEnabled,
       };
-      await updateSettings(authPayload, token);
+      await updateSettings(authPayload);
       toast.success("Authentication methods updated");
     } catch (error) {
-      console.error("Failed to save authentication settings", error);
+      logger.error("Failed to save authentication settings", error);
       toast.error("Failed to save authentication settings");
     } finally {
       setAuthSaving(false);
@@ -121,7 +117,7 @@ const UserManagement: React.FC = () => {
       setUsers(usersData);
       toast.success("User deleted");
     } catch (error) {
-      console.error("Failed to delete user", error);
+      logger.error("Failed to delete user", error);
       toast.error("Failed to delete user");
     }
   };
@@ -171,7 +167,6 @@ const UserManagement: React.FC = () => {
         </div>
       ),
       headerClassName: "text-xs md:text-sm font-medium text-gray-700",
-      searcahable: false
     },
   ];
 

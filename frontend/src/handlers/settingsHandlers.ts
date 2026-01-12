@@ -1,28 +1,18 @@
-import { BE_URL } from "../config/config";
+import http from "../utils/http";
+import { logger } from "../utils/logger";
 import type { Settings } from "../types/Settings";
 
 export const fetchSettings = async () => {
     try {
-        const response = await fetch(`${BE_URL}/settings/`, {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error("Failed to fetch settings");
-        }
-
-        const data = await response.json();
+        const { data } = await http.get("/settings/");
         return data;
     } catch (error) {
-        console.error("Error fetching settings:", error);
+        logger.error("Error fetching settings:", error);
         return null;
     }
 };
 
-export const updateSettings = async (settings: Partial<Settings>, token: string) => {
+export const updateSettings = async (settings: Partial<Settings>) => {
     try {
         const current = await fetchSettings();
         const merged: Partial<Settings> = {
@@ -30,44 +20,20 @@ export const updateSettings = async (settings: Partial<Settings>, token: string)
             ...settings,
         };
 
-        const response = await fetch(`${BE_URL}/settings/`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify(merged),
-        });
-
-        if (!response.ok) {
-            throw new Error("Failed to update settings");
-        }
-
-        const data = await response.json();
+        const { data } = await http.post("/settings/", merged);
         return data;
     } catch (error) {
-        console.error("Error updating settings:", error);
+        logger.error("Error updating settings:", error);
         return null;
     }
 };
 
-export const rollbackSettings = async (token: string) => {
+export const rollbackSettings = async () => {
     try {
-
-        const response = await fetch(`${BE_URL}/settings/rollback`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            }
-        });
-        if (!response.ok) {
-            throw new Error("Failed to rollback settings");
-        }
-
-        return response.json();
+        const { data } = await http.put("/settings/rollback");
+        return data;
     } catch (error) {
-        console.error("Error rolling back settings:", error);
+        logger.error("Error rolling back settings:", error);
         return null;
     }
 };

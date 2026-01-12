@@ -1,6 +1,14 @@
 import { BE_URL } from "../config/config";
+import { logger } from "../utils/logger";
 
-export type ChatSSEEvent = { event: string; data: any; label?: string };
+export interface ChatSSEEventData {
+  chunk?: string;
+  message?: string;
+  chat_id?: string;
+  [key: string]: unknown;
+}
+
+export type ChatSSEEvent = { event: string; data: ChatSSEEventData; label?: string };
 
 export const newMessageHandlerNoStream = async (
   chatId: string | null,
@@ -80,7 +88,7 @@ export const newMessageHandler = async (
       for (const streamItem of streamMessages) {
         try {
           const [event, data] = streamItem.split("\n");
-          let actualEvent = event.slice(6).trim();
+          const actualEvent = event.slice(6).trim();
           const parsedData = JSON.parse(data.slice(5).trim());
           if(onEvent){  
               onEvent({
@@ -94,7 +102,7 @@ export const newMessageHandler = async (
 
           
         } catch (error) {
-          console.error("Error parsing SSE event:", error);
+          logger.error("Error parsing SSE event:", error);
         }
       }
     }

@@ -33,87 +33,43 @@ function Sidebar() {
   const [editingTitle, setEditingTitle] = useState<string>("");
   const editingInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
-  const handleLogout = () => {
-    logout();
-  };
 
-  if (!user) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <p className="text-gray-500">Please log in to view chats.</p>
-      </div>
-    );
-  }
-
-  useEffect(()=>{
+  // All hooks must be called unconditionally at the top (React Rules of Hooks)
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setActiveMenu(null);
       }
     };
-    if(activeMenu){
+    if (activeMenu) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-    }; 
-  },[menuRef, activeMenu]);
+    };
+  }, [activeMenu]);
 
-  // focus the input when entering edit mode
+  // Focus the input when entering edit mode
   useEffect(() => {
     if (editingChatId && editingInputRef.current) {
-      // small timeout to ensure the input is mounted
+      // Small timeout to ensure the input is mounted
       setTimeout(() => editingInputRef.current && editingInputRef.current.focus(), 0);
     }
   }, [editingChatId]);
 
-  const onArchiveChat = async(chatId: string) => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        console.error("User token is missing");
-        return;
-      }
-  await archiveChatById(token, chatId);
-      triggerRefreshChats();
-      // If the chat is currently open, close it after archiving
-      if (currentChat?.chatId === chatId) {
-        navigate("/");
-      }
-    } catch (error) {
-      console.error("Failed to archive chat:", error);
-    }
-  }
-
-  const onRenameChat = async(chatId: string, title: string) => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        console.error("User token is missing");
-        return;
-      }
-      if(!title || title.trim().length === 0){
-        console.error("Title cannot be empty");
-        return;
-      }
-      await renameChatById(token, chatId, title.trim());
-      triggerRefreshChats();
-    } catch (error) {
-      console.error("Failed to rename chat:", error);
-    }
-  }
-  // fetch chats
+  // Fetch chats when user or refresh tick changes
   useEffect(() => {
+    if (!user) return;
+
     const fetchChats = async () => {
       setIsSidebarLoading(true);
       try {
         const token = localStorage.getItem("token");
         if (!token) return;
         const allMyChats = await getAllMyChats(token);
-        // console.log("allMyChats: ", allMyChats);
         if (allMyChats && Array.isArray(allMyChats.chats)) {
           setChats(
-            allMyChats.chats.map((chat: any) => ({
+            allMyChats.chats.map((chat: { id: string; title: string; updated_at: string }) => ({
               chatId: chat.id,
               chatTitle: chat.title,
               date: chat.updated_at,
@@ -130,7 +86,56 @@ function Sidebar() {
       }
     };
     fetchChats();
-  }, [user, refreshChatsTick]);
+  }, [user, refreshChatsTick, setChats, setIsSidebarLoading]);
+
+  const handleLogout = () => {
+    logout();
+  };
+
+  // Early return AFTER all hooks have been called
+  if (!user) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <p className="text-gray-500">Please log in to view chats.</p>
+      </div>
+    );
+  }
+
+  const onArchiveChat = async (chatId: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("User token is missing");
+        return;
+      }
+      await archiveChatById(token, chatId);
+      triggerRefreshChats();
+      // If the chat is currently open, close it after archiving
+      if (currentChat?.chatId === chatId) {
+        navigate("/");
+      }
+    } catch (error) {
+      console.error("Failed to archive chat:", error);
+    }
+  };
+
+  const onRenameChat = async (chatId: string, title: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("User token is missing");
+        return;
+      }
+      if (!title || title.trim().length === 0) {
+        console.error("Title cannot be empty");
+        return;
+      }
+      await renameChatById(token, chatId, title.trim());
+      triggerRefreshChats();
+    } catch (error) {
+      console.error("Failed to rename chat:", error);
+    }
+  };
 
   const handleLinkClick = () => {
     if (window.innerWidth < 768) {
@@ -142,7 +147,7 @@ function Sidebar() {
     ? chats.filter(
         (chat) =>
           fuzzyMatch(chat.chatTitle, searchInput) ||
-          fuzzyMatch(chat.date, searchInput)
+          (chat.date && fuzzyMatch(chat.date, searchInput))
       )
     : chats;
 
@@ -199,7 +204,6 @@ function Sidebar() {
                 {filteredChats.map((chat) => (
                   <div key={chat.chatId} className="relative cursor-pointer">
                     <Link
-                      key={chat.chatId}
                       className={`hover:bg-gray-200 block p-2 rounded-md group ${
                         currentChat?.chatId === chat.chatId && "bg-gray-200"
                       }`}
@@ -344,7 +348,6 @@ function Sidebar() {
             <Link
               to={"/"}
               className="p-2 rounded-md hover:bg-gray-200"
-              onClick={() => console.log("New chat clicked")}
               title="New Chat"
             >
               <p className="text-3xl">+</p>

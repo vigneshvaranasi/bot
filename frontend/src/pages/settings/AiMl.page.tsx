@@ -9,6 +9,7 @@ import InfoHint from "../../components/ui/InfoHint";
 import { fetchSettings, updateSettings } from "../../handlers/settingsHandlers";
 import type { DenyWordRecord, Model, Settings } from "../../types/Settings";
 import { toast } from "react-hot-toast";
+import { logger } from "../../utils/logger";
 
 const modelOptions = [
   { value: "gpt-oss:20b", label: "GPT-OSS: 20B" },
@@ -63,7 +64,7 @@ const AiMlConfigPage = () => {
           setLangfuseEnabled(settings.langfuse_enabled ?? true);
         }
       } catch (err) {
-        console.error("Error fetching AI/ML settings", err);
+        logger.error("Error fetching AI/ML settings", err);
         setError("Unable to load AI/ML settings");
       } finally {
         setLoading(false);
@@ -104,20 +105,14 @@ const AiMlConfigPage = () => {
     try {
       setSavingModel(true);
       setError(null);
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("User not authenticated");
-        toast.error("User not authenticated");
-        return;
-      }
       const modelPayload: Partial<Settings> = {
         model,
         temperature,
       };
-      await updateSettings(modelPayload, token);
+      await updateSettings(modelPayload);
       toast.success("Model configuration saved");
     } catch (err) {
-      console.error("Error saving model settings", err);
+      logger.error("Error saving model settings", err);
       setError("Failed to save model configuration");
       toast.error("Failed to save model configuration");
     } finally {
@@ -129,20 +124,14 @@ const AiMlConfigPage = () => {
     try {
       setSavingSafety(true);
       setError(null);
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("User not authenticated");
-        toast.error("User not authenticated");
-        return;
-      }
       const safetyPayload: Partial<Settings> = {
         deny_words: wordsArrayToString(denyWordsArray),
         langfuse_enabled: langfuseEnabled,
       };
-      await updateSettings(safetyPayload, token);
+      await updateSettings(safetyPayload);
       toast.success("Safety settings saved");
     } catch (err) {
-      console.error("Error saving safety settings", err);
+      logger.error("Error saving safety settings", err);
       setError("Failed to save safety settings");
       toast.error("Failed to save safety settings");
     } finally {

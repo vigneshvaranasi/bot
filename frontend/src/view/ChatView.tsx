@@ -9,6 +9,15 @@ import { useSpeechSynthesis } from "../hooks/useSpeechSynthesis";
 import Spinner from "../components/ui/Spinner";
 import { loadChatFromCache, saveChatToCache, messagesEqual } from "../utils/chatCache";
 import { ChatAction } from "../components/ui/ChatAction";
+import { logger } from "../utils/logger";
+import type { ChatMessage } from "../types";
+
+// API response message structure from getChatMessagesById
+interface ApiChatMessage {
+  id: string;
+  human: string;
+  bot: string;
+}
 
 const ChatView = () => {
   const { chatId } = useParams<{ chatId: string }>();
@@ -28,6 +37,7 @@ const ChatView = () => {
       try {
         bottomRef.current.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "end" });
       } catch {
+        // scrollIntoView may fail in some edge cases - fallback to scrollTop below
       }
     }
     container.scrollTop = container.scrollHeight;
@@ -43,7 +53,7 @@ const ChatView = () => {
         // Try IndexedDB cache
         const cached = await loadChatFromCache(chatId, userKey);
         if (cached && Array.isArray(cached)) {
-          setCurrentChat({ chatId, allMessages: cached as any });
+          setCurrentChat({ chatId, allMessages: cached as ChatMessage[] });
           setLoading(false);
         }
 
@@ -51,9 +61,9 @@ const ChatView = () => {
         const token = localStorage.getItem("token");
         if (!token) return;
         const res = await getChatMessagesById(token, chatId);
-        let freshMessages: any[] = [];
+        let freshMessages: ChatMessage[] = [];
         if (res && Array.isArray(res)) {
-          freshMessages = res.map((message: any) => ({
+          freshMessages = (res as ApiChatMessage[]).map((message: ApiChatMessage) => ({
             id: message.id,
             userMessage: message.human || "",
             botMessage: message.bot || "",
@@ -65,20 +75,20 @@ const ChatView = () => {
             freshMessages[lastIdx] = {
               ...freshMessages[lastIdx],
               responseMetrics: metrics,
-            } as any;
+            };
             removeChatMetrics(chatId);
           }
         }
 
         // Update UI only if changed vs cached
-        const curr = cached || [];
-        if (!messagesEqual(curr as any, freshMessages as any)) {
-          setCurrentChat({ chatId, allMessages: freshMessages as any });
+        const curr = (cached as ChatMessage[]) || [];
+        if (!messagesEqual(curr, freshMessages)) {
+          setCurrentChat({ chatId, allMessages: freshMessages });
         }
         // Save refreshed messages to cache
-        await saveChatToCache(chatId, freshMessages as any, 20, userKey);
+        await saveChatToCache(chatId, freshMessages, 20, userKey);
       } catch (err) {
-        console.error("Failed to fetch messages:", err);
+        logger.error("Failed to fetch messages:", err);
         setCurrentChat({
           chatId: chatId,
           allMessages: [],

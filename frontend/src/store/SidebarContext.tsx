@@ -1,16 +1,10 @@
 import { createContext, useState, type ReactNode } from "react";
 import type { ChatInSidebar } from "../types/Chats";
-import type { ResponseMetrics } from "../utils/metrics";
+import type { ChatMessage } from "../types";
 
-type currentChatType = {
-  chatId: string | null;
-  allMessages: {
-    id: string;
-    userMessage: string;
-    botMessage: string;
-    streaming?: boolean;
-    responseMetrics?:ResponseMetrics
-  }[];
+export type CurrentChatType = {
+  chatId: string;
+  allMessages: ChatMessage[];
 };
 
 type SidebarContextType = {
@@ -18,8 +12,8 @@ type SidebarContextType = {
   setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
   chats: ChatInSidebar[];
   setChats: React.Dispatch<React.SetStateAction<ChatInSidebar[]>>;
-  currentChat: currentChatType | null;
-  setCurrentChat: React.Dispatch<React.SetStateAction<currentChatType | null>>;
+  currentChat: CurrentChatType | null;
+  setCurrentChat: React.Dispatch<React.SetStateAction<CurrentChatType | null>>;
   toggleSidebar: () => void;
   isSidebarLoading: boolean;
   setIsSidebarLoading: React.Dispatch<React.SetStateAction<boolean>>;
@@ -48,7 +42,7 @@ export const SidebarProvider = ({
 }) => {
   const [isSidebarOpen, setSidebarOpen] = useState<boolean>(localStorage.getItem("isSidebarOpen") === "true" || false);
   const [chats, setChats] = useState<ChatInSidebar[]>([]);
-  const [currentChat, setCurrentChat] = useState<currentChatType | null>(null);
+  const [currentChat, setCurrentChat] = useState<CurrentChatType | null>(null);
   const [isSidebarLoading, setIsSidebarLoading] = useState<boolean>(false);
   const [refreshChatsTick, setRefreshChatsTick] = useState<number>(0);
 

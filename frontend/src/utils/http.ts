@@ -1,5 +1,9 @@
 import { BE_URL } from '../config/config';
 
+interface HttpError extends Error {
+  response?: { status: number; data: unknown };
+}
+
 const getHeaders = () => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -20,15 +24,15 @@ const handleResponse = async (response: Response) => {
     }
     return Promise.reject(new Error('Unauthorized'));
   }
-  
+
   const data = await response.json().catch(() => null);
-  
+
   if (!response.ok) {
-    const error = new Error(data?.detail || response.statusText || 'Request failed');
-    (error as any).response = { status: response.status, data };
+    const error: HttpError = new Error(data?.detail || response.statusText || 'Request failed');
+    error.response = { status: response.status, data };
     return Promise.reject(error);
   }
-  
+
   return { data };
 };
 
@@ -40,7 +44,7 @@ const http = {
     });
     return handleResponse(response);
   },
-  post: async (url: string, body?: any) => {
+  post: async (url: string, body?: unknown) => {
     const response = await fetch(`${BE_URL}${url}`, {
       method: 'POST',
       headers: getHeaders(),
@@ -48,7 +52,7 @@ const http = {
     });
     return handleResponse(response);
   },
-  put: async (url: string, body?: any) => {
+  put: async (url: string, body?: unknown) => {
     const response = await fetch(`${BE_URL}${url}`, {
       method: 'PUT',
       headers: getHeaders(),

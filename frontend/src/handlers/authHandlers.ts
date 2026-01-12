@@ -1,49 +1,30 @@
 import { BE_URL } from "../config/config";
 import http from "../utils/http";
+import { logger } from "../utils/logger";
 
-
-// handler for user signup
-export const signUpHandler = async (email: string, password:string, role_id:string)=>{
+// handler for user signup (pre-auth, no token needed)
+export const signUpHandler = async (email: string, password: string, role_id: string) => {
     try {
-        const response = await fetch(`${BE_URL}/auth/signup`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ email, password, role_id })
-        });
-        if (!response.ok) {
-            throw new Error("Failed to sign up");
-        }
-        const data = await response.json();
+        const { data } = await http.post("/auth/signup", { email, password, role_id });
         return data;
     } catch (error) {
-        console.error("Error signing up:", error);
+        logger.error("Error signing up:", error);
         throw error;
     }
-}
+};
 
-// handler for user login
+// handler for user login (pre-auth, no token needed)
 export const loginHandler = async (email: string, password: string) => {
     try {
-        const response = await fetch(`${BE_URL}/auth/login`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ email, password })
-        });
-        if (!response.ok) {
-            throw new Error("Failed to log in");
-        }
-        const data = await response.json();
+        const { data } = await http.post("/auth/login", { email, password });
         return data;
     } catch (error) {
-        console.error("Error logging in:", error);
+        logger.error("Error logging in:", error);
         throw error;
     }
-}
-// handler for verify
+};
+
+// handler for verify - requires explicit token parameter (not from localStorage)
 export const verifyTokenHandler = async (token: string) => {
   try {
     const response = await fetch(`${BE_URL}/auth/verify`, {
@@ -61,36 +42,28 @@ export const verifyTokenHandler = async (token: string) => {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Verify token error:', error);
+    logger.error('Verify token error:', error);
     return { success: false };
   }
 };
 
-// handler to get all roles
-export const getAllRolesHandler = async()=>{
+// handler to get all roles (public endpoint)
+export const getAllRolesHandler = async () => {
     try {
-        const response = await fetch(`${BE_URL}/roles/`, {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json"
-            }
-        });
-        if (!response.ok) {
-            throw new Error("Failed to fetch roles");
-        }
-        const data = await response.json();
+        const { data } = await http.get("/roles/");
         return data;
     } catch (error) {
-        console.error("Error fetching roles:", error);
+        logger.error("Error fetching roles:", error);
         throw error;
     }
-}
+};
+
 export const updatePasswordHandler = async (password: string) => {
     try {
         const response = await http.post("/auth/password", { password });
         return response.data;
     } catch (error) {
-        console.error("Error updating password:", error);
+        logger.error("Error updating password:", error);
         throw error;
     }
 };

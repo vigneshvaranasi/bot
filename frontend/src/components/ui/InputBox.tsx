@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 type InputBoxProps = {
   value: string
   placeholder?: string
-  onChange: (value: any) => void
+  onChange: (value: string) => void
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void
   icon?: string | React.ReactNode
   className?: string

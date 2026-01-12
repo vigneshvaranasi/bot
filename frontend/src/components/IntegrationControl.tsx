@@ -267,7 +267,7 @@ export default function IntegrationControl({
           )}
 
           {error && <span className="text-xs text-red-500">{error}</span>}
-          <div className="flex felx-row gap-2">
+          <div className="flex flex-row gap-2">
             <Button
               variant="secondary"
               className="w-fit mt-2"

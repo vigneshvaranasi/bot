@@ -4,6 +4,8 @@ import { Button } from "../components/ui/Button";
 import InputBox from "../components/ui/InputBox";
 import http from "../utils/http";
 import { useAuthContext } from "../hooks/useAuthContext";
+import { logger } from "../utils/logger";
+import { toast } from "react-hot-toast";
 import GoogleIcon from "../assets/icons/google.svg";
 import MicrosoftIcon from "../assets/icons/microsoft.svg";
 import GithubIcon from "../assets/icons/github.svg";
@@ -25,7 +27,7 @@ const AuthPage = () => {
           setProviders(response.data.providers);
         }
       } catch (error) {
-        console.error("Failed to fetch providers", error);
+        logger.error("Failed to fetch providers", error);
       } finally {
         setFetchingProviders(false);
       }
@@ -44,8 +46,8 @@ const AuthPage = () => {
       const response = await http.get(`/auth/oauth/${provider}`);
       window.location.href = response.data.authorization_url;
     } catch (error) {
-      console.error("OAuth login failed", error);
-      alert("Failed to initiate login");
+      logger.error("OAuth login failed", error);
+      toast.error("Failed to initiate login");
     }
   };
 
@@ -60,19 +62,20 @@ const AuthPage = () => {
           await login(response.data.access_token);
           return;
         }
-      } catch (loginError: any) {
-        await http.post("/auth/signup", { 
-            email, 
+      } catch {
+        // Login failed, try signup then login
+        await http.post("/auth/signup", {
+            email,
             password
-        });        
+        });
         const loginResponse = await http.post("/auth/login", { email, password });
         if (loginResponse.data?.access_token) {
             await login(loginResponse.data.access_token);
         }
       }
     } catch (error) {
-      console.error("Auth failed", error);
-      alert("Authentication failed. Please check your credentials.");
+      logger.error("Auth failed", error);
+      toast.error("Authentication failed. Please check your credentials.");
     } finally {
       setLoading(false);
     }
