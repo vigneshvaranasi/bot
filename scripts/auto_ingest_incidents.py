@@ -2,6 +2,37 @@ import json
 import random
 from datetime import datetime, timedelta
 import os
+import requests
+import time
+import requests
+import time
+from requests.auth import HTTPBasicAuth
+import argparse
+
+# ServiceNow Configuration (Hardcoded for cloud deployment)
+DEFAULT_SN_INSTANCE = "dev266166"
+DEFAULT_SN_USER = "admin"
+DEFAULT_SN_PASS = "WRvm74Z*r=Ut"
+
+# Parse CLI arguments
+parser = argparse.ArgumentParser(description="Auto-ingest incidents to ServiceNow")
+parser.add_argument("--instance", default=DEFAULT_SN_INSTANCE, help="ServiceNow instance (default: dev295076)")
+parser.add_argument("--user", default=DEFAULT_SN_USER, help="ServiceNow username (default: admin)")
+parser.add_argument("--password", default=DEFAULT_SN_PASS, help="ServiceNow password")
+args, unknown = parser.parse_known_args()
+
+SN_INSTANCE = args.instance
+SN_USER = args.user
+SN_PASS = args.password
+
+# Debug: Print what was received
+print(f"DEBUG: Instance={SN_INSTANCE}, User={SN_USER}, Pass={'*' * (len(SN_PASS)-4) + SN_PASS[-4:] if len(SN_PASS) > 4 else '***'}")
+print()
+
+SN_INTERVAL_SECONDS = 360  # 6 minutes = ~10 incidents per hour
+SN_BATCH_SIZE = 1
+SN_BASE_URL = f"https://{SN_INSTANCE}.service-now.com"
+SN_API_ENDPOINT = f"{SN_BASE_URL}/api/now/table/incident"
 
 # Expanded incident templates — more variety per category
 INCIDENT_TEMPLATES = [
@@ -540,7 +571,7 @@ def generate_action_taken(template):
 
     return action
 
-def generate_incidents(num_incidents=1000, start_date=None):
+def generate_incidents(num_incidents=1000, start_date=None, start_index=0):
     """Generate specified number of realistic incidents."""
     if start_date is None:
         # default start_date is 60 days before today
@@ -551,7 +582,7 @@ def generate_incidents(num_incidents=1000, start_date=None):
     for i in range(num_incidents):
         template = random.choice(INCIDENT_TEMPLATES)
         incident_date = start_date + timedelta(days=random.randint(0, 90))
-        incident_id = generate_incident_id(i + 1, incident_date)
+        incident_id = generate_incident_id(start_index + i + 1, incident_date)
         title = random.choice(template["titles"])
         impacted_app = random.choice(template["impacted_apps"])
         root_cause = random.choice(template["root_causes"])
@@ -587,56 +618,292 @@ def generate_incidents(num_incidents=1000, start_date=None):
 
     return incidents
 
-def save_incidents(incidents, output_folder="data"):
+def save_incidents(incidents, output_folder="data", append=False):
     """Save incidents to JSON file."""
     # Use current working directory (script location) for output folder
     output_path = os.path.join(os.getcwd(), output_folder, "ingested_incidents.json")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    if append and os.path.exists(output_path):
+        # Load existing incidents and append new ones
+        try:
+            with open(output_path, 'r', encoding='utf-8') as f:
+                existing_incidents = json.load(f)
+            all_incidents = existing_incidents + incidents
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(all_incidents, f, indent=2, ensure_ascii=False)
+            return output_path, len(existing_incidents)
+        except (json.JSONDecodeError, Exception):
+            # If file is corrupted, just overwrite
+            pass
+    
+    # Normal save (overwrite)
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(incidents, f, indent=2, ensure_ascii=False)
-    return output_path
+    return output_path, 0
+
+def create_servicenow_incident(incident_data):
+    """
+    Create a ServiceNow incident via REST API.
+    
+    Args:
+        incident_data: Dictionary containing incident details
+        
+    Returns:
+        Response object from ServiceNow API
+    """
+    # Convert entire incident JSON to string for description field
+    incident_json_str = json.dumps(incident_data, indent=2, ensure_ascii=False)
+    
+    # Build ServiceNow payload with EXACT requirements
+    payload = {
+        "short_description": f"{incident_data['incident_id']} | {incident_data['incident_title']}",
+        "description": incident_json_str,
+        "impact": "2",
+        "urgency": "2"
+    }
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    
+    try:
+        response = requests.post(
+            SN_API_ENDPOINT,
+            auth=HTTPBasicAuth(SN_USER, SN_PASS),
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        
+        response.raise_for_status()
+        return response
+        
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Error creating ServiceNow incident: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"   Response: {e.response.text}")
+        raise
+
+def auto_ingest_to_servicenow(incidents, interval_seconds=360, batch_size=1):
+    """
+    Automatically ingest incidents to ServiceNow at a specified rate.
+    
+    Args:
+        incidents: List of incident dictionaries
+        interval_seconds: Time to wait between batches (default 360 = ~10/hour)
+        batch_size: Number of incidents per batch (default 1)
+    """
+    print("="*70)
+    print("ServiceNow Auto-Ingestion Started")
+    print("="*70)
+    print(f"Target: {SN_BASE_URL}")
+    print(f"Rate: ~{3600/interval_seconds:.1f} incidents per hour")
+    print(f"Interval: {interval_seconds} seconds between batches")
+    print(f"Batch size: {batch_size} incident(s) per batch")
+    print(f"Total incidents to process: {len(incidents)}")
+    print("="*70)
+    print()
+    
+    created_count = 0
+    failed_count = 0
+    
+    for i in range(0, len(incidents), batch_size):
+        batch = incidents[i:i+batch_size]
+        batch_num = (i // batch_size) + 1
+        
+        print(f"[Batch {batch_num}] Processing {len(batch)} incident(s)...")
+        
+        for incident in batch:
+            try:
+                response = create_servicenow_incident(incident)
+                
+                if response.status_code == 201:
+                    result = response.json()
+                    sys_id = result.get('result', {}).get('sys_id', 'N/A')
+                    number = result.get('result', {}).get('number', 'N/A')
+                    
+                    created_count += 1
+                    print(f"  ✓ Created: {incident['incident_id']} → ServiceNow {number} (sys_id: {sys_id})")
+                else:
+                    failed_count += 1
+                    print(f"  ✗ Failed: {incident['incident_id']} (Status: {response.status_code})")
+                    
+            except Exception as e:
+                failed_count += 1
+                print(f"  ✗ Error processing {incident['incident_id']}: {str(e)}")
+        
+        # Wait before next batch (skip wait after last batch)
+        if i + batch_size < len(incidents):
+            print(f"  ⏳ Waiting {interval_seconds} seconds before next batch...")
+            print(f"  📊 Progress: {created_count} created, {failed_count} failed out of {i+batch_size} processed")
+            print()
+            time.sleep(interval_seconds)
+    
+    print()
+    print("="*70)
+    print("Auto-Ingestion Complete")
+    print("="*70)
+    print(f"✓ Successfully created: {created_count} incidents")
+    print(f"✗ Failed: {failed_count} incidents")
+    print(f"📊 Success rate: {(created_count/(created_count+failed_count)*100):.1f}%")
+    print("="*70)
 
 def main():
     print("="*70)
-    print("Auto-Ingestion Script for Payment System Incidents (Expanded Version)")
+    print("Auto-Ingestion Script for Payment System Incidents")
+    print("ServiceNow Integration Enabled")
     print("="*70)
     print()
 
+    # Mode selection
+    print("Select mode:")
+    print("1. Generate incidents and save to file only (no ServiceNow)")
+    print("2. Generate incidents and auto-ingest to ServiceNow (~10/hour)")
+    print("3. Load existing incidents file and ingest to ServiceNow")
+    print()
+    
     try:
-        num_incidents = int(input("Enter number of incidents to generate (default: 1000): ") or "1000")
-    except ValueError:
-        num_incidents = 1000
-        print(f"Using default: {num_incidents} incidents")
-
-    print()
-    print(f"Generating {num_incidents} realistic payment system incidents ...")
-    print()
-    incidents = generate_incidents(num_incidents)
-
-    print()
-    print(f"✓ Generated {len(incidents)} incidents")
+        mode = input("Enter mode (1-3, default: 2): ").strip() or "2"
+    except:
+        mode = "2"
+    
     print()
 
-    output_path = save_incidents(incidents)
-    print(f"✓ Saved to: {output_path}")
-    print()
+    # Mode 1: Generate and save only
+    if mode == "1":
+        try:
+            num_incidents = int(input("Enter number of incidents to generate (default: 1000): ") or "1000")
+        except ValueError:
+            num_incidents = 1000
+            print(f"Using default: {num_incidents} incidents")
 
-    print("="*70)
-    print("Sample Incident (first one):")
-    print("="*70)
-    sample = incidents[0]
-    print(f"ID: {sample['incident_id']}")
-    print(f"Title: {sample['incident_title']}")
-    print(f"\nDescription Preview:")
-    desc_lines = sample['incident_description'].split('\n')
-    for line in desc_lines[:7]:
-        print(f"  {line}")
-    print(f"\nAction Taken Preview:")
-    print(f"  {sample['action_taken'][:200]}...")
-    print("="*70)
-    print()
-    print("✅ Successfully generated incidents — ready for ingestion into database")
-    print()
+        # Check if file exists and ask to append or overwrite
+        output_path = os.path.join(os.getcwd(), "data", "ingested_incidents.json")
+        start_index = 0
+        append_mode = False
+        
+        if os.path.exists(output_path):
+            try:
+                with open(output_path, 'r', encoding='utf-8') as f:
+                    existing_incidents = json.load(f)
+                existing_count = len(existing_incidents)
+                print()
+                print(f"Found existing file with {existing_count} incidents")
+                choice = input("Append to existing file? (y/n, default: y): ").strip().lower() or "y"
+                if choice == "y":
+                    append_mode = True
+                    start_index = existing_count
+                    print(f"Will continue from incident #{start_index + 1}")
+            except:
+                pass
+
+        print()
+        print(f"Generating {num_incidents} realistic payment system incidents ...")
+        print()
+        incidents = generate_incidents(num_incidents, start_index=start_index)
+
+        print()
+        print(f"✓ Generated {len(incidents)} incidents")
+        print()
+
+        output_path, prev_count = save_incidents(incidents, append=append_mode)
+        if append_mode:
+            print(f"✓ Appended to: {output_path} (Total: {prev_count + len(incidents)} incidents)")
+        else:
+            print(f"✓ Saved to: {output_path}")
+        print()
+
+        print("="*70)
+        print("Sample Incident (first one):")
+        print("="*70)
+        sample = incidents[0]
+        print(f"ID: {sample['incident_id']}")
+        print(f"Title: {sample['incident_title']}")
+        print(f"\nDescription Preview:")
+        desc_lines = sample['incident_description'].split('\n')
+        for line in desc_lines[:7]:
+            print(f"  {line}")
+        print(f"\nAction Taken Preview:")
+        print(f"  {sample['action_taken'][:200]}...")
+        print("="*70)
+        print()
+        print("✅ Successfully generated incidents — ready for ingestion")
+        print()
+    
+    # Mode 2: Generate and auto-ingest to ServiceNow
+    elif mode == "2":
+        try:
+            num_incidents = int(input("Enter number of incidents to generate (default: 10): ") or "10")
+        except ValueError:
+            num_incidents = 10
+            print(f"Using default: {num_incidents} incidents")
+        
+        print()
+        print(f"Generating {num_incidents} realistic payment system incidents ...")
+        print()
+        incidents = generate_incidents(num_incidents)
+        
+        print()
+        print(f"✓ Generated {len(incidents)} incidents")
+        print()
+        
+        # Optional: Save to file as backup
+        try:
+            save_backup = input("Save incidents to file as backup? (y/n, default: y): ").strip().lower() or "y"
+            if save_backup == "y":
+                output_path = save_incidents(incidents)
+                print(f"✓ Backup saved to: {output_path}")
+                print()
+        except:
+            pass
+        
+        # Start auto-ingestion
+        print("Starting ServiceNow auto-ingestion...")
+        print()
+        auto_ingest_to_servicenow(
+            incidents, 
+            interval_seconds=SN_INTERVAL_SECONDS, 
+            batch_size=SN_BATCH_SIZE
+        )
+    
+    # Mode 3: Load existing file and ingest
+    elif mode == "3":
+        try:
+            file_path = input("Enter path to incidents JSON file (default: data/ingested_incidents.json): ").strip() or "data/ingested_incidents.json"
+            
+            print()
+            print(f"Loading incidents from: {file_path}")
+            
+            with open(file_path, 'r', encoding='utf-8') as f:
+                incidents = json.load(f)
+            
+            print(f"✓ Loaded {len(incidents)} incidents")
+            print()
+            
+            # Start auto-ingestion
+            print("Starting ServiceNow auto-ingestion...")
+            print()
+            auto_ingest_to_servicenow(
+                incidents, 
+                interval_seconds=SN_INTERVAL_SECONDS, 
+                batch_size=SN_BATCH_SIZE
+            )
+            
+        except FileNotFoundError:
+            print(f"❌ Error: File not found at {file_path}")
+            print()
+        except json.JSONDecodeError:
+            print(f"❌ Error: Invalid JSON format in {file_path}")
+            print()
+        except Exception as e:
+            print(f"❌ Error loading file: {e}")
+            print()
+    
+    else:
+        print("❌ Invalid mode selected. Exiting.")
+        print()
 
 if __name__ == "__main__":
     main()
