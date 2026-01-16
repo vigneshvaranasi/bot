@@ -33,6 +33,10 @@ function Sidebar() {
   const [editingTitle, setEditingTitle] = useState<string>("");
   const editingInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
+  const handleLogout = () => {
+    logout();
+  };
+
   if (!user) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -65,7 +69,7 @@ function Sidebar() {
 
   const onArchiveChat = async(chatId: string) => {
     try {
-      const token = user?.token;
+      const token = localStorage.getItem("token");
       if (!token) {
         console.error("User token is missing");
         return;
@@ -83,7 +87,7 @@ function Sidebar() {
 
   const onRenameChat = async(chatId: string, title: string) => {
     try {
-      const token = user?.token;
+      const token = localStorage.getItem("token");
       if (!token) {
         console.error("User token is missing");
         return;
@@ -103,7 +107,9 @@ function Sidebar() {
     const fetchChats = async () => {
       setIsSidebarLoading(true);
       try {
-        const allMyChats = await getAllMyChats(user?.token);
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        const allMyChats = await getAllMyChats(token);
         // console.log("allMyChats: ", allMyChats);
         if (allMyChats && Array.isArray(allMyChats.chats)) {
           setChats(
@@ -316,10 +322,7 @@ function Sidebar() {
               <div className="hover:bg-gray-300 p-1 rounded">
               <img
                 src={logoutImg}
-                onClick={() => {
-                  logout();
-                  console.log("User logged out");
-                }}
+                onClick={handleLogout}
                 className="w-4 cursor-pointer "
                 alt=""
                 title="Logout"

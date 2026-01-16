@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from src.api.db.session import get_session
 from src.api.db.models import Setting
-from src.api.utils.auth import get_current_user
+from src.api.auth.dependencies import get_current_user
 from src.api.schemas.setting_schemas import SettingCreate, SettingUpdate, SettingResponse, SettingListResponse
 
 router = APIRouter()
@@ -27,7 +27,12 @@ async def create_setting(setting: SettingCreate, db: AsyncSession = Depends(get_
     if last_setting and (
         last_setting.deny_words == setting.deny_words and
         last_setting.model == setting.model and
-        last_setting.temperature == setting.temperature
+        last_setting.temperature == setting.temperature and
+        last_setting.langfuse_enabled == setting.langfuse_enabled and
+        last_setting.auth_google_enabled == setting.auth_google_enabled and
+        last_setting.auth_github_enabled == setting.auth_github_enabled and
+        last_setting.auth_microsoft_enabled == setting.auth_microsoft_enabled and
+        last_setting.auth_local_enabled == setting.auth_local_enabled
     ):
         # No change, return the existing last setting
         print("No changes detected, returning existing setting with deny_words:", last_setting.deny_words)
@@ -38,7 +43,12 @@ async def create_setting(setting: SettingCreate, db: AsyncSession = Depends(get_
         user_id=current_user["user_id"],
         deny_words=setting.deny_words,
         model=setting.model,
-        temperature=setting.temperature
+        temperature=setting.temperature,
+        langfuse_enabled=setting.langfuse_enabled,
+        auth_google_enabled=setting.auth_google_enabled,
+        auth_github_enabled=setting.auth_github_enabled,
+        auth_microsoft_enabled=setting.auth_microsoft_enabled,
+        auth_local_enabled=setting.auth_local_enabled
     )
     db.add(new_setting)
     await db.commit()

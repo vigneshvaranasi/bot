@@ -45,8 +45,11 @@ def health_check():
     return {"status": "ok"}
 
 
-from src.api.routers import auth
-app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+from src.api.auth.router import router as auth_router
+from src.api.admin.router import router as admin_router
+
+app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+app.include_router(admin_router, prefix="/admin", tags=["Admin"])
 
 from src.api.routers import roles
 app.include_router(roles.router, prefix="/roles", tags=["Roles"])
@@ -56,3 +59,6 @@ app.include_router(chat.router, prefix="/chats", tags=["Chat"])
 
 from src.api.routers import settings
 app.include_router(settings.router, prefix="/settings", tags=["Settings"])
+
+from src.api.routers import integrations
+app.include_router(integrations.router, prefix="/integrations", tags=["Integrations"])

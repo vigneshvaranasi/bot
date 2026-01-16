@@ -1,22 +1,42 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "../components/ui/Button";
-import InputBox from "../components/ui/InputBox";
-import Dropdown from "../components/ui/Dropdown";
-import UploadFiles from "../components/ui/UploadFiles";
-import Checkbox from "../components/ui/Checkbox";
-import Toggle from "../components/ui/Toggle";
-import { ConfigurableTable } from "../components/ui/Table";
-import ButtonGroup from "../components/ui/ButtonGroup";
-import SettingsNavbar from "../components/SettingsNavbar";
-import SettingsCard from "../components/ui/SettingsCard";
-import arrowLeftIcon from "../assets/arrow-left.svg";
-import { fetchSettings, updateSettings } from "../handlers/settingsHandlers";
-import type { Model, DenyWordRecord, FileRecord } from "../types/Settings";
-import { useAuthContext } from "../hooks/useAuthContext";
-import InfoHint from "../components/ui/InfoHint";
+import { Button } from "../src/components/ui/Button";
+import InputBox from "../src/components/ui/InputBox";
+import Dropdown from "../src/components/ui/Dropdown";
+import UploadFiles from "../src/components/ui/UploadFiles";
+import Checkbox from "../src/components/ui/Checkbox";
+import Toggle from "../src/components/ui/Toggle";
+import { ConfigurableTable } from "../src/components/ui/Table";
+import ButtonGroup from "../src/components/ui/ButtonGroup";
+import SettingsNavbar from "../src/components/SettingsNavbar";
+import SettingsCard from "../src/components/ui/SettingsCard";
+// import arrowLeftIcon from "../assets/arrow-left.svg";
+import { fetchSettings, updateSettings } from "../src/handlers/settingsHandlers";
+import { updatePasswordHandler } from "../src/handlers/authHandlers";
+import type { Model, DenyWordRecord, FileRecord } from "../src/types/Settings";
+import {
+  AUTH_SCHEMAS,
+  type Integration,
+  type IntegrationSyncStatus,
+} from "../src/types/Integrations";
+import {
+  fetchIntegrations,
+  createIntegration,
+  updateIntegration,
+  deleteIntegration,
+  syncIntegration,
+  type IntegrationPayload,
+} from "../src/handlers/integrationHandlers";
+import IntegrationControl from "../src/components/IntegrationControl";
+import { useAuthContext } from "../src/hooks/useAuthContext";
+import InfoHint from "../src/components/ui/InfoHint";
 
 const Settings: React.FC = () => {
+  type IntegrationItem = Omit<Integration, "auth_type" | "config"> & {
+    auth_type?: keyof typeof AUTH_SCHEMAS;
+    config?: Record<string, string>;
+    isNew?: boolean;
+  };
   const navigate = useNavigate();
   const [uploadedFiles, setUploadedFiles] = useState<FileRecord[]>([
     {
@@ -56,6 +76,7 @@ const Settings: React.FC = () => {
     },
   ]);
   const { user } = useAuthContext();
+  const isAdmin = user?.role === "admin";
 
   const [selectedRole, setSelectedRole] = useState("Support");
   const [versionsTracked, setVersionsTracked] = useState("5");
@@ -71,6 +92,21 @@ const Settings: React.FC = () => {
   const [requestPastIncidents, setRequestPastIncidents] = useState(false);
   const [versionControl, setVersionControl] = useState(true);
   const [purgeEnabled, setPurgeEnabled] = useState(true);
+  const [langfuseEnabled, setLangfuseEnabled] = useState(true);
+  const [authGoogleEnabled, setAuthGoogleEnabled] = useState(true);
+  const [authGithubEnabled, setAuthGithubEnabled] = useState(true);
+  const [authMicrosoftEnabled, setAuthMicrosoftEnabled] = useState(true);
+  const [authLocalEnabled, setAuthLocalEnabled] = useState(true);
+
+  const [showPasswordUpdate, setShowPasswordUpdate] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [integrations, setIntegrations] = useState<IntegrationItem[]>([]);
+  const [integrationsLoading, setIntegrationsLoading] = useState(false);
+  const [integrationsError, setIntegrationsError] = useState<string | null>(
+    null
+  );
 
   // convert comma-separated string to array
   const stringToWordsArray = useCallback((str: string): DenyWordRecord[] => {
@@ -127,6 +163,26 @@ const Settings: React.FC = () => {
     setDenyWords("");
   };
 
+  const handleUpdatePassword = async () => {
+    if (!newPassword) {
+      alert("Please enter a password");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
+    try {
+      await updatePasswordHandler(newPassword);
+      alert("Password updated successfully");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      console.error("Failed to update password", error);
+      alert("Failed to update password");
+    }
+  };
+
   // remove a deny word
   const handleRemoveDenyWord = (wordId: string) => {
     const updatedDenyWordsArray = denyWordsArray.filter(
@@ -163,8 +219,13 @@ const Settings: React.FC = () => {
         deny_words: totalDenyWords,
         model,
         temperature,
+        langfuse_enabled: langfuseEnabled,
+        auth_google_enabled: authGoogleEnabled,
+        auth_github_enabled: authGithubEnabled,
+        auth_microsoft_enabled: authMicrosoftEnabled,
+        auth_local_enabled: authLocalEnabled,
       };
-      const token = user?.token || null;
+      const token = localStorage.getItem("token");
       if (!token) {
         alert("User not authenticated");
         return;
@@ -178,6 +239,11 @@ const Settings: React.FC = () => {
         }
         setModel(saveSettings.model);
         setTemperature(saveSettings.temperature);
+        setLangfuseEnabled(saveSettings.langfuse_enabled ?? true);
+        setAuthGoogleEnabled(saveSettings.auth_google_enabled ?? true);
+        setAuthGithubEnabled(saveSettings.auth_github_enabled ?? true);
+        setAuthMicrosoftEnabled(saveSettings.auth_microsoft_enabled ?? true);
+        setAuthLocalEnabled(saveSettings.auth_local_enabled ?? true);
       } else {
         alert("Failed to save settings");
       }
@@ -195,6 +261,11 @@ const Settings: React.FC = () => {
           setDenyWordsArray(stringToWordsArray(denyWordsFromBackend));
           setModel(settings.model);
           setTemperature(settings.temperature);
+          setLangfuseEnabled(settings.langfuse_enabled ?? true);
+          setAuthGoogleEnabled(settings.auth_google_enabled ?? true);
+          setAuthGithubEnabled(settings.auth_github_enabled ?? true);
+          setAuthMicrosoftEnabled(settings.auth_microsoft_enabled ?? true);
+          setAuthLocalEnabled(settings.auth_local_enabled ?? true);
         }
       } catch (error) {
         console.error("Error fetching settings:", error);
@@ -202,6 +273,127 @@ const Settings: React.FC = () => {
     };
     fetchData();
   }, [stringToWordsArray]);
+
+  useEffect(() => {
+    const loadIntegrations = async () => {
+      setIntegrationsLoading(true);
+      setIntegrationsError(null);
+      try {
+        const result = await fetchIntegrations();
+        if (result) {
+          setIntegrations(result);
+        } else {
+          setIntegrationsError("Unable to load integrations");
+        }
+      } catch (error) {
+        console.error("Error fetching integrations:", error);
+        setIntegrationsError("Failed to fetch integrations");
+      } finally {
+        setIntegrationsLoading(false);
+      }
+    };
+
+    loadIntegrations();
+  }, [user]);
+
+  const mapSyncStatus = (
+    status?: string | null,
+    lastSyncedAt?: string | null
+  ): IntegrationSyncStatus => {
+    if (!status && !lastSyncedAt) return "never";
+    if (status === "error") return "error";
+    return "success";
+  };
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return undefined;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return undefined;
+    return date.toLocaleString();
+  };
+
+  const handleAddIntegration = () => {
+    const tempId = `new-${Date.now()}`;
+    setIntegrations((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        service_name: "",
+        auth_type: undefined,
+        config: {},
+        is_active: true,
+        last_sync_error: null,
+        last_synced_at: null,
+        last_sync_status: null,
+        updated_at: undefined,
+        isNew: true,
+      },
+    ]);
+  };
+
+  const handleIntegrationSave = async (
+    payload: IntegrationPayload & { id?: string; isNew?: boolean }
+  ) => {
+    const { id, isNew, ...body } = payload;
+    setIntegrationsError(null);
+
+    if (isNew) {
+      const created = await createIntegration(body);
+      if (!created) {
+        setIntegrationsError("Failed to add integration");
+        throw new Error("Failed to add integration");
+      }
+      setIntegrations((prev) =>
+        prev.map((item) => (item.id === id ? { ...created } : item))
+      );
+      return;
+    }
+
+    if (!id) {
+      setIntegrationsError("Integration ID missing for update");
+      throw new Error("Integration ID missing for update");
+    }
+
+    const updated = await updateIntegration(id, body);
+    if (!updated) {
+      setIntegrationsError("Failed to update integration");
+      throw new Error("Failed to update integration");
+    }
+
+    setIntegrations((prev) =>
+      prev.map((item) => (item.id === id ? { ...updated } : item))
+    );
+  };
+
+  const handleIntegrationDelete = async (id?: string, isNew?: boolean) => {
+    if (!id) return;
+    if (isNew) {
+      setIntegrations((prev) => prev.filter((item) => item.id !== id));
+      return;
+    }
+
+    const deleted = await deleteIntegration(id);
+    if (!deleted) {
+      setIntegrationsError("Failed to delete integration");
+      return;
+    }
+
+    setIntegrations((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleIntegrationSync = async (id?: string) => {
+    if (!id) return;
+
+    const updated = await syncIntegration(id);
+    if (!updated) {
+      setIntegrationsError("Failed to sync integration");
+      return;
+    }
+
+    setIntegrations((prev) =>
+      prev.map((item) => (item.id === id ? { ...updated } : item))
+    );
+  };
 
   const handleDeleteFile = (fileId: string) => {
     setUploadedFiles((files) => files.filter((file) => file.id !== fileId));
@@ -392,6 +584,151 @@ const Settings: React.FC = () => {
                 </div>
               </SettingsCard>
 
+              {/* Authentication & Authorization */}
+              <SettingsCard
+                title="Authentication & Authorization"
+                hidden={false}
+              >
+                {isAdmin && (
+                  <div className="space-y-4 mb-6 border-b pb-6 border-gray-200">
+                    <h3 className="text-md font-medium text-gray-900 mb-3">
+                      Authentication Methods
+                    </h3>
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm md:text-medium text-gray-900">
+                          Basic Authentication
+                        </span>
+                        <Toggle
+                          enabled={authLocalEnabled}
+                          onChange={setAuthLocalEnabled}
+                          id="authLocalToggle"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm md:text-medium text-gray-900">
+                          Google Authentication
+                        </span>
+                        <Toggle
+                          enabled={authGoogleEnabled}
+                          onChange={setAuthGoogleEnabled}
+                          id="authGoogleToggle"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm md:text-medium text-gray-900">
+                          GitHub Authentication
+                        </span>
+                        <Toggle
+                          enabled={authGithubEnabled}
+                          onChange={setAuthGithubEnabled}
+                          id="authGithubToggle"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm md:text-medium text-gray-900">
+                          Microsoft Authentication
+                        </span>
+                        <Toggle
+                          enabled={authMicrosoftEnabled}
+                          onChange={setAuthMicrosoftEnabled}
+                          id="authMicrosoftToggle"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {isAdmin && (
+                  <div className="mb-6 border-b pb-6 border-gray-200">
+                    <h3 className="text-md font-medium text-gray-900 mb-3">
+                      User Management
+                    </h3>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">
+                        Manage users and their roles.
+                      </span>
+                      <Button
+                        variant="secondary"
+                        className="font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer w-full sm:w-auto"
+                        onClick={handleEditUsers}
+                      >
+                        EDIT USERS
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <h3 className="text-md font-medium text-gray-900 mb-3">
+                    Account Security
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Update your password to secure your account.
+                  </p>
+
+                  {!showPasswordUpdate ? (
+                    <Button
+                      variant="secondary"
+                      className="font-semibold text-xs px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md"
+                      onClick={() => setShowPasswordUpdate(true)}
+                    >
+                      UPDATE PASSWORD
+                    </Button>
+                  ) : (
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            New Password
+                          </label>
+                          <InputBox
+                            variant="primary"
+                            type="password"
+                            value={newPassword}
+                            onChange={setNewPassword}
+                            placeholder="Enter new password"
+                            className="w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Confirm Password
+                          </label>
+                          <InputBox
+                            variant="primary"
+                            type="password"
+                            value={confirmPassword}
+                            onChange={setConfirmPassword}
+                            placeholder="Confirm new password"
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="secondary"
+                          className="bg-gray-300 text-gray-800 hover:bg-gray-400"
+                          onClick={() => {
+                            setShowPasswordUpdate(false);
+                            setNewPassword("");
+                            setConfirmPassword("");
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="primary"
+                          onClick={handleUpdatePassword}
+                        >
+                          Update
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </SettingsCard>
+
               {/* Configurations */}
               <SettingsCard title="Configurations" hidden={false}>
                 <div className="grid grid-cols-1 xl:grid-cols-1 gap-4 xl:gap-6">
@@ -546,18 +883,91 @@ const Settings: React.FC = () => {
                     />
                   </div>
                 </div>
+                {/* Langfuse Toggle */}
+                <div className="mt-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <div className="flex flex-row items-center text-sm md:text-medium text-gray-900 min-w-fit">
+                      <span>Enable Langfuse Tracing</span>
+                      <InfoHint
+                        text="Toggle Langfuse tracing for observability."
+                        position="top"
+                        gap={2}
+                      />
+                    </div>
+                    <Toggle
+                      id="langfuse-toggle"
+                      enabled={langfuseEnabled}
+                      onChange={setLangfuseEnabled}
+                    />
+                  </div>
+                </div>
               </SettingsCard>
 
-              {/* User Management */}
-              <SettingsCard title="User Management" hidden={true}>
-                <Button
-                  variant="secondary"
-                  className="font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer w-full sm:w-auto"
-                  onClick={handleEditUsers}
-                >
-                  EDIT USERS
-                </Button>
-              </SettingsCard>
+              {/* Integrations */}
+              {isAdmin && (
+                <SettingsCard title="Integrations" hidden={false}>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full justify-between">
+                      <span className="flex flex-row items-center gap-1">
+                        <span className="text-sm md:text-medium text-black flex-1">
+                          Manage integrations with external data sources
+                        </span>
+                        <InfoHint
+                          text="Integrations with platforms like ServiceNow, Jira allow continuous data synchronization."
+                          position="top"
+                          gap={0.3}
+                        />
+                      </span>
+                      <Button
+                        variant="primary"
+                        className="font-semibold text-xs px-4 py-1 transition-colors duration-200  text-white rounded-md cursor-pointer w-full sm:w-auto"
+                        onClick={handleAddIntegration}
+                      >
+                        ADD
+                      </Button>
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      {integrationsLoading && (
+                        <span className="text-sm text-gray-600">
+                          Loading integrations...
+                        </span>
+                      )}
+                      {integrationsError && (
+                        <span className="text-sm text-red-500 ">
+                          {integrationsError}
+                        </span>
+                      )}
+                      {!integrationsLoading &&
+                        !integrationsError &&
+                        integrations.length === 0 && (
+                          <span className="text-sm text-gray-600">
+                            No integrations configured yet.
+                          </span>
+                        )}
+                      {integrations.map((integration) => (
+                        <IntegrationControl
+                          key={integration.id}
+                          id={integration.id}
+                          serviceName={integration.service_name}
+                          enabled={integration.is_active}
+                          syncStatus={mapSyncStatus(
+                            integration.last_sync_status,
+                            integration.last_synced_at
+                          )}
+                          lastSyncedAt={formatDate(integration.last_synced_at)}
+                          lastError={integration.last_sync_error || undefined}
+                          authType={integration.auth_type}
+                          config={integration.config}
+                          isNew={integration.isNew}
+                          onSave={handleIntegrationSave}
+                          onDelete={handleIntegrationDelete}
+                          onSync={handleIntegrationSync}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </SettingsCard>
+              )}
             </div>
           </div>
 
@@ -639,12 +1049,17 @@ const Settings: React.FC = () => {
                 onClick={handleGoToChat}
                 className="bg-transparent hover:bg-gray-50 hover:rounded-full text-gray-900 px-4 md:px-6 py-2 rounded-full flex items-center justify-center gap-2 flex-1 sm:flex-none"
               >
-                <img src={arrowLeftIcon} alt="arrow left" className="w-4 h-4" />
+                {/* <img src={arrowLeftIcon} alt="arrow left" className="w-4 h-4" /> */}
                 <span className="hidden sm:inline">Go to Chat</span>
                 <span className="sm:hidden">Back</span>
               </Button>
 
-              <Button variant="primary" rounded="full" onClick={onSave} title="Save Settings">
+              <Button
+                variant="primary"
+                rounded="full"
+                onClick={onSave}
+                title="Save Settings"
+              >
                 SAVE
               </Button>
             </ButtonGroup>

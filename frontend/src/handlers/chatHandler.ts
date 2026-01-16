@@ -48,6 +48,16 @@ export const newMessageHandler = async (
   if (!response.ok) {
     throw new Error("Failed to send message");
   }
+
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
+    const data = await response.json();
+    if (data.success === false) {
+      throw new Error(data.message || "Request failed");
+    }
+    return data;
+  }
+
   let currChatId="";
 
   const reader = response.body?.getReader();

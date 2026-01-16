@@ -103,12 +103,11 @@ function ChatPage() {
       return;
     }
     setChatInput("");
+    const newMessageId = Date.now().toString();
 
     try {
       let currChatId = chatId || "";
       console.log("currChatId: ", currChatId);
-
-      const newMessageId = Date.now().toString();
 
       setCurrentChat((prevChat: any) => ({
         chatId: currChatId,
@@ -131,10 +130,16 @@ function ChatPage() {
       });
       streamer.markStart();
 
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("Token missing");
+        return;
+      }
+
       const res = await newMessageHandler(
         currChatId,
         prompt,
-        user?.token,
+        token,
         streamer.onEvent
       );
       const metrics = streamer.getMetrics();
@@ -157,8 +162,25 @@ function ChatPage() {
         }));
         await saveChatToCache(res.chat_id, toCache!, 20, user?.email);
       } catch {}
-    } catch (error) {
-
+    } catch (error: any) {
+      console.error("Error sending prompt:", error);
+      setCurrentChat((prevChat: any) => {
+        if (!prevChat) return null;
+        const updatedMessages = prevChat.allMessages.map((msg: any) => {
+          if (msg.id === newMessageId) {
+            return {
+              ...msg,
+              botMessage: error.message || "An error occurred.",
+              streaming: false,
+            };
+          }
+          return msg;
+        });
+        return {
+          ...prevChat,
+          allMessages: updatedMessages
+        };
+      });
     } finally {
       setIsLoading(false);
     }

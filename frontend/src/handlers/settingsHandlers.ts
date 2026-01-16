@@ -22,8 +22,13 @@ export const fetchSettings = async () => {
     }
 };
 
-export const updateSettings = async (settings: Settings, token: string) => {
+export const updateSettings = async (settings: Partial<Settings>, token: string) => {
     try {
+        const current = await fetchSettings();
+        const merged: Partial<Settings> = {
+            ...(current ?? {}),
+            ...settings,
+        };
 
         const response = await fetch(`${BE_URL}/settings/`, {
             method: "POST",
@@ -31,7 +36,7 @@ export const updateSettings = async (settings: Settings, token: string) => {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${token}`
             },
-            body: JSON.stringify(settings),
+            body: JSON.stringify(merged),
         });
 
         if (!response.ok) {

@@ -1,76 +1,71 @@
 import { createContext, useEffect, useState } from "react";
-import { verifyTokenHandler } from "../handlers/authHandlers";
+import http from "../utils/http";
 import { removeAllChatCache } from "../utils/chatCache";
 
 
 type UserData = {
+  id: string;
   email: string;
-  token: string;
-  role_id: string;
+  role: string;
+  auth_identities: string[];
+  is_active: boolean;
 };
 
 interface AuthContextType {
   user: UserData | null;
   loading: boolean;
-  login: (userData: Omit<UserData, 'token'>, token: string) => void;
+  login: (token: string) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: false,
-  login: () => {},
+  login: async () => {},
   logout: () => {},
 });
 
 const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<UserData | null>(() => {
-    const storedUser = localStorage.getItem("user");
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
+  const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Centralized login method
-  const login = (userData: Omit<UserData, 'token'>, token: string) => {
-    const newUser = { ...userData, token };
-    setUser(newUser);
-    localStorage.setItem("user", JSON.stringify(newUser));
-    localStorage.setItem("token", token);
-  };
-
-  // Centralized logout method
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    removeAllChatCache()
-  };
-
-  async function verifyToken() {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      logout();
-      setLoading(false);
-      return;
-    }
+  const fetchUser = async () => {
     try {
-      const userData = await verifyTokenHandler(token);
-      if (userData.success) {
-        login({ email: userData.email, role_id: userData.role_id }, token);
-      } else {
-        logout();
-      }
+      const response = await http.get("/auth/me");
+      setUser(response.data);
     } catch (error) {
-      console.error("Token verification failed:", error);
+      console.error("Failed to fetch user", error);
       logout();
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    verifyToken();
+    const token = localStorage.getItem("token");
+    if (token) {
+      fetchUser();
+    } else {
+      setLoading(false);
+    }
   }, []);
+
+  const login = async (token: string) => {
+    localStorage.setItem("token", token);
+    await fetchUser();
+  };
+
+  const logout = async () => {
+    try {
+      await http.post("/auth/logout");
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+    setUser(null);
+    localStorage.removeItem("token");
+    removeAllChatCache();
+    window.location.href = "/auth";
+  };
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout }}>
@@ -79,5 +74,5 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+export { AuthContext, AuthProvider };
 export default AuthProvider;
-export { AuthContext };

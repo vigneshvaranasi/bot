@@ -8,3 +8,6 @@ ToDo.md
 benchmarks/
 
 .pytest_cache
+
+run.log
+output.log
