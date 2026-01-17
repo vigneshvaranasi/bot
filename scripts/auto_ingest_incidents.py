@@ -9,28 +9,34 @@ import time
 from requests.auth import HTTPBasicAuth
 import argparse
 
-# ServiceNow Configuration (Hardcoded for cloud deployment)
+# ServiceNow Configuration (Environment-based with defaults)
 DEFAULT_SN_INSTANCE = "dev266166"
 DEFAULT_SN_USER = "admin"
 DEFAULT_SN_PASS = "WRvm74Z*r=Ut"
+DEFAULT_SN_INTERVAL_SECONDS = 360  # 6 minutes = ~10 incidents per hour
+DEFAULT_SN_BATCH_SIZE = 1
 
 # Parse CLI arguments
 parser = argparse.ArgumentParser(description="Auto-ingest incidents to ServiceNow")
-parser.add_argument("--instance", default=DEFAULT_SN_INSTANCE, help="ServiceNow instance (default: dev295076)")
-parser.add_argument("--user", default=DEFAULT_SN_USER, help="ServiceNow username (default: admin)")
-parser.add_argument("--password", default=DEFAULT_SN_PASS, help="ServiceNow password")
+parser.add_argument("--instance", help="ServiceNow instance")
+parser.add_argument("--user", help="ServiceNow username")
+parser.add_argument("--password", help="ServiceNow password")
+parser.add_argument("--interval", type=int, help="Interval in seconds between incident batches")
+parser.add_argument("--batch-size", type=int, help="Number of incidents per batch")
 args, unknown = parser.parse_known_args()
 
-SN_INSTANCE = args.instance
-SN_USER = args.user
-SN_PASS = args.password
+# Configuration priority: CLI args > Environment variables > Defaults
+SN_INSTANCE = args.instance or os.getenv("SN_INSTANCE", DEFAULT_SN_INSTANCE)
+SN_USER = args.user or os.getenv("SN_USER", DEFAULT_SN_USER)
+SN_PASS = args.password or os.getenv("SN_PASS", DEFAULT_SN_PASS)
+SN_INTERVAL_SECONDS = args.interval or int(os.getenv("SN_INTERVAL_SECONDS", DEFAULT_SN_INTERVAL_SECONDS))
+SN_BATCH_SIZE = args.batch_size or int(os.getenv("SN_BATCH_SIZE", DEFAULT_SN_BATCH_SIZE))
 
 # Debug: Print what was received
 print(f"DEBUG: Instance={SN_INSTANCE}, User={SN_USER}, Pass={'*' * (len(SN_PASS)-4) + SN_PASS[-4:] if len(SN_PASS) > 4 else '***'}")
+print(f"DEBUG: Interval={SN_INTERVAL_SECONDS}s, Batch Size={SN_BATCH_SIZE}")
 print()
 
-SN_INTERVAL_SECONDS = 360  # 6 minutes = ~10 incidents per hour
-SN_BATCH_SIZE = 1
 SN_BASE_URL = f"https://{SN_INSTANCE}.service-now.com"
 SN_API_ENDPOINT = f"{SN_BASE_URL}/api/now/table/incident"
 
