@@ -17,7 +17,10 @@ class Setting(Base):
     auth_github_enabled = Column(Boolean, default=True)
     auth_microsoft_enabled = Column(Boolean, default=True)
     auth_local_enabled = Column(Boolean, default=True)
+    # LLM Provider selection
+    provider_id = Column(UUID(as_uuid=True), ForeignKey("llm_providers.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="settings")
+    provider = relationship("LlmProvider", foreign_keys=[provider_id])

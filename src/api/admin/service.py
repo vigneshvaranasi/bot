@@ -48,12 +48,20 @@ async def update_user_status(user_id: uuid.UUID, is_active: bool, role_id: uuid.
     return user
 
 async def delete_user(user_id: uuid.UUID, session: AsyncSession):
+    """Soft delete a user by setting deleted_at timestamp."""
+    from datetime import datetime, timezone
+
     result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
-    
+
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-        
-    await session.delete(user)
+
+    # Soft delete - set deleted_at instead of hard delete
+    user.deleted_at = datetime.now(timezone.utc)
+    user.is_active = False
+    # Revoke all tokens
+    user.token_version = int(user.token_version) + 1
+
     await session.commit()
     return True

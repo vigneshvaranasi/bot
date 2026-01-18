@@ -12,6 +12,7 @@ import {
   type IntegrationPayload,
 } from "../../handlers/integrationHandlers";
 import { type Integration, type IntegrationSyncStatus } from "../../types/Integrations";
+import { SkeletonIntegrations } from "../../components/ui/Skeleton";
 
 const IntegrationsPage = () => {
   type IntegrationItem = Omit<Integration, "auth_type"> & {
@@ -138,14 +139,23 @@ const IntegrationsPage = () => {
     setIntegrations((prev) => prev.map((item) => (item.id === id ? { ...updated } : item)));
   };
 
+  if (integrationsLoading) {
+    return (
+      <div className="space-y-6">
+        <SettingsHeader
+          title="Integrations"
+          description="Integrate with external platforms to sync data automatically."
+        />
+        <SkeletonIntegrations count={2} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <SettingsHeader
         title="Integrations"
         description="Integrate with external platforms to sync data automatically."
-        status={
-          integrationsLoading ? <span className="text-sm text-gray-500">Loading…</span> : null
-        }
       />
 
       <div className="flex flex-col gap-3">

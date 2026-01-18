@@ -1,15 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.api.core.config import CORS_ORIGINS
+
 app = FastAPI(title="Support Bot", version="1.0.0")
 
-origins = [
-    "https://dth5w8dq-5173.inc1.devtunnels.ms",
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://localhost:5173",
-    "https://localhost:3000"
-]
+origins = CORS_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
@@ -62,3 +58,6 @@ app.include_router(settings.router, prefix="/settings", tags=["Settings"])
 
 from src.api.routers import integrations
 app.include_router(integrations.router, prefix="/integrations", tags=["Integrations"])
+
+from src.api.routers import llm_providers
+app.include_router(llm_providers.router, prefix="/llm-providers", tags=["LLM Providers"])

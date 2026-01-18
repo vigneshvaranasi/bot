@@ -10,7 +10,8 @@ type DropdownProps = {
   options: DropdownOption[];
   value?: string;
   placeholder?: string;
-  onChange: (value: string) => void
+  onChange: (value?: string) => void;
+  disabled?: boolean;
 };
 
 const Dropdown = ({
@@ -18,6 +19,7 @@ const Dropdown = ({
   value,
   placeholder = "Select...",
   onChange,
+  disabled = false,
 }: DropdownProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -49,12 +51,14 @@ const Dropdown = ({
     <div ref={dropdownRef} className="relative inline-block">
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-2 py-1 text-sm font-normal text-gray-800 
-           flex justify-between items-center 
-           border-b-2 border-gray-400 
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className={`w-full px-2 py-1 text-sm font-normal
+           flex justify-between items-center
+           border-b-2 border-gray-400
            bg-white rounded-bl-md rounded-br-md
-           min-w-[200px]"
+           min-w-[200px]
+           ${disabled ? "text-gray-400 cursor-not-allowed bg-gray-50" : "text-gray-800"}`}
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}

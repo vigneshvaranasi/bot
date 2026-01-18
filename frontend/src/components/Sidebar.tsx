@@ -11,7 +11,8 @@ import { Link, useNavigate } from "react-router-dom";
 import InputBox from "./ui/InputBox";
 import { useEffect, useState, useRef } from "react";
 import { useAuthContext } from "../hooks/useAuthContext";
-import { archiveChatById,renameChatById, getAllMyChats } from "../handlers/chatHandler";
+import { archiveChatById, renameChatById, getAllMyChats } from "../handlers/chatHandler";
+import { SkeletonChatList } from "./ui/Skeleton";
 
 function Sidebar() {
   const {
@@ -195,7 +196,9 @@ function Sidebar() {
             </button>
           </Link>
           <div className="flex-1 overflow-y-auto p-4">
-            {filteredChats.length === 0 && !isSidebarLoading ? (
+            {isSidebarLoading ? (
+              <SkeletonChatList count={6} />
+            ) : filteredChats.length === 0 ? (
               <div className="text-gray-400 text-center mt-8">
                 No chats found.
               </div>

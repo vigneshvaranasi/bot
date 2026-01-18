@@ -16,6 +16,7 @@ import Toggle from "../../components/ui/Toggle";
 import { fetchSettings, updateSettings } from "../../handlers/settingsHandlers";
 import type { Settings } from "../../types/Settings";
 import { logger } from "../../utils/logger";
+import { SkeletonUserManagement } from "../../components/ui/Skeleton";
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -170,12 +171,23 @@ const UserManagement: React.FC = () => {
     },
   ];
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <SettingsHeader
+          title="Authentication and User Management"
+          description="Manage authentication methods, users, roles, and access."
+        />
+        <SkeletonUserManagement />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <SettingsHeader
         title="Authentication and User Management"
         description="Manage authentication methods, users, roles, and access."
-        status={loading ? <span className="text-sm text-gray-500">Loading…</span> : null}
       />
 
       <section className="border border-gray-200 rounded-lg p-4 space-y-4">
@@ -270,7 +282,7 @@ const UserManagement: React.FC = () => {
               <Dropdown
                 options={roles.map((r) => ({ label: r.name, value: r.id }))}
                 value={selectedRoleId}
-                onChange={setSelectedRoleId}
+                onChange={(val) => val && setSelectedRoleId(val)}
                 placeholder="Select Role"
               />
             </div>

@@ -1,47 +1,79 @@
+"""Prompt guardrails for filtering inappropriate or out-of-scope queries.
+
+This module provides security guardrails that validate user prompts
+against denylists and semantic filters before processing.
+
+Security Note: Guardrails fail CLOSED - if an error occurs during validation,
+the prompt is rejected. This prevents potentially malicious prompts from
+bypassing security checks due to errors.
+"""
+
 import json
+import logging
 import re
 from pathlib import Path
-from typing import Tuple
-from sentence_transformers import SentenceTransformer
-import numpy as np
+from typing import Optional, Tuple
 
+import numpy as np
+from sentence_transformers import SentenceTransformer
+
+logger = logging.getLogger(__name__)
+
+# Flag for semantic model availability
 SEMANTIC_AVAILABLE = True
 
+# Standard rejection message - extracted to avoid duplication
+REJECTION_MESSAGE = "I cannot help with that, maybe I can help you with a query regarding incidents"
+PROGRAMMING_REJECTION_MESSAGE = "I cannot help with programming, maybe I can help you with a query regarding incidents"
 
 class PromptGuardrail:
-    """Simple guardrail that rejects prompts containing absolute negative keywords.
+    """Guardrail that rejects prompts containing denylist keywords or programming requests.
 
     Behavior:
     - Treats single-word entries as token matches (word boundaries).
     - Only rejects when a denylist phrase or token is present (case-insensitive).
+    - Fails CLOSED on errors: rejects prompts if validation cannot complete.
 
     This intentionally allows vague prompts and misspellings; only exact denylist
     entries trigger rejection.
     """
 
-    def __init__(self, deny_words: str = None, denylist_path: str = None):
+    def __init__(
+        self,
+        deny_words: Optional[str] = None,
+        denylist_path: Optional[str] = None
+    ) -> None:
+        """Initialize the guardrail with denylist configuration.
+
+        Args:
+            deny_words: Comma-separated string of words to deny
+            denylist_path: Path to JSON file containing denylist
+        """
         self.deny_words = deny_words
         if denylist_path:
             self.denylist_path = Path(denylist_path)
         else:
             self.denylist_path = (
-                Path(__file__).resolve().parents[2] / "data" / "denylist.json"
+                Path(__file__).resolve().parents[3] / "data" / "denylist.json"
             )
         self.semantic_threshold = 0.7
         self.semantic_model_name = "all-MiniLM-L6-v2"
-        self._semantic_model = None
-        self._denylist_embeddings = None
+        self._semantic_model: Optional[SentenceTransformer] = None
+        self._denylist_embeddings: Optional[np.ndarray] = None
+        self._entries: list = []
 
         self._load_denylist()
         if SEMANTIC_AVAILABLE:
             try:
                 self._init_semantic_model()
-            except Exception:
+            except Exception as e:
+                logger.error(f"Failed to initialize semantic model: {e}")
                 self._semantic_model = None
 
     def _load_denylist(self) -> None:
+        """Load denylist from file and settings."""
         raw = []
-        
+
         try:
             with open(self.denylist_path, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -49,8 +81,12 @@ class PromptGuardrail:
                     raw = data.get("denylist", [])
                 elif isinstance(data, list):
                     raw = data
-        except Exception:
-            pass
+        except FileNotFoundError:
+            logger.warning(f"Denylist file not found: {self.denylist_path}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in denylist file: {e}")
+        except Exception as e:
+            logger.error(f"Error loading denylist: {e}")
 
         if self.deny_words:
             settings_words = [
@@ -63,24 +99,39 @@ class PromptGuardrail:
         self.words = set(p for p in entries if " " not in p)
 
     def contains_denylist_keyword(self, text: str) -> bool:
+        """Check if text contains any denylist keywords.
+
+        Args:
+            text: The text to check
+
+        Returns:
+            True if text contains denylist keywords, False otherwise
+        """
         if not text:
             return False
         lowered = text.lower()
-        
+
         for phrase in self.phrases:
             if phrase in lowered:
                 return True
 
         tokens = re.findall(r"\w+", lowered)
         token_set = set(tokens)
-        
+
         if any(word in token_set for word in self.words):
             return True
 
         return False
 
     def _matches_programming_regex(self, text: str) -> bool:
-        """Fast heuristics to catch programming/code-generation prompts."""
+        """Check if text matches programming/code-generation patterns.
+
+        Args:
+            text: The text to check
+
+        Returns:
+            True if text appears to be a programming request
+        """
         if not text:
             return False
         lowered = text.lower()
@@ -102,66 +153,88 @@ class PromptGuardrail:
             return
         if self._semantic_model is None:
             self._semantic_model = SentenceTransformer(self.semantic_model_name)
-        
+
         self._entries = list(self.phrases) + list(self.words)
         if self._entries:
             embeds = self._semantic_model.encode(self._entries, convert_to_numpy=True)
-        
             norms = np.linalg.norm(embeds, axis=1, keepdims=True)
             norms[norms == 0] = 1.0
             self._denylist_embeddings = embeds / norms
 
     def _semantic_check(self, text: str) -> bool:
-        """Semantic check against denylist entries.
-        Returns True when the prompt should be rejected.
+        """Perform semantic similarity check against denylist entries.
+
+        Args:
+            text: The text to check
+
+        Returns:
+            True if text is semantically similar to denylist entries (should reject)
         """
         if not SEMANTIC_AVAILABLE:
             return False
+
         try:
             if self._semantic_model is None:
                 self._init_semantic_model()
             if self._semantic_model is None:
-                return False
+                # Model initialization failed - fail closed
+                logger.warning("Semantic model unavailable, failing closed")
+                return True
+
             emb = self._semantic_model.encode([text], convert_to_numpy=True)
             norm = np.linalg.norm(emb, axis=1, keepdims=True)
             norm[norm == 0] = 1.0
             emb = emb / norm
-            if getattr(self, "_denylist_embeddings", None) is not None:
-                try:
-                    sims = np.dot(self._denylist_embeddings, emb.T).squeeze()
-                    max_sim = float(np.max(sims)) if sims.size else 0.0
-                    if max_sim >= self.semantic_threshold:
-                        return True
-                except Exception:
-                    pass
 
-        except Exception:
-            return False
+            if getattr(self, "_denylist_embeddings", None) is not None:
+                sims = np.dot(self._denylist_embeddings, emb.T).squeeze()
+                max_sim = float(np.max(sims)) if sims.size else 0.0
+                if max_sim >= self.semantic_threshold:
+                    return True
+
+        except Exception as e:
+            # Fail closed: reject on error to prevent bypass
+            logger.error(f"Semantic check failed, rejecting prompt: {e}")
+            return True
+
         return False
 
     def validate_or_reject(
-        self, prompt: str, isContext: bool = False
+        self,
+        prompt: str,
+        is_context: bool = False
     ) -> Tuple[bool, str]:
-        """Return (True, "") when allowed, or (False, message) when rejected."""
+        """Validate a prompt and return approval status.
+
+        Args:
+            prompt: The prompt text to validate
+            is_context: If True, skip semantic check (for context validation)
+
+        Returns:
+            Tuple of (is_allowed, rejection_message).
+            is_allowed is True with empty message if prompt is allowed.
+            is_allowed is False with message if prompt should be rejected.
+        """
         try:
             if self._matches_programming_regex(prompt):
-                msg = "I cannot help with programming, may be I can help you with an query regarding incidents"
-                return False, msg
-        except Exception:
-            pass
+                return False, PROGRAMMING_REJECTION_MESSAGE
+        except Exception as e:
+            # Fail closed: reject on error
+            logger.error(f"Programming regex check failed, rejecting prompt: {e}")
+            return False, REJECTION_MESSAGE
 
         if self.contains_denylist_keyword(prompt):
-            msg = "I cannot help with that, may be I can help you with an query regarding incidents"
-            return False, msg
+            return False, REJECTION_MESSAGE
 
-        if isContext:
+        if is_context:
             return True, ""
 
         try:
             if self._semantic_check(prompt):
-                msg = "I cannot help with that, may be I can help you with an query regarding incidents"
-                return False, msg
-        except Exception:
-            pass
+                return False, REJECTION_MESSAGE
+        except Exception as e:
+            # Fail closed: reject on error
+            logger.error(f"Semantic check failed, rejecting prompt: {e}")
+            return False, REJECTION_MESSAGE
 
         return True, ""

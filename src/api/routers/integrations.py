@@ -1,55 +1,82 @@
-from datetime import datetime, timezone
 import json
+import logging
 import os
+from datetime import datetime, timezone
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from src.api.auth.dependencies import get_current_user
-from src.api.db.session import get_session
+
+from src.api.auth.dependencies import get_current_user, require_role
 from src.api.db.models.integration import Integration
+from src.api.db.session import get_session
 from src.api.schemas.integration_schema import (
     IntegrationBase,
     IntegrationCreate,
     IntegrationResponse,
     IntegrationListResponse,
 )
-from typing import List
 from src.automation.snow import run_servicenow_ingestion
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# Sensitive fields that should be masked in API responses
+SENSITIVE_CONFIG_FIELDS = {"password", "api_key", "secret", "token", "api_token", "access_token", "refresh_token"}
 
 
-@router.get("/health")
-async def health_check():
-    return {"status": "ok"}
+def mask_sensitive_config(config: dict) -> dict:
+    """Mask sensitive fields in integration config for API responses."""
+    if not config:
+        return config
+    masked = config.copy()
+    for key in masked:
+        if key.lower() in SENSITIVE_CONFIG_FIELDS or "password" in key.lower() or "secret" in key.lower() or "token" in key.lower():
+            masked[key] = "********"
+    return masked
+
+
+def mask_integration_response(integration) -> dict:
+    """Create a masked version of an integration for API responses."""
+    return {
+        "id": str(integration.id),
+        "service_name": integration.service_name,
+        "auth_type": integration.auth_type,
+        "config": mask_sensitive_config(integration.config),
+        "is_active": integration.is_active,
+        "last_synced_at": integration.last_synced_at,
+        "last_sync_status": integration.last_sync_status,
+        "last_sync_error": integration.last_sync_error,
+        "updated_at": integration.updated_at,
+        "user_id": str(integration.user_id) if integration.user_id else None,
+    }
 
 
 # GET All Integrations
 @router.get("/all")
 async def get_integrations(
-    session: AsyncSession = Depends(get_session), current_user=Depends(get_current_user)
+    session: AsyncSession = Depends(get_session), current_user=Depends(require_role("admin"))
 ):
     try:
         result = await session.execute(select(Integration))
         integrations = result.scalars().all()
-        return {"success": True, "integrations": integrations}
+        masked_integrations = [mask_integration_response(i) for i in integrations]
+        return {"success": True, "integrations": masked_integrations}
     except Exception as e:
         return {
             "success": False,
             "message": f"Error occurred while retrieving integrations: {e}",
         }
-    finally:
-        await session.close()
-
+    
 
 # GET Integration by ID
 @router.get("/id/{integration_id}")
 async def get_integration(
     integration_id: str,
     session: AsyncSession = Depends(get_session),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role("admin")),
 ):
     try:
         result = await session.execute(
@@ -58,22 +85,20 @@ async def get_integration(
         integration = result.scalars().first()
         if not integration:
             return {"success": False, "message": "Integration not found"}
-        return {"success": True, "integration": integration}
+        return {"success": True, "integration": mask_integration_response(integration)}
     except Exception as e:
         return {
             "success": False,
             "message": f"Error occurred while retrieving integration of ID {integration_id}: {e}",
         }
-    finally:
-        await session.close()
-
+    
 
 # POST Create Integration
 @router.post("/create")
 async def create_integration(
     integration: IntegrationCreate,
     session: AsyncSession = Depends(get_session),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role("admin")),
 ):
     try:
         user_id = current_user["user_id"] if current_user else None
@@ -90,23 +115,21 @@ async def create_integration(
         session.add(new_integration)
         await session.commit()
         await session.refresh(new_integration)
-        return {"success": True, "integration": new_integration}
+        return {"success": True, "integration": mask_integration_response(new_integration)}
     except Exception as e:
         await session.rollback()
         return {
             "success": False,
             "message": f"Error occurred while creating integration: {e}",
         }
-    finally:
-        await session.close()
-
+    
 
 # DELETE Integration by ID
 @router.delete("/delete/{integration_id}")
 async def delete_integration(
     integration_id: str,
     session: AsyncSession = Depends(get_session),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role("admin")),
 ):
     try:
         result = await session.execute(
@@ -124,9 +147,7 @@ async def delete_integration(
             "success": False,
             "message": f"Error occurred while deleting integration of ID {integration_id}: {e}",
         }
-    finally:
-        await session.close()
-
+    
 
 # PUT Update Integration by ID
 @router.put("/update/{integration_id}")
@@ -134,7 +155,7 @@ async def update_integration(
     integration_id: str,
     integration_data: IntegrationBase,
     session: AsyncSession = Depends(get_session),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role("admin")),
 ):
     try:
         result = await session.execute(
@@ -153,23 +174,21 @@ async def update_integration(
         await session.commit()
         await session.refresh(integration)
 
-        return {"success": True, "integration": integration}
+        return {"success": True, "integration": mask_integration_response(integration)}
     except Exception as e:
         await session.rollback()
         return {
             "success": False,
             "message": f"Error occurred while updating integration of ID {integration_id}: {e}",
         }
-    finally:
-        await session.close()
-
+    
 
 # POST Sync Integration by ID
 @router.post("/sync/{integration_id}")
 async def sync_integration(
     integration_id: str,
     session: AsyncSession = Depends(get_session),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role("admin")),
 ):
     try:
         result = await session.execute(
@@ -217,10 +236,10 @@ async def sync_integration(
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(result.get("normalized", []), f, ensure_ascii=False, indent=2)
 
-        # Update integration state (store naive datetimes to match DB columns)
-        now_naive = datetime.utcnow()
-        integration.last_synced_at = now_naive
-        integration.updated_at = now_naive
+        # Update integration state
+        now_utc = datetime.now(timezone.utc)
+        integration.last_synced_at = now_utc
+        integration.updated_at = now_utc
         config["lastSynced"] = result.get("last_synced")
         integration.config = config
 
@@ -230,7 +249,7 @@ async def sync_integration(
 
         return {
             "success": True,
-            "integration": integration,
+            "integration": mask_integration_response(integration),
             "stats": {
                 "added": result.get("added"),
                 "total": result.get("total"),
@@ -243,7 +262,5 @@ async def sync_integration(
             "success": False,
             "message": f"Error occurred while syncing integration of ID {integration_id}: {e}",
         }
-    finally:
-        await session.close()
-
+    
 

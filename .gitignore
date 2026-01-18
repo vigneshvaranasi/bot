@@ -12,3 +12,7 @@ benchmarks/
 
 run.log
 output.log
+
+docs/reviews/*
+
+.claude/

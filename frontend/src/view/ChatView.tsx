@@ -6,11 +6,11 @@ import { getChatMessagesById } from "../handlers/chatHandler";
 import { readChatMetrics, removeChatMetrics } from "../utils/metrics";
 import { useSidebarContext } from "../hooks/useSidebarContext";
 import { useSpeechSynthesis } from "../hooks/useSpeechSynthesis";
-import Spinner from "../components/ui/Spinner";
 import { loadChatFromCache, saveChatToCache, messagesEqual } from "../utils/chatCache";
 import { ChatAction } from "../components/ui/ChatAction";
 import { logger } from "../utils/logger";
 import type { ChatMessage } from "../types";
+import { SkeletonChatConversation } from "../components/ui/Skeleton";
 
 // API response message structure from getChatMessagesById
 interface ApiChatMessage {
@@ -163,8 +163,8 @@ const ChatView = () => {
   return (
     <div ref={containerRef} className="flex-1 space-y-4 px-3" style={{ WebkitOverflowScrolling: "touch" }}>
         {loading ? (
-          <div className="flex items-center justify-center h-full py-10">
-            <Spinner size={20} />
+          <div className="py-6 px-2">
+            <SkeletonChatConversation messages={2} />
           </div>
         ) : currentChat?.allMessages.length === 0 ? (
           <p>No messages found</p>

@@ -1,15 +1,20 @@
+import logging
+import uuid
+from datetime import datetime, timezone
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+
 from ..db.session import get_session
 from .schemas import UserSignup, UserLogin, TokenResponse, UserResponse, PasswordUpdate
 from .service import signup_user, login_user, get_user_profile, get_provider_instance, resolve_oauth_user, revoke_token, update_user_password
 from .dependencies import get_current_user
 from ..core.jwt import create_access_token, create_oauth_state, decode_oauth_state
 from ..db.models import Setting
-from sqlalchemy.future import select
-import uuid
-from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -114,38 +119,38 @@ async def oauth_login(provider: str, session: AsyncSession = Depends(get_session
 
 @router.get("/oauth/{provider}/callback", response_model=TokenResponse)
 async def oauth_callback(provider: str, code: str, state: str, session: AsyncSession = Depends(get_session)):
-    print(f"DEBUG: Callback received for {provider}. Code: {code[:10]}..., State: {state}")
+    logger.debug("OAuth callback received for %s", provider)
     await check_auth_enabled(provider, session)
     # 1. Validate state
     payload = decode_oauth_state(state)
     if not payload:
-        print("DEBUG: State decoding failed")
+        logger.debug("OAuth state decoding failed for %s", provider)
         raise HTTPException(status_code=400, detail="Invalid or expired state")
-    
+
     if payload.get("purpose") != "login":
-        print(f"DEBUG: Invalid purpose: {payload.get('purpose')}")
+        logger.debug("OAuth invalid purpose for %s: %s", provider, payload.get("purpose"))
         raise HTTPException(status_code=400, detail="Invalid or expired state")
-        
+
     if payload.get("provider") != provider:
-        print(f"DEBUG: Provider mismatch. Expected {provider}, got {payload.get('provider')}")
+        logger.debug("OAuth provider mismatch: expected %s, got %s", provider, payload.get("provider"))
         raise HTTPException(status_code=400, detail="Provider mismatch")
-    
+
     # 2. Get provider instance
     provider_instance = await get_provider_instance(provider, session)
-    
+
     # 3. Exchange code
     try:
         token_data = await provider_instance.exchange_code_for_token(code)
     except httpx.HTTPStatusError as e:
-        print(f"DEBUG: Token exchange failed: {e.response.text}")
+        logger.exception("OAuth token exchange failed for %s", provider)
         raise HTTPException(status_code=400, detail="Failed to exchange code for token")
-    
+
     # 4. Fetch profile
     try:
         profile = await provider_instance.fetch_user_profile(token_data)
     except Exception as e:
-        print(f"DEBUG: Fetch profile failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Failed to fetch profile: {str(e)}")
+        logger.exception("OAuth fetch profile failed for %s", provider)
+        raise HTTPException(status_code=500, detail="Authentication failed")
     
     # 5. Resolve user
     user = await resolve_oauth_user(profile, session)

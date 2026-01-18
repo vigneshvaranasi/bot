@@ -1,22 +1,27 @@
-from datetime import datetime
-from fastapi import HTTPException
-import json
 import asyncio
-from sqlalchemy import asc, func, select
-from src.copilot.guardrails.prompt_guardrails import PromptGuardrail
-from src.api.auth.dependencies import get_current_user
-from scripts.cache import check_cache_for_query, store_chat_response
-from src.copilot.graph import create_agent_graph
-from src.copilot.utils import should_ask_clarification
-from fastapi import APIRouter, Depends
+import json
+import logging
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from src.api.schemas.chat_schema import ChatListItem, ChatRenameRequest, PromptModel
 from langchain_core.messages import AIMessage, AIMessageChunk
+from langfuse import get_client, propagate_attributes
+from sqlalchemy import asc, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from scripts.cache import check_cache_for_query, store_chat_response
+from src.api.auth.dependencies import get_current_user
 from src.api.db.models import Chat, Message, Setting
 from src.api.db.session import get_session
-from sqlalchemy.ext.asyncio import AsyncSession
-from langfuse import get_client, propagate_attributes
+from src.api.schemas.chat_schema import ChatListItem, ChatRenameRequest, PromptModel
+from src.api.utils.llm_provider_helper import get_provider_config_for_chat
 from src.api.utils.tracing import conditional_observation
+from src.copilot.graph import create_agent_graph, set_llm_from_config
+from src.copilot.guardrails.prompt_guardrails import PromptGuardrail
+from src.copilot.utils import should_ask_clarification
+
+logger = logging.getLogger(__name__)
 langfuse = get_client()
 
 
@@ -46,15 +51,55 @@ async def get_user_chats(
         return {"error": False, "chats": chat_items}
 
     except Exception as e:
-        print(f"Error retrieving user chats: {e}")
+        logger.debug(f"Error retrieving user chats: {e}")
         return {
             "error": True,
             "message": f"Could not retrieve chats: {e}",
         }
 
 
-# Build graph
-support_bot_graph = create_agent_graph()
+# Lazy-initialized graph (avoids database connection at import time)
+_support_bot_graph = None
+
+
+def get_support_bot_graph():
+    """Get or create the support bot graph with lazy initialization."""
+    global _support_bot_graph
+    if _support_bot_graph is None:
+        _support_bot_graph = create_agent_graph()
+    return _support_bot_graph
+
+
+async def async_stream_wrapper(sync_iterator):
+    """Convert a sync iterator to an async iterator by running in thread pool.
+
+    This prevents blocking the event loop when iterating over sync generators.
+    """
+    import queue
+    import threading
+
+    q = queue.Queue()
+    sentinel = object()
+
+    def producer():
+        try:
+            for item in sync_iterator:
+                q.put(item)
+        except Exception as e:
+            q.put(e)
+        finally:
+            q.put(sentinel)
+
+    thread = threading.Thread(target=producer, daemon=True)
+    thread.start()
+
+    while True:
+        item = await asyncio.to_thread(q.get)
+        if item is sentinel:
+            break
+        if isinstance(item, Exception):
+            raise item
+        yield item
 
 
 async def validate_prompt(prompt: str, session: AsyncSession):
@@ -121,12 +166,12 @@ async def prompt_stream(
     session: AsyncSession = Depends(get_session),
 ):
     """Post a new prompt and get response"""
-    humanMessage = request.message
+    human_message = request.message
     chat_id = request.chat_id
     user_id = current_user["user_id"]
     new_chat = None
     try:
-        is_valid, reject_msg, settings = await validate_prompt(humanMessage, session)
+        is_valid, reject_msg, settings = await validate_prompt(human_message, session)
         if not is_valid:
             return {
                 "success": False,
@@ -145,12 +190,12 @@ async def prompt_stream(
             )
             message_count = message_count_result.scalar()
             has_conversation_history = message_count > 0
-            print(f"[CONVERSATION CHECK] Chat {actual_chat_id} has {message_count} messages")
+            logger.debug(f"[CONVERSATION CHECK] Chat {actual_chat_id} has {message_count} messages")
         
         # Check if we should ask for clarification on context-dependent queries
-        should_clarify, clarification_message = should_ask_clarification(humanMessage, has_conversation_history)
+        should_clarify, clarification_message = should_ask_clarification(human_message, has_conversation_history)
         if should_clarify:
-            print(f"[CLARIFICATION NEEDED] Query requires clarification: '{humanMessage[:50]}...'")
+            logger.debug(f"[CLARIFICATION NEEDED] Query requires clarification: '{human_message[:50]}...'")
             return {
                 "success": False,
                 "message": clarification_message,
@@ -164,17 +209,34 @@ async def prompt_stream(
         current_title = result.scalar_one_or_none()
         
         langfuse_enabled = settings.langfuse_enabled if settings else True
-        inputs = {"messages": [("user", humanMessage)], "session_id": actual_chat_id,"user_id": str(user_id), "langfuse_enabled": langfuse_enabled }
+
+        # Fetch and configure LLM provider
+        provider_config = await get_provider_config_for_chat(session, str(user_id))
+        set_llm_from_config(
+            provider_type=provider_config.get("provider_type"),
+            model_id=provider_config.get("model_id"),
+            api_key=provider_config.get("api_key"),
+            base_url=provider_config.get("base_url"),
+            provider_config=provider_config.get("provider_config", {}),
+            temperature=provider_config.get("temperature"),
+        )
+
+        inputs = {
+            "messages": [("user", human_message)],
+            "session_id": actual_chat_id,
+            "user_id": str(user_id),
+            "langfuse_enabled": langfuse_enabled,
+        }
 
         async def stream_generator():
             # Check cache first before processing with LangGraph
             # Only use cache for self-contained queries without conversation context
-            print(f"[CACHE CHECK] Checking cache for query: '{humanMessage[:50]}...'")
-            print(f"[CACHE CHECK] Has conversation history: {has_conversation_history}")
-            cached_response = check_cache_for_query(humanMessage)
+            logger.debug(f"[CACHE CHECK] Checking cache for query: '{human_message[:50]}...'")
+            logger.debug(f"[CACHE CHECK] Has conversation history: {has_conversation_history}")
+            cached_response = check_cache_for_query(human_message)
             
             if cached_response:
-                print(f"[CACHE HIT] Found cached response, streaming from cache")
+                logger.debug(f"[CACHE HIT] Found cached response, streaming from cache")
                 # Stream cached response
                 yield f"event: status\ndata: {json.dumps({'message': 'Found cached response, delivering instantly...'})}\n\n"
                 
@@ -185,43 +247,40 @@ async def prompt_stream(
                     )
                     chat_row = result.scalar_one_or_none()
                     if chat_row and (not chat_row.title or chat_row.title.strip() in ("", "New Chat")):
-                        # Generate title from the user's query
-                        from langchain_ollama import ChatOllama
+                        # Generate title using the configured LLM
                         from langchain_core.messages import SystemMessage
-                        
-                        llm = ChatOllama(
-                            model="gpt-oss:20b",
-                            base_url="http://ollama.trackcode.in",
-                            temperature=0.1
-                        )
-                        
+                        from src.copilot.graph import get_configured_llm
+
+                        llm = get_configured_llm()
+
                         prompt = SystemMessage(
                             "Generate a concise, 2-4 word title for this query. "
                             "The title should clearly represent the main theme or subject. "
-                            f"Query: {humanMessage}\n\n"
+                            f"Query: {human_message}\n\n"
                             "Prioritize accuracy over excessive creativity; keep it clear and simple. "
                             "The output must be only the title, without any markdown code fences or other encapsulating text."
                         )
-                        response = llm.invoke([prompt])
+                        # Run blocking LLM call in thread pool to avoid blocking event loop
+                        response = await asyncio.to_thread(llm.invoke, [prompt])
                         generated_title = response.content.strip()
                         if not generated_title:
                             generated_title = "Untitled Chat"
-                        
+
                         chat_row.title = generated_title
                         await session.commit()
-                        
+
                         # Send title event to frontend
                         yield f"event: title\ndata: {json.dumps({'title': generated_title})}\n\n"
-                        print(f"[CACHE] Generated title: {generated_title}")
+                        logger.debug(f"[CACHE] Generated title: {generated_title}")
                 except Exception as e:
                     await session.rollback()
-                    print(f"Error generating title for cached response: {e}")
+                    logger.debug(f"Error generating title for cached response: {e}")
                 
                 # Save cached response to database (if new chat)
                 try:
                     new_message = Message(
                         chat_id=actual_chat_id,
-                        human=humanMessage,
+                        human=human_message,
                         bot=cached_response,
                     )
                     session.add(new_message)
@@ -229,10 +288,10 @@ async def prompt_stream(
                     await session.refresh(new_message)
                 except Exception as e:
                     await session.rollback()
-                    print(f"Error saving cached response to database: {e}")
+                    logger.debug(f"Error saving cached response to database: {e}")
                 
                 # Stream the cached answer - send content chunks preserving markdown
-                print(f"[CACHE STREAM] Streaming cached response with markdown formatting")
+                logger.debug(f"[CACHE STREAM] Streaming cached response with markdown formatting")
                 
                 # Split by characters to preserve newlines and markdown formatting
                 chunk_size = 5  # Send 5 characters at a time for smooth streaming
@@ -245,10 +304,10 @@ async def prompt_stream(
                 # Send completion event with full answer
                 final_data = {"answer": cached_response, "chat_id": str(actual_chat_id)}
                 yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
-                print(f"[CACHE STREAM] Stream completed successfully")
+                logger.debug(f"[CACHE STREAM] Stream completed successfully")
                 return
             
-            print(f"[CACHE MISS] No cached response found, processing with LangGraph")
+            logger.debug(f"[CACHE MISS] No cached response found, processing with LangGraph")
             answer = ""
             memory_saved = False
             accumulate_answer = True
@@ -258,7 +317,7 @@ async def prompt_stream(
                 enabled=langfuse_enabled,
                 as_type="agent",
                 name="copilot-chat",
-                input=humanMessage,
+                input=human_message,
                 metadata={"type": "streaming", "chat_id": str(actual_chat_id)}
             )
             try:
@@ -267,10 +326,11 @@ async def prompt_stream(
                         session_id=str(actual_chat_id),
                         user_id=str(user_id)
                     ):
-                        # Streaming mode
-                        for mode, chunk in support_bot_graph.stream(
+                        # Streaming mode - wrap sync iterator to avoid blocking event loop
+                        sync_stream = get_support_bot_graph().stream(
                             config=thread_config, input=inputs, stream_mode=["custom", "messages"]
-                        ):
+                        )
+                        async for mode, chunk in async_stream_wrapper(sync_stream):
                             if mode == "custom":
                                 # Title event
                                 if isinstance(chunk, dict) and "title" in chunk:
@@ -286,7 +346,7 @@ async def prompt_stream(
                                             await session.commit()
                                     except Exception as e:
                                         await session.rollback()
-                                        print(f"Error saving generated title to database: {e}")
+                                        logger.debug(f"Error saving generated title to database: {e}")
 
                                 # Status event
                                 if isinstance(chunk, dict) and "status" in chunk:
@@ -304,23 +364,23 @@ async def prompt_stream(
                                         
                                         # Store response in cache for future use
                                         try:
-                                            print(f"[CACHE STORE] Storing response in cache for query: '{humanMessage[:50]}...'")
-                                            store_chat_response(humanMessage, answer)
-                                            print(f"[CACHE STORE] Successfully cached response")
+                                            logger.debug(f"[CACHE STORE] Storing response in cache for query: '{human_message[:50]}...'")
+                                            store_chat_response(human_message, answer)
+                                            logger.debug(f"[CACHE STORE] Successfully cached response")
                                         except Exception as e:
-                                            print(f"[CACHE ERROR] Error storing response in cache: {e}")
+                                            logger.debug(f"[CACHE ERROR] Error storing response in cache: {e}")
                                         
                                         # Finalize and save message to DB
                                         try:
                                             message = Message(
-                                                chat_id=actual_chat_id, human=humanMessage, bot=answer
+                                                chat_id=actual_chat_id, human=human_message, bot=answer
                                             )
                                             session.add(message)
                                             memory_saved = True
                                             await session.commit()
                                         except Exception as e:
                                             await session.rollback()
-                                            print(f"Error saving message to database: {e}")
+                                            logger.debug(f"Error saving message to database: {e}")
 
                             elif mode == "messages":
                                 token_chunk, metadata = chunk
@@ -336,7 +396,7 @@ async def prompt_stream(
                         
                         observation.update(output=answer,name=generated_title)
             except Exception as e:
-                print(f"Error during streaming response: {e}")
+                logger.debug(f"Error during streaming response: {e}")
                 raise e
 
         return StreamingResponse(
@@ -345,25 +405,24 @@ async def prompt_stream(
             headers={
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "*",
             }
         )
     except Exception as e:
         await session.rollback()
-        print(f"Error occurred while processing prompt: {e}")
+        logger.exception("Error occurred while processing prompt")
         return {
             "success": False,
-            "message": f"An error occurred while processing the prompt: {e}",
+            "message": "An error occurred while processing the prompt",
         }
 
 
-async def get_graph_response_non_stream(
-    inputs, config, support_bot_graph=support_bot_graph
-):
+async def get_graph_response_non_stream(inputs, config, graph=None):
     """Helper function to get non-streaming response from the support bot graph."""
     try:
-        result = support_bot_graph.invoke(inputs, config=config)
+        if graph is None:
+            graph = get_support_bot_graph()
+        # Run blocking graph invoke in thread pool to avoid blocking event loop
+        result = await asyncio.to_thread(graph.invoke, inputs, config=config)
         final_message = result["messages"][-1]
 
         if isinstance(final_message, AIMessage):
@@ -373,8 +432,8 @@ async def get_graph_response_non_stream(
         title = result.get("title") if isinstance(result, dict) else None
         return answer, title
     except Exception as e:
-        print(f"Error in get_graph_response_non_stream: {e}")
-        raise e
+        logger.exception("Error in get_graph_response_non_stream")
+        raise
 
 
 @router.post("/prompt")
@@ -384,12 +443,12 @@ async def prompt(
     session: AsyncSession = Depends(get_session),
 ):
     """Post a new prompt and get response"""
-    humanMessage = request.message
+    human_message = request.message
     chat_id = request.chat_id
     user_id = current_user["user_id"]
     new_chat = None
     try:
-        is_valid, reject_msg, settings = await validate_prompt(humanMessage, session)
+        is_valid, reject_msg, settings = await validate_prompt(human_message, session)
         if not is_valid:
             return {
                 "success": False,
@@ -400,16 +459,16 @@ async def prompt(
         )
         
         # Check cache first before processing with LangGraph
-        print(f"[CACHE CHECK] Checking cache for query: '{humanMessage[:50]}...'")
-        cached_response = check_cache_for_query(humanMessage)
+        logger.debug(f"[CACHE CHECK] Checking cache for query: '{human_message[:50]}...'")
+        cached_response = check_cache_for_query(human_message)
         
         if cached_response:
-            print(f"[CACHE HIT] Found cached response, returning from cache")
+            logger.debug(f"[CACHE HIT] Found cached response, returning from cache")
             # Save cached response to database
             try:
                 new_message = Message(
                     chat_id=actual_chat_id,
-                    human=humanMessage,
+                    human=human_message,
                     bot=cached_response,
                 )
                 session.add(new_message)
@@ -417,7 +476,7 @@ async def prompt(
                 await session.refresh(new_message)
             except Exception as e:
                 await session.rollback()
-                print(f"Error saving cached response to database: {e}")
+                logger.debug(f"Error saving cached response to database: {e}")
             
             return {
                 "success": True,
@@ -425,10 +484,27 @@ async def prompt(
                 "chat_id": str(actual_chat_id)
             }
         
-        print(f"[CACHE MISS] No cached response found, processing with LangGraph")
-        inputs = {"messages": [("user", humanMessage)]}
+        logger.debug(f"[CACHE MISS] No cached response found, processing with LangGraph")
+
+        # Fetch and configure LLM provider
+        provider_config = await get_provider_config_for_chat(session, str(user_id))
+        set_llm_from_config(
+            provider_type=provider_config.get("provider_type"),
+            model_id=provider_config.get("model_id"),
+            api_key=provider_config.get("api_key"),
+            base_url=provider_config.get("base_url"),
+            provider_config=provider_config.get("provider_config", {}),
+            temperature=provider_config.get("temperature"),
+        )
+
+        inputs = {
+            "messages": [("user", human_message)],
+            "session_id": str(actual_chat_id),
+            "user_id": str(user_id),
+            "langfuse_enabled": settings.langfuse_enabled if settings else True,
+        }
         answer, title = await get_graph_response_non_stream(
-            inputs, thread_config, support_bot_graph
+            inputs, thread_config
         )
         if title:
             try:
@@ -441,23 +517,23 @@ async def prompt(
                     await session.commit()
             except Exception as e:
                 await session.rollback()
-                print(f"Error saving generated title (non-stream) to database: {e}")
+                logger.debug(f"Error saving generated title (non-stream) to database: {e}")
         
         # Store response in cache for future use
         try:
-            print(f"[CACHE STORE] Storing response in cache for query: '{humanMessage[:50]}...'")
-            store_chat_response(humanMessage, answer)
-            print(f"[CACHE STORE] Successfully cached response")
+            logger.debug(f"[CACHE STORE] Storing response in cache for query: '{human_message[:50]}...'")
+            store_chat_response(human_message, answer)
+            logger.debug(f"[CACHE STORE] Successfully cached response")
         except Exception as e:
-            print(f"[CACHE ERROR] Error storing response in cache: {e}")
+            logger.debug(f"[CACHE ERROR] Error storing response in cache: {e}")
         
-        message = Message(chat_id=actual_chat_id, human=humanMessage, bot=answer)
+        message = Message(chat_id=actual_chat_id, human=human_message, bot=answer)
         session.add(message)
         await session.commit()
         return {"answer": answer, "chat_id": actual_chat_id}
     except Exception as e:
         await session.rollback()
-        print(f"Error occurred while processing prompt: {e}")
+        logger.debug(f"Error occurred while processing prompt: {e}")
         return {
             "success": False,
             "message": f"An error occurred while processing the prompt: {e}",
@@ -513,7 +589,7 @@ async def get_chat_with_messages(
             "messages": messages_data
         }
     except Exception as e:
-        print(f"Error retrieving chat messages: {e}")
+        logger.debug(f"Error retrieving chat messages: {e}")
         return{
             "error": True,
             "message": f"Chat messages could not be retrieved: {e}",
