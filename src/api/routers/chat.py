@@ -27,20 +27,34 @@ langfuse = get_client()
 
 router = APIRouter()
 
-# / -> Get All Chats of the User
+# / -> Get All Chats of the User (paginated)
 @router.get("/")
 async def get_user_chats(
+    limit: int = 20,
+    offset: int = 0,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """Get all chats for the authenticated user with only id, title, and created_at."""
+    """Get paginated chats for the authenticated user with only id, title, and updated_at."""
     try:
         user_id = current_user["user_id"]
+
+        # Get total count
+        count_result = await session.execute(
+            select(func.count(Chat.id))
+            .where(Chat.user_id == user_id)
+            .where(Chat.archived_at == None)
+        )
+        total = count_result.scalar() or 0
+
+        # Get paginated chats
         result = await session.execute(
             select(Chat.id, Chat.title, Chat.updated_at)
             .where(Chat.user_id == user_id)
             .where(Chat.archived_at == None)
             .order_by(Chat.updated_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         chats_data = result.all()
         chat_items = [
@@ -48,7 +62,14 @@ async def get_user_chats(
             for chat in chats_data
         ]
 
-        return {"error": False, "chats": chat_items}
+        return {
+            "error": False,
+            "chats": chat_items,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + len(chat_items) < total,
+        }
 
     except Exception as e:
         logger.debug(f"Error retrieving user chats: {e}")
@@ -540,14 +561,16 @@ async def prompt(
         }
 
 
-# /messages/{chat_id} -> Get all messages in a chat
+# /messages/{chat_id} -> Get paginated messages in a chat
 @router.get("/messages/{chat_id}")
 async def get_chat_with_messages(
     chat_id: str,
+    limit: int = 50,
+    offset: int = 0,
     session: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
-    """Retrieve a chat and its messages by chat id, with messages sorted by creation time."""
+    """Retrieve a chat and its paginated messages by chat id, with messages sorted by creation time."""
     try:
         user_id = current_user["user_id"]
         # Get the chat
@@ -560,11 +583,19 @@ async def get_chat_with_messages(
         if not chat:
             raise HTTPException(status_code=404, detail="Chat not found")
 
-        # Get messages for the chat, sorted by created_at ascending
+        # Get total message count
+        count_result = await session.execute(
+            select(func.count(Message.id)).where(Message.chat_id == chat_id)
+        )
+        total = count_result.scalar() or 0
+
+        # Get paginated messages for the chat, sorted by created_at ascending
         messages_result = await session.execute(
             select(Message)
             .where(Message.chat_id == chat_id)
             .order_by(asc(Message.created_at))
+            .limit(limit)
+            .offset(offset)
         )
         messages = messages_result.scalars().all()
 
@@ -586,7 +617,11 @@ async def get_chat_with_messages(
             "user_id": str(chat.user_id),
             "title": chat.title,
             "updated_at": chat.updated_at.isoformat() if chat.updated_at else None,
-            "messages": messages_data
+            "messages": messages_data,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + len(messages_data) < total,
         }
     except Exception as e:
         logger.debug(f"Error retrieving chat messages: {e}")

@@ -73,7 +73,7 @@ const Dropdown = ({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-md z-10">
+        <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50">
           {options.map((option) => (
             <div
               key={option.value}

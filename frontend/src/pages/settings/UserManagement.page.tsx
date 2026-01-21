@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Button } from "../../components/ui/Button";
 import { ConfigurableTable } from "../../components/ui/Table";
 import SettingsHeader from "../../components/settings/SettingsHeader";
@@ -16,7 +16,12 @@ import Toggle from "../../components/ui/Toggle";
 import { fetchSettings, updateSettings } from "../../handlers/settingsHandlers";
 import type { Settings } from "../../types/Settings";
 import { logger } from "../../utils/logger";
-import { SkeletonUserManagement } from "../../components/ui/Skeleton";
+import { SkeletonUserManagement, SkeletonToggle } from "../../components/ui/Skeleton";
+import { ConfirmModal } from "../../components/ui/Modal";
+import { Pagination, DEFAULT_PAGE_SIZE_OPTIONS } from "../../components/ui/Pagination";
+import { useDelayedLoading } from "../../hooks/useDelayedLoading";
+
+const DEFAULT_PAGE_SIZE = 10;
 
 const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -25,26 +30,57 @@ const UserManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [authGoogleEnabled, setAuthGoogleEnabled] = useState(true);
-  const [authGithubEnabled, setAuthGithubEnabled] = useState(true);
-  const [authMicrosoftEnabled, setAuthMicrosoftEnabled] = useState(true);
-  const [authLocalEnabled, setAuthLocalEnabled] = useState(true);
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
+  // Delayed loading - only show skeleton after 150ms
+  const showInitialLoading = useDelayedLoading(loading);
+  const showUsersLoading = useDelayedLoading(loadingUsers);
+
+  const [authGoogleEnabled, setAuthGoogleEnabled] = useState<boolean | undefined>(undefined);
+  const [authGithubEnabled, setAuthGithubEnabled] = useState<boolean | undefined>(undefined);
+  const [authMicrosoftEnabled, setAuthMicrosoftEnabled] = useState<boolean | undefined>(undefined);
+  const [authLocalEnabled, setAuthLocalEnabled] = useState<boolean | undefined>(undefined);
   const [authSaving, setAuthSaving] = useState(false);
+
+  // Delete user modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Check if auth settings have loaded (to avoid toggle flickering)
+  const authSettingsLoaded = authGoogleEnabled !== undefined;
 
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState("");
 
+  const loadUsers = useCallback(async (page: number, size: number, search?: string) => {
+    setLoadingUsers(true);
+    try {
+      const offset = (page - 1) * size;
+      const response = await fetchUsers(size, offset, search);
+      setUsers(response.users);
+      setTotalUsers(response.total);
+    } catch (error) {
+      logger.error("Failed to load users", error);
+      toast.error("Failed to load users");
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, []);
+
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [usersData, rolesData, settings] = await Promise.all([
-          fetchUsers(),
+        const [rolesData, settings] = await Promise.all([
           fetchRoles(),
           fetchSettings(),
         ]);
-        setUsers(usersData);
         setRoles(rolesData);
         if (settings) {
           setAuthGoogleEnabled(settings.auth_google_enabled ?? true);
@@ -52,6 +88,8 @@ const UserManagement: React.FC = () => {
           setAuthMicrosoftEnabled(settings.auth_microsoft_enabled ?? true);
           setAuthLocalEnabled(settings.auth_local_enabled ?? true);
         }
+        // Load initial users
+        await loadUsers(1, pageSize);
       } catch (error) {
         logger.error("Failed to load data", error);
         toast.error("Failed to load users");
@@ -60,7 +98,26 @@ const UserManagement: React.FC = () => {
       }
     };
     loadData();
-  }, []);
+  }, [loadUsers, pageSize]);
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+      loadUsers(1, pageSize, searchTerm || undefined);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, loadUsers, pageSize]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    loadUsers(page, pageSize, searchTerm || undefined);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1); // Reset to page 1 when changing page size
+  };
 
   const handleEditUser = (user: AdminUser) => {
     setEditingUser(user);
@@ -77,9 +134,8 @@ const UserManagement: React.FC = () => {
         role_id: selectedRoleId,
       });
 
-      // Refresh list
-      const usersData = await fetchUsers();
-      setUsers(usersData);
+      // Refresh list - stay on current page
+      await loadUsers(currentPage, pageSize, searchTerm || undefined);
       setIsEditModalOpen(false);
       setEditingUser(null);
       toast.success("User updated");
@@ -95,10 +151,10 @@ const UserManagement: React.FC = () => {
     try {
       setAuthSaving(true);
       const authPayload: Partial<Settings> = {
-        auth_google_enabled: authGoogleEnabled,
-        auth_github_enabled: authGithubEnabled,
-        auth_microsoft_enabled: authMicrosoftEnabled,
-        auth_local_enabled: authLocalEnabled,
+        auth_google_enabled: authGoogleEnabled ?? true,
+        auth_github_enabled: authGithubEnabled ?? true,
+        auth_microsoft_enabled: authMicrosoftEnabled ?? true,
+        auth_local_enabled: authLocalEnabled ?? true,
       };
       await updateSettings(authPayload);
       toast.success("Authentication methods updated");
@@ -110,28 +166,32 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const handleDeleteUser = async (user: AdminUser) => {
-    if (!window.confirm(`Delete user ${user.email}?`)) return;
+  const openDeleteModal = (user: AdminUser) => {
+    setUserToDelete(user);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+    setDeleting(true);
     try {
-      await deleteUser(user.id);
-      const usersData = await fetchUsers();
-      setUsers(usersData);
+      await deleteUser(userToDelete.id);
+      // Refresh list - go back to page 1 if current page would be empty
+      const newPage = users.length === 1 && currentPage > 1 ? currentPage - 1 : currentPage;
+      setCurrentPage(newPage);
+      await loadUsers(newPage, pageSize, searchTerm || undefined);
       toast.success("User deleted");
     } catch (error) {
       logger.error("Failed to delete user", error);
       toast.error("Failed to delete user");
+    } finally {
+      setDeleting(false);
+      setDeleteModalOpen(false);
+      setUserToDelete(null);
     }
   };
 
-  const filteredUsers = useMemo(
-    () =>
-      users.filter(
-        (user) =>
-          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.role_name.toLowerCase().includes(searchTerm.toLowerCase())
-      ),
-    [users, searchTerm]
-  );
+  const totalPages = Math.ceil(totalUsers / pageSize);
 
   const columns = [
     {
@@ -161,7 +221,7 @@ const UserManagement: React.FC = () => {
           <Button
             variant="secondary"
             className="bg-red-500 text-white hover:bg-red-600 text-xs md:text-sm px-2 py-1 w-full sm:w-auto"
-            onClick={() => handleDeleteUser(user)}
+            onClick={() => openDeleteModal(user)}
           >
             DELETE
           </Button>
@@ -171,7 +231,8 @@ const UserManagement: React.FC = () => {
     },
   ];
 
-  if (loading) {
+  // Show skeleton only when initial load takes longer than threshold
+  if (showInitialLoading) {
     return (
       <div className="space-y-6">
         <SettingsHeader
@@ -201,38 +262,49 @@ const UserManagement: React.FC = () => {
           </Button>
         </div>
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-900">Basic Authentication</span>
-            <Toggle
-              enabled={authLocalEnabled}
-              onChange={setAuthLocalEnabled}
-              id="authLocalToggle"
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-900">Google Authentication</span>
-            <Toggle
-              enabled={authGoogleEnabled}
-              onChange={setAuthGoogleEnabled}
-              id="authGoogleToggle"
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-900">GitHub Authentication</span>
-            <Toggle
-              enabled={authGithubEnabled}
-              onChange={setAuthGithubEnabled}
-              id="authGithubToggle"
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-900">Microsoft Authentication</span>
-            <Toggle
-              enabled={authMicrosoftEnabled}
-              onChange={setAuthMicrosoftEnabled}
-              id="authMicrosoftToggle"
-            />
-          </div>
+          {authSettingsLoaded ? (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-900">Basic Authentication</span>
+                <Toggle
+                  enabled={authLocalEnabled}
+                  onChange={setAuthLocalEnabled}
+                  id="authLocalToggle"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-900">Google Authentication</span>
+                <Toggle
+                  enabled={authGoogleEnabled}
+                  onChange={setAuthGoogleEnabled}
+                  id="authGoogleToggle"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-900">GitHub Authentication</span>
+                <Toggle
+                  enabled={authGithubEnabled}
+                  onChange={setAuthGithubEnabled}
+                  id="authGithubToggle"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-900">Microsoft Authentication</span>
+                <Toggle
+                  enabled={authMicrosoftEnabled}
+                  onChange={setAuthMicrosoftEnabled}
+                  id="authMicrosoftToggle"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <SkeletonToggle labelWidth={150} />
+              <SkeletonToggle labelWidth={170} />
+              <SkeletonToggle labelWidth={160} />
+              <SkeletonToggle labelWidth={180} />
+            </>
+          )}
         </div>
       </section>
 
@@ -241,19 +313,23 @@ const UserManagement: React.FC = () => {
           type="search"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search by email or role"
+          placeholder="Search by email"
           className="w-full sm:max-w-xs rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none focus:ring-0"
         />
-        <div className="text-xs text-gray-500">{filteredUsers.length} users</div>
+        <div className="text-xs text-gray-500">
+          {showUsersLoading ? "Loading..." : `${totalUsers} users`}
+        </div>
       </div>
 
       <div className="overflow-x-auto bg-white rounded-lg border border-gray-200 shadow-sm">
-        {filteredUsers.length === 0 && !loading ? (
+        {users.length === 0 && !loading && !loadingUsers ? (
           <div className="p-4 text-sm text-gray-600">No users match this search.</div>
+        ) : showUsersLoading && users.length === 0 ? (
+          <div className="p-4 text-sm text-gray-400 text-center">Loading users...</div>
         ) : (
           <ConfigurableTable
             columns={columns}
-            data={filteredUsers}
+            data={users}
             keyExtractor={(user) => user.id}
             tableClassName="min-w-full"
             headerRowClassName="bg-gray-50 sticky top-0"
@@ -261,6 +337,18 @@ const UserManagement: React.FC = () => {
           />
         )}
       </div>
+
+      {/* Pagination */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={handlePageChange}
+        totalItems={totalUsers}
+        pageSize={pageSize}
+        onPageSizeChange={handlePageSizeChange}
+        pageSizeOptions={DEFAULT_PAGE_SIZE_OPTIONS}
+        disabled={loadingUsers}
+      />
 
       {isEditModalOpen && editingUser && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 px-4">
@@ -302,6 +390,22 @@ const UserManagement: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Delete User Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setUserToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Delete User"
+        message={`Are you sure you want to delete user ${userToDelete?.email}? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+        isLoading={deleting}
+      />
     </div>
   );
 };

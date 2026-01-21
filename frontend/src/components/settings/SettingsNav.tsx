@@ -75,7 +75,21 @@ const NAV_ITEMS: SettingsNavItemConfig[] = [
       "Basic Authentication",
     ],
   },
-  //   { label: "Audit & Logs", to: "/settings/audit", adminOnly: true },
+  {
+    label: "Configuration History",
+    to: "/settings/config-history",
+    adminOnly: true,
+    searchTexts: [
+      "Configuration History",
+      "Audit",
+      "Audit Trail",
+      "History",
+      "Rollback",
+      "Version",
+      "Changes",
+      "Logs",
+    ],
+  },
 ];
 
 type SettingsNavProps = {

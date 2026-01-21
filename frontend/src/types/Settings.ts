@@ -3,6 +3,18 @@ export type Model = string;
 
 export type SettingSegment = "aiml" | "auth";
 
+// Change type for audit trail
+export type ChangeType = "create" | "update" | "rollback";
+
+// Describes a single field change
+export type ChangeDescription = {
+  field: string;
+  field_label: string;
+  old_value: string | null;
+  new_value: string | null;
+  segment: SettingSegment;
+};
+
 export type Settings = {
   id?: string;
   user_id?: string;
@@ -44,8 +56,17 @@ export type SegmentSettingResponse<T> = {
 export type SettingHistoryItem = {
   id: string;
   user_id: string;
+  user_email?: string | null;
   created_at: string;
   updated_at: string;
+  // Audit trail fields
+  change_type: ChangeType;
+  source_version_id?: string | null;
+  target_version_id?: string | null;
+  change_reason?: string | null;
+  // Computed changes compared to previous version
+  changes: ChangeDescription[];
+  // Settings values
   model: Model;
   temperature: string;
   deny_words: string;

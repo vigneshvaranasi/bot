@@ -9,10 +9,14 @@ import archiveIcon from "../assets/ArchiveIcon.svg";
 import editPencilIcon from "../assets/EditPencilIcon.svg";
 import { Link, useNavigate } from "react-router-dom";
 import InputBox from "./ui/InputBox";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuthContext } from "../hooks/useAuthContext";
 import { archiveChatById, renameChatById, getAllMyChats } from "../handlers/chatHandler";
 import { SkeletonChatList } from "./ui/Skeleton";
+import { LoadMoreButton } from "./ui/Pagination";
+import { useDelayedLoading } from "../hooks/useDelayedLoading";
+
+const CHATS_PAGE_SIZE = 20;
 
 function Sidebar() {
   const {
@@ -34,6 +38,14 @@ function Sidebar() {
   const [editingTitle, setEditingTitle] = useState<string>("");
   const editingInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
+
+  // Pagination state
+  const [hasMore, setHasMore] = useState(false);
+  const [totalChats, setTotalChats] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Delayed loading - only show skeleton after 150ms
+  const showSidebarLoading = useDelayedLoading(isSidebarLoading);
 
   // All hooks must be called unconditionally at the top (React Rules of Hooks)
   useEffect(() => {
@@ -67,27 +79,60 @@ function Sidebar() {
       try {
         const token = localStorage.getItem("token");
         if (!token) return;
-        const allMyChats = await getAllMyChats(token);
-        if (allMyChats && Array.isArray(allMyChats.chats)) {
+        const response = await getAllMyChats(token, CHATS_PAGE_SIZE, 0);
+        if (response && Array.isArray(response.chats)) {
           setChats(
-            allMyChats.chats.map((chat: { id: string; title: string; updated_at: string }) => ({
+            response.chats.map((chat: { id: string; title: string; updated_at: string }) => ({
               chatId: chat.id,
               chatTitle: chat.title,
               date: chat.updated_at,
             }))
           );
+          setHasMore(response.has_more);
+          setTotalChats(response.total);
         } else {
           setChats([]);
+          setHasMore(false);
+          setTotalChats(0);
         }
       } catch (err) {
         console.error("Failed to fetch chats:", err);
         setChats([]);
+        setHasMore(false);
+        setTotalChats(0);
       } finally {
         setIsSidebarLoading(false);
       }
     };
     fetchChats();
   }, [user, refreshChatsTick, setChats, setIsSidebarLoading]);
+
+  // Load more chats handler
+  const loadMoreChats = useCallback(async () => {
+    if (!user || loadingMore || !hasMore) return;
+
+    setLoadingMore(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      const response = await getAllMyChats(token, CHATS_PAGE_SIZE, chats.length);
+      if (response && Array.isArray(response.chats)) {
+        const newChats = response.chats.map(
+          (chat: { id: string; title: string; updated_at: string }) => ({
+            chatId: chat.id,
+            chatTitle: chat.title,
+            date: chat.updated_at,
+          })
+        );
+        setChats([...chats, ...newChats]);
+        setHasMore(response.has_more);
+      }
+    } catch (err) {
+      console.error("Failed to load more chats:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [user, loadingMore, hasMore, chats, setChats]);
 
   const handleLogout = () => {
     logout();
@@ -196,7 +241,7 @@ function Sidebar() {
             </button>
           </Link>
           <div className="flex-1 overflow-y-auto p-4">
-            {isSidebarLoading ? (
+            {showSidebarLoading && chats.length === 0 ? (
               <SkeletonChatList count={6} />
             ) : filteredChats.length === 0 ? (
               <div className="text-gray-400 text-center mt-8">
@@ -304,6 +349,16 @@ function Sidebar() {
                     )}
                   </div>
                 ))}
+                {/* Load More button - only show when not searching */}
+                {!searchInput && hasMore && (
+                  <LoadMoreButton
+                    onClick={loadMoreChats}
+                    loading={loadingMore}
+                    hasMore={hasMore}
+                    loadedCount={chats.length}
+                    totalCount={totalChats}
+                  />
+                )}
               </div>
             )}
           </div>

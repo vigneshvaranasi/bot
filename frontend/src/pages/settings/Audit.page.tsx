@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import SettingsHeader from "../../components/settings/SettingsHeader";
 import { Button } from "../../components/ui/Button";
 import { ConfigurableTable } from "../../components/ui/Table";
+import { ConfirmModal } from "../../components/ui/Modal";
 import { fetchSettingsHistory, rollbackToVersion } from "../../handlers/settingsHandlers";
 import type { SettingHistoryItem } from "../../types/Settings";
 import { toast } from "react-hot-toast";
@@ -14,6 +15,10 @@ const AuditPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [rollingBack, setRollingBack] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
+
+  // Rollback confirmation modal state
+  const [rollbackModalOpen, setRollbackModalOpen] = useState(false);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
 
   useEffect(() => {
     loadHistory();
@@ -38,14 +43,18 @@ const AuditPage = () => {
     }
   };
 
-  const handleRollback = async (versionId: string) => {
-    if (!confirm("Are you sure you want to rollback to this version? This will create a new settings version with these values.")) {
-      return;
-    }
+  const openRollbackModal = (versionId: string) => {
+    setSelectedVersionId(versionId);
+    setRollbackModalOpen(true);
+  };
+
+  const handleConfirmRollback = async () => {
+    if (!selectedVersionId) return;
 
     try {
-      setRollingBack(versionId);
-      const result = await rollbackToVersion(versionId);
+      setRollingBack(selectedVersionId);
+      setRollbackModalOpen(false);
+      const result = await rollbackToVersion(selectedVersionId);
       if (result) {
         toast.success("Settings rolled back successfully");
         await loadHistory(); // Reload history to show new version
@@ -57,6 +66,7 @@ const AuditPage = () => {
       toast.error("Failed to rollback settings");
     } finally {
       setRollingBack(null);
+      setSelectedVersionId(null);
     }
   };
 
@@ -190,7 +200,7 @@ const AuditPage = () => {
                             ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                             : "bg-blue-50 text-blue-600 hover:bg-blue-100"
                         }`}
-                        onClick={() => handleRollback(item.id)}
+                        onClick={() => openRollbackModal(item.id)}
                         disabled={index === 0 || rollingBack === item.id}
                       >
                         {rollingBack === item.id ? "..." : index === 0 ? "Current" : "Rollback"}
@@ -219,6 +229,22 @@ const AuditPage = () => {
           <span><strong>L</strong> = Local (Password)</span>
         </div>
       </section>
+
+      {/* Rollback Confirmation Modal */}
+      <ConfirmModal
+        isOpen={rollbackModalOpen}
+        onClose={() => {
+          setRollbackModalOpen(false);
+          setSelectedVersionId(null);
+        }}
+        onConfirm={handleConfirmRollback}
+        title="Rollback Settings"
+        message="Are you sure you want to rollback to this version? This will create a new settings version with these values."
+        confirmLabel="Rollback"
+        cancelLabel="Cancel"
+        confirmVariant="primary"
+        isLoading={!!rollingBack}
+      />
     </div>
   );
 };

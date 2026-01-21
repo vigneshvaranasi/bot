@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/Button";
 import Dropdown from "./ui/Dropdown";
 import InputBox from "./ui/InputBox";
+import { ConfirmModal } from "./ui/Modal";
 import {
   AUTH_SCHEMAS,
   type IntegrationSyncStatus,
@@ -56,6 +57,10 @@ export default function IntegrationControl({
   const [isNameEditable, setIsNameEditable] = useState(isNew);
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Delete confirmation modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const nameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -136,6 +141,30 @@ export default function IntegrationControl({
       setError("Failed to sync integration");
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const openDeleteModal = () => {
+    // For new integrations, just call onDelete without confirmation
+    if (isNew) {
+      onDelete?.(id, isNew);
+      return;
+    }
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!onDelete || !id) return;
+
+    setIsDeleting(true);
+    try {
+      await onDelete(id, isNew);
+    } catch (err) {
+      console.error("Failed to delete integration", err);
+      setError("Failed to delete integration");
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
     }
   };
 
@@ -279,15 +308,29 @@ export default function IntegrationControl({
             {onDelete && !isSaving && (
               <Button
                 variant="secondary"
-                className="w-fit mt-2 bg-red-500 hover:bg-red-800 border-red-300"
-                onClick={() => onDelete(id, isNew)}
+                className={`w-fit mt-2 ${isNew ? "bg-gray-500 hover:bg-gray-700" : "bg-red-500 hover:bg-red-800 border-red-300"}`}
+                onClick={openDeleteModal}
+                disabled={isDeleting}
               >
-                Delete
+                {isNew ? "Cancel" : isDeleting ? "Deleting..." : "Delete"}
               </Button>
             )}
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Integration"
+        message={`Are you sure you want to delete "${name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

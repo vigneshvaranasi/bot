@@ -5,6 +5,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth.dependencies import get_current_user, require_role
@@ -15,6 +16,8 @@ from src.api.schemas.setting_schemas import (
     SettingResponse,
     SettingListResponse,
     SettingSegment,
+    ChangeType,
+    ChangeDescription,
     AiMlSettingsUpdate,
     AiMlSettingsResponse,
     AuthSettingsUpdate,
@@ -22,6 +25,7 @@ from src.api.schemas.setting_schemas import (
     SettingHistoryResponse,
     SettingHistoryItem,
     SegmentSettingResponse,
+    RollbackRequest,
 )
 from src.api.services.settings_service import SettingsService
 
@@ -128,29 +132,50 @@ async def update_auth_settings(
 async def get_settings_history(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    segment: Optional[SettingSegment] = Query(default=None, description="Filter changes by segment"),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(require_role("admin"))
 ):
-    """Get settings version history with pagination."""
+    """Get settings version history with pagination and computed changes.
+
+    Returns history items with:
+    - User email for attribution
+    - Change type (create, update, rollback)
+    - Source/target version IDs for audit trail
+    - Computed changes compared to previous version
+    """
     service = SettingsService(db)
-    settings, total = await service.get_settings_history(limit=limit, offset=offset)
+    history_data, total = await service.get_settings_history(
+        limit=limit,
+        offset=offset,
+        segment_filter=segment
+    )
 
     history_items = [
         SettingHistoryItem(
-            id=s.id,
-            user_id=s.user_id,
-            created_at=s.created_at,
-            updated_at=s.updated_at,
-            model=s.model,
-            temperature=s.temperature,
-            deny_words=s.deny_words,
-            langfuse_enabled=s.langfuse_enabled,
-            auth_google_enabled=s.auth_google_enabled,
-            auth_github_enabled=s.auth_github_enabled,
-            auth_microsoft_enabled=s.auth_microsoft_enabled,
-            auth_local_enabled=s.auth_local_enabled,
+            id=item["setting"].id,
+            user_id=item["setting"].user_id,
+            user_email=item["user_email"],
+            created_at=item["setting"].created_at,
+            updated_at=item["setting"].updated_at,
+            # Audit trail fields
+            change_type=ChangeType(item["setting"].change_type),
+            source_version_id=item["setting"].source_version_id,
+            target_version_id=item["setting"].target_version_id,
+            change_reason=item["setting"].change_reason,
+            # Computed changes
+            changes=item["changes"],
+            # Settings values
+            model=item["setting"].model,
+            temperature=item["setting"].temperature,
+            deny_words=item["setting"].deny_words,
+            langfuse_enabled=item["setting"].langfuse_enabled,
+            auth_google_enabled=item["setting"].auth_google_enabled,
+            auth_github_enabled=item["setting"].auth_github_enabled,
+            auth_microsoft_enabled=item["setting"].auth_microsoft_enabled,
+            auth_local_enabled=item["setting"].auth_local_enabled,
         )
-        for s in settings
+        for item in history_data
     ]
 
     return SettingHistoryResponse(history=history_items, total=total)
@@ -159,14 +184,26 @@ async def get_settings_history(
 @router.post("/rollback/{version_id}", response_model=SettingResponse)
 async def rollback_to_version(
     version_id: UUID,
+    request: Optional[RollbackRequest] = None,
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(require_role("admin"))
 ):
-    """Rollback all settings to a specific version."""
+    """Rollback all settings to a specific version.
+
+    Creates a new version with the same values as the target version.
+    The rollback is recorded with:
+    - change_type: 'rollback'
+    - source_version_id: the version being replaced (current)
+    - target_version_id: the version being restored
+    - change_reason: optional reason for the rollback
+    """
     service = SettingsService(db)
     user_id = UUID(current_user["user_id"])
 
-    new_setting = await service.rollback_to_version(version_id, user_id)
+    # Extract reason from request body if provided
+    reason = request.reason if request else None
+
+    new_setting = await service.rollback_to_version(version_id, user_id, reason=reason)
 
     if not new_setting:
         raise HTTPException(
@@ -174,6 +211,7 @@ async def rollback_to_version(
             detail=f"Settings version {version_id} not found"
         )
 
+    logger.info(f"Admin {current_user.get('email')} rolled back to version {version_id}")
     return SettingResponse.model_validate(new_setting)
 
 
@@ -271,19 +309,5 @@ async def get_last_setting(
     return SettingResponse.model_validate(setting)
 
 
-@router.put("/rollback", response_model=SettingResponse)
-async def rollback_setting(
-    db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
-):
-    """Rollback to previous settings by deleting the latest (legacy endpoint)."""
-    service = SettingsService(db)
-    setting = await service.delete_latest_setting()
-
-    if not setting:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No previous settings found"
-        )
-
-    return SettingResponse.model_validate(setting)
+# Legacy PUT /rollback endpoint removed - use POST /rollback/{version_id} instead
+# The old endpoint was destructive (deleted rows) which violates append-only history

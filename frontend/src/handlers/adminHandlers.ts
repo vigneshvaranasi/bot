@@ -13,8 +13,27 @@ export interface Role {
     name: string;
 }
 
-export const fetchUsers = async (): Promise<AdminUser[]> => {
-    const response = await http.get("/admin/users");
+export interface PaginatedUsersResponse {
+    users: AdminUser[];
+    total: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
+}
+
+/**
+ * Fetch paginated users with optional search.
+ */
+export const fetchUsers = async (
+    limit: number = 20,
+    offset: number = 0,
+    search?: string
+): Promise<PaginatedUsersResponse> => {
+    let url = `/admin/users?limit=${limit}&offset=${offset}`;
+    if (search) {
+        url += `&search=${encodeURIComponent(search)}`;
+    }
+    const response = await http.get(url);
     return response.data;
 };
 

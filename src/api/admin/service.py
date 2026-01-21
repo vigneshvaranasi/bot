@@ -1,18 +1,52 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy import func, or_
 from fastapi import HTTPException
 from ..db.models import AuthProvider, User, Role
 from ..auth.service import revoke_all_user_tokens
+from typing import Optional, Tuple, List
 import uuid
 
-async def get_all_users(session: AsyncSession):
-    stmt = select(User).options(
-        selectinload(User.role)
+
+async def get_paginated_users(
+    session: AsyncSession,
+    limit: int = 20,
+    offset: int = 0,
+    search: Optional[str] = None
+) -> Tuple[List[User], int]:
+    """Get paginated users with optional search.
+
+    Returns a tuple of (users, total_count).
+    """
+    # Base query with non-deleted users
+    base_filter = User.deleted_at.is_(None)
+
+    # Add search filter if provided
+    if search:
+        search_filter = or_(
+            User.email.ilike(f"%{search}%"),
+        )
+        base_filter = base_filter & search_filter
+
+    # Get total count
+    count_stmt = select(func.count(User.id)).where(base_filter)
+    count_result = await session.execute(count_stmt)
+    total = count_result.scalar() or 0
+
+    # Get paginated users
+    stmt = (
+        select(User)
+        .options(selectinload(User.role))
+        .where(base_filter)
+        .order_by(User.email.asc())
+        .limit(limit)
+        .offset(offset)
     )
     result = await session.execute(stmt)
     users = result.scalars().all()
-    return users
+
+    return users, total
 
 async def update_provider_config(provider_name: str, enabled: bool, config: dict, session: AsyncSession):
     result = await session.execute(select(AuthProvider).where(AuthProvider.provider_name == provider_name))

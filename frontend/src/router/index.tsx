@@ -13,7 +13,7 @@ import MyAccountPage from "../pages/settings/MyAccount.page";
 // import SystemConfigPage from "../pages/settings/System.page";
 import AiMlConfigPage from "../pages/settings/AiMl.page";
 import IntegrationsPage from "../pages/settings/Integrations.page";
-// import AuditPage from "../pages/settings/Audit.page";
+import ConfigurationHistoryPage from "../pages/settings/ConfigurationHistory.page";
 import AdminRoute from "./AdminRoute";
 
 const normalRoutes: RouteObject = {
@@ -48,7 +48,7 @@ const normalRoutes: RouteObject = {
                 { path: "ai-ml", element: <AiMlConfigPage /> },
                 { path: "integrations", element: <IntegrationsPage /> },
                 { path: "user-management", element: <UserManagementPage /> },
-                // { path: "audit", element: <AuditPage /> },
+                { path: "config-history", element: <ConfigurationHistoryPage /> },
                 // { path: "system", element: <SystemConfigPage /> },
               ],
             },

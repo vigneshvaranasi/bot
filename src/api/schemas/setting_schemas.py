@@ -21,6 +21,13 @@ class SettingSegment(str, Enum):
     AUTH = "auth"
 
 
+class ChangeType(str, Enum):
+    """Type of configuration change."""
+    CREATE = "create"
+    UPDATE = "update"
+    ROLLBACK = "rollback"
+
+
 # ============================================================
 # Segment-specific schemas for request/response
 # ============================================================
@@ -109,14 +116,34 @@ class SettingListResponse(BaseModel):
 # History and rollback schemas
 # ============================================================
 
+class ChangeDescription(BaseModel):
+    """Describes a single field change."""
+    field: str
+    field_label: str
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    segment: SettingSegment
+
+
 class SettingHistoryItem(BaseModel):
-    """Schema for a single history item."""
+    """Schema for a single history item with audit trail info."""
     id: UUID4
     user_id: UUID4
+    user_email: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-    # Include all fields for reference
-    model: ModelEnum
+
+    # Audit trail fields
+    change_type: ChangeType
+    source_version_id: Optional[UUID4] = None
+    target_version_id: Optional[UUID4] = None
+    change_reason: Optional[str] = None
+
+    # Computed changes (compared to previous version)
+    changes: List[ChangeDescription] = []
+
+    # Include all settings fields for reference
+    model: str
     temperature: str
     deny_words: str
     langfuse_enabled: bool
@@ -138,6 +165,7 @@ class SettingHistoryResponse(BaseModel):
 class RollbackRequest(BaseModel):
     """Request for rollback endpoint."""
     version_id: UUID4
+    reason: Optional[str] = None
 
 
 class SegmentSettingResponse(BaseModel):

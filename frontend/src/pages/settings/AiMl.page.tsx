@@ -32,7 +32,7 @@ import { SkeletonAiMlSettings } from "../../components/ui/Skeleton";
 const AiMlConfigPage = () => {
   const [model, setModel] = useState<Model>("gemma3:4b");
   const [temperature, setTemperature] = useState("0.2");
-  const [langfuseEnabled, setLangfuseEnabled] = useState(true);
+  const [langfuseEnabled, setLangfuseEnabled] = useState<boolean | undefined>(undefined);
 
   const [denyWordsArray, setDenyWordsArray] = useState<DenyWordRecord[]>([]);
   const [denyWords, setDenyWords] = useState("");
@@ -284,7 +284,7 @@ const AiMlConfigPage = () => {
       setError(null);
       const safetyPayload: Partial<AiMlSettings> = {
         deny_words: wordsArrayToString(denyWordsArray),
-        langfuse_enabled: langfuseEnabled,
+        langfuse_enabled: langfuseEnabled ?? true,
       };
       await updateAiMlSettings(safetyPayload);
       toast.success("Safety settings saved");
@@ -538,7 +538,11 @@ const AiMlConfigPage = () => {
             <span>Enable Langfuse Tracing</span>
             <InfoHint text="Toggle Langfuse tracing for observability." position="top" gap={2} />
           </div>
-          <Toggle id="langfuse-toggle" enabled={langfuseEnabled} onChange={setLangfuseEnabled} />
+          {langfuseEnabled !== undefined ? (
+            <Toggle id="langfuse-toggle" enabled={langfuseEnabled} onChange={setLangfuseEnabled} />
+          ) : (
+            <div className="w-11 h-6 bg-gray-200 rounded-full animate-pulse" />
+          )}
         </div>
       </section>
     </div>

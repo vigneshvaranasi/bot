@@ -6,6 +6,7 @@ import type {
     AuthSettings,
     SegmentSettingResponse,
     SettingHistoryResponse,
+    SettingSegment,
 } from "../types/Settings";
 
 // ============================================================
@@ -38,15 +39,7 @@ export const updateSettings = async (settings: Partial<Settings>): Promise<Setti
     }
 };
 
-export const rollbackSettings = async (): Promise<Settings | null> => {
-    try {
-        const { data } = await http.put("/settings/rollback");
-        return data;
-    } catch (error) {
-        logger.error("Error rolling back settings:", error);
-        return null;
-    }
-};
+// Legacy rollbackSettings endpoint removed - use rollbackToVersion instead
 
 // ============================================================
 // Segment-based endpoints
@@ -100,12 +93,25 @@ export const updateAuthSettings = async (
 // History and rollback endpoints
 // ============================================================
 
+/**
+ * Fetch settings history with pagination and optional segment filter.
+ *
+ * @param limit - Maximum number of records (default 50).
+ * @param offset - Number of records to skip (default 0).
+ * @param segment - Optional segment filter ('aiml' or 'auth').
+ * @returns Settings history with computed changes, or null on error.
+ */
 export const fetchSettingsHistory = async (
     limit: number = 50,
-    offset: number = 0
+    offset: number = 0,
+    segment?: SettingSegment
 ): Promise<SettingHistoryResponse | null> => {
     try {
-        const { data } = await http.get(`/settings/history?limit=${limit}&offset=${offset}`);
+        let url = `/settings/history?limit=${limit}&offset=${offset}`;
+        if (segment) {
+            url += `&segment=${segment}`;
+        }
+        const { data } = await http.get(url);
         return data;
     } catch (error) {
         logger.error("Error fetching settings history:", error);
@@ -113,9 +119,20 @@ export const fetchSettingsHistory = async (
     }
 };
 
-export const rollbackToVersion = async (versionId: string): Promise<Settings | null> => {
+/**
+ * Rollback to a specific settings version.
+ *
+ * @param versionId - The UUID of the version to restore.
+ * @param reason - Optional reason for the rollback (for audit trail).
+ * @returns The new settings version, or null on error.
+ */
+export const rollbackToVersion = async (
+    versionId: string,
+    reason?: string
+): Promise<Settings | null> => {
     try {
-        const { data } = await http.post(`/settings/rollback/${versionId}`);
+        const body = reason ? { reason } : undefined;
+        const { data } = await http.post(`/settings/rollback/${versionId}`, body);
         return data;
     } catch (error) {
         logger.error("Error rolling back to version:", error);

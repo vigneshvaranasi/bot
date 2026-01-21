@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/Button";
 import Dropdown from "./ui/Dropdown";
 import InputBox from "./ui/InputBox";
+import { ConfirmModal } from "./ui/Modal";
 import type {
   LlmProvider,
   LlmProviderCreate,
@@ -83,6 +84,10 @@ export default function LlmProviderControl({
   const [isTesting, setIsTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<HealthCheckResult | null>(null);
+
+  // Delete confirmation modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const nameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -341,24 +346,27 @@ export default function LlmProviderControl({
     }
   };
 
-  const handleDelete = async () => {
-    if (!onDelete) return;
-
+  const openDeleteModal = () => {
     // For new providers, just call onDelete without confirmation
     if (isNew) {
-      await onDelete();
+      onDelete?.();
       return;
     }
+    setDeleteModalOpen(true);
+  };
 
-    if (!provider?.id) return;
+  const handleConfirmDelete = async () => {
+    if (!onDelete || !provider?.id) return;
 
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
-
+    setIsDeleting(true);
     try {
       await onDelete(provider.id);
     } catch (err) {
       console.error("Failed to delete provider", err);
       setError("Failed to delete provider");
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
     }
   };
 
@@ -736,14 +744,28 @@ export default function LlmProviderControl({
               <Button
                 variant="secondary"
                 className={`w-fit ${isNew ? "bg-gray-500 hover:bg-gray-700" : "bg-red-500 hover:bg-red-800 border-red-300"}`}
-                onClick={handleDelete}
+                onClick={openDeleteModal}
+                disabled={isDeleting}
               >
-                {isNew ? "Cancel" : "Delete"}
+                {isNew ? "Cancel" : isDeleting ? "Deleting..." : "Delete"}
               </Button>
             )}
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Provider"
+        message={`Are you sure you want to delete "${name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

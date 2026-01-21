@@ -11,6 +11,7 @@ import { ChatAction } from "../components/ui/ChatAction";
 import { logger } from "../utils/logger";
 import type { ChatMessage } from "../types";
 import { SkeletonChatConversation } from "../components/ui/Skeleton";
+import { useDelayedLoading } from "../hooks/useDelayedLoading";
 
 // API response message structure from getChatMessagesById
 interface ApiChatMessage {
@@ -26,6 +27,9 @@ const ChatView = () => {
   const { speak, stop, isSpeaking } = useSpeechSynthesis();
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Delayed loading - only show skeleton after 150ms
+  const showLoading = useDelayedLoading(loading);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -62,8 +66,10 @@ const ChatView = () => {
         if (!token) return;
         const res = await getChatMessagesById(token, chatId);
         let freshMessages: ChatMessage[] = [];
-        if (res && Array.isArray(res)) {
-          freshMessages = (res as ApiChatMessage[]).map((message: ApiChatMessage) => ({
+        // Handle new paginated response format - messages are in res.messages
+        const messageData = res && res.messages ? res.messages : res;
+        if (messageData && Array.isArray(messageData)) {
+          freshMessages = (messageData as ApiChatMessage[]).map((message: ApiChatMessage) => ({
             id: message.id,
             userMessage: message.human || "",
             botMessage: message.bot || "",
@@ -162,7 +168,7 @@ const ChatView = () => {
 
   return (
     <div ref={containerRef} className="flex-1 space-y-4 px-3" style={{ WebkitOverflowScrolling: "touch" }}>
-        {loading ? (
+        {showLoading && !currentChat?.allMessages?.length ? (
           <div className="py-6 px-2">
             <SkeletonChatConversation messages={2} />
           </div>
