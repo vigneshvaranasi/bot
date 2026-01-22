@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.auth.dependencies import get_current_user, require_role
+from src.api.auth.dependencies import get_current_user, require_permission, require_any_permission
 from src.api.db.models import Setting
 from src.api.db.session import get_session
 from src.api.schemas.setting_schemas import (
@@ -41,16 +41,23 @@ router = APIRouter()
 async def get_segment_settings(
     segment: SettingSegment,
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_any_permission("aiml.view", "auth.view"))
 ):
-    """Get settings for a specific segment."""
+    """Get settings for a specific segment.
+
+    Returns default values if no settings have been configured yet.
+    """
     service = SettingsService(db)
     setting = await service.get_latest_setting()
 
     if not setting:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No settings found"
+        # Return default values when no settings exist
+        segment_data = SettingsService.get_default_segment_fields(segment)
+        return SegmentSettingResponse(
+            segment=segment,
+            settings=segment_data,
+            version_id=None,
+            updated_at=None
         )
 
     segment_data = service.extract_segment_fields(setting, segment)
@@ -67,7 +74,7 @@ async def get_segment_settings(
 async def update_aiml_settings(
     update_data: AiMlSettingsUpdate,
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_permission("aiml.edit"))
 ):
     """Update AI/ML settings segment."""
     service = SettingsService(db)
@@ -100,7 +107,7 @@ async def update_aiml_settings(
 async def update_auth_settings(
     update_data: AuthSettingsUpdate,
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_permission("auth.edit"))
 ):
     """Update Auth settings segment."""
     service = SettingsService(db)
@@ -134,7 +141,7 @@ async def get_settings_history(
     offset: int = Query(default=0, ge=0),
     segment: Optional[SettingSegment] = Query(default=None, description="Filter changes by segment"),
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_permission("history.view"))
 ):
     """Get settings version history with pagination and computed changes.
 
@@ -186,7 +193,7 @@ async def rollback_to_version(
     version_id: UUID,
     request: Optional[RollbackRequest] = None,
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_permission("history.rollback"))
 ):
     """Rollback all settings to a specific version.
 
@@ -223,7 +230,7 @@ async def rollback_to_version(
 async def create_setting(
     setting: SettingCreate,
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_any_permission("aiml.edit", "auth.edit"))
 ):
     """Create a new settings version (legacy endpoint)."""
     service = SettingsService(db)
@@ -262,20 +269,20 @@ async def create_setting(
     return SettingResponse.model_validate(new_setting)
 
 
-@router.get("/", response_model=SettingResponse)
+@router.get("/", response_model=Optional[SettingResponse])
 async def get_latest_setting(
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_any_permission("aiml.view", "auth.view"))
 ):
-    """Get the latest settings version (legacy endpoint)."""
+    """Get the latest settings version (legacy endpoint).
+
+    Returns null if no settings have been configured yet.
+    """
     service = SettingsService(db)
     setting = await service.get_latest_setting()
 
     if not setting:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No settings found"
-        )
+        return None
 
     return SettingResponse.model_validate(setting)
 
@@ -283,7 +290,7 @@ async def get_latest_setting(
 @router.get("/all", response_model=SettingListResponse)
 async def list_settings(
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_permission("history.view"))
 ):
     """List all settings versions (legacy endpoint)."""
     service = SettingsService(db)
@@ -291,20 +298,20 @@ async def list_settings(
     return SettingListResponse(settings=[SettingResponse.model_validate(s) for s in settings])
 
 
-@router.get("/last", response_model=SettingResponse)
+@router.get("/last", response_model=Optional[SettingResponse])
 async def get_last_setting(
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_any_permission("aiml.view", "auth.view"))
 ):
-    """Get the last setting (alias for get_latest_setting)."""
+    """Get the last setting (alias for get_latest_setting).
+
+    Returns null if no settings have been configured yet.
+    """
     service = SettingsService(db)
     setting = await service.get_latest_setting()
 
     if not setting:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No settings found"
-        )
+        return None
 
     return SettingResponse.model_validate(setting)
 

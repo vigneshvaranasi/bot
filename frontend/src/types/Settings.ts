@@ -49,8 +49,8 @@ export type AuthSettings = {
 export type SegmentSettingResponse<T> = {
   segment: SettingSegment;
   settings: T;
-  version_id: string;
-  updated_at: string;
+  version_id: string | null;  // null when returning defaults (no settings in DB yet)
+  updated_at: string | null;  // null when returning defaults
 }
 
 export type SettingHistoryItem = {

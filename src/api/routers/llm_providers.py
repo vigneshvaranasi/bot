@@ -10,7 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.auth.dependencies import require_role
+from src.api.auth.dependencies import require_permission
 from src.api.db.session import get_session
 from src.api.schemas.llm_provider_schemas import (
     LlmProviderCreate,
@@ -57,7 +57,7 @@ def _to_response(provider) -> LlmProviderResponse:
 async def list_providers(
     active_only: bool = Query(False, description="Only return active providers"),
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_permission("llm_provider.view"))
 ):
     """List all LLM providers.
 
@@ -77,7 +77,7 @@ async def list_providers(
 async def create_provider(
     data: LlmProviderCreate,
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_permission("llm_provider.create"))
 ):
     """Create a new LLM provider.
 
@@ -95,7 +95,7 @@ async def create_provider(
 @router.get("/models/available", response_model=AvailableModelsResponse)
 async def get_available_models(
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_permission("llm_provider.view"))
 ):
     """Get all available models from active providers.
 
@@ -112,7 +112,7 @@ async def get_available_models(
 async def get_provider(
     provider_id: UUID,
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_permission("llm_provider.view"))
 ):
     """Get a specific LLM provider by ID.
 
@@ -136,7 +136,7 @@ async def update_provider(
     provider_id: UUID,
     data: LlmProviderUpdate,
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_permission("llm_provider.edit"))
 ):
     """Update an LLM provider.
 
@@ -161,7 +161,7 @@ async def update_provider(
 async def delete_provider(
     provider_id: UUID,
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_permission("llm_provider.delete"))
 ):
     """Delete an LLM provider.
 
@@ -193,7 +193,7 @@ async def delete_provider(
 async def test_provider_connection(
     provider_id: UUID,
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_permission("llm_provider.test"))
 ):
     """Test connection to an LLM provider.
 
@@ -233,7 +233,7 @@ async def test_provider_connection(
 async def discover_provider_models(
     provider_id: UUID,
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_permission("llm_provider.view"))
 ):
     """Discover available models from a saved provider's API.
 
@@ -267,7 +267,7 @@ async def discover_provider_models(
 async def discover_models_from_config(
     data: LlmProviderCreate,
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_role("admin"))
+    current_user: dict = Depends(require_permission("llm_provider.create"))
 ):
     """Discover available models from provider credentials without saving.
 

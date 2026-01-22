@@ -3,7 +3,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 from sqlalchemy import func
-from ..db.models import User, AuthIdentity, Role, AuthProvider, RevokedToken
+from ..db.models import User, AuthIdentity, Role, AuthProvider, RevokedToken, UserRole
 from ..core.security import get_password_hash, verify_password
 from ..core.jwt import create_access_token
 from .schemas import UserSignup, UserLogin, TokenResponse
@@ -31,10 +31,18 @@ async def revoke_all_user_tokens(user_id: uuid.UUID, session: AsyncSession):
         await session.commit()
 
 async def get_default_role(session: AsyncSession) -> Role:
+    """Get the default role for new users (Basic User)."""
+    result = await session.execute(select(Role).where(Role.name == "Basic User"))
+    role = result.scalar_one_or_none()
+    if role:
+        return role
+
+    # Fallback to legacy "user" role for backward compatibility
     result = await session.execute(select(Role).where(Role.name == "user"))
     role = result.scalar_one_or_none()
     if not role:
-        role = Role(name="user")
+        # Create a basic user role if none exists
+        role = Role(name="Basic User")
         session.add(role)
         await session.commit()
         await session.refresh(role)
@@ -44,7 +52,7 @@ async def signup_user(user_data: UserSignup, session: AsyncSession) -> dict:
     # Check if user exists
     result = await session.execute(select(User).where(User.email == user_data.email))
     existing_user = result.scalar_one_or_none()
-    
+
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -61,7 +69,7 @@ async def signup_user(user_data: UserSignup, session: AsyncSession) -> dict:
     # Create User
     new_user = User(
         email=user_data.email,
-        role_id=role_id,
+        role_id=role_id,  # Legacy field for backward compatibility
         is_active=True
     )
     session.add(new_user)
@@ -75,9 +83,18 @@ async def signup_user(user_data: UserSignup, session: AsyncSession) -> dict:
         password_hash=hashed_password
     )
     session.add(auth_identity)
-    
+
+    # Create UserRole entry
+    user_role = UserRole(
+        user_id=new_user.id,
+        role_id=role_id,
+        assigned_at=datetime.utcnow(),
+        assigned_by=None
+    )
+    session.add(user_role)
+
     await session.commit()
-    
+
     return {"message": "User created successfully"}
 
 async def login_user(user_credentials: UserLogin, session: AsyncSession) -> TokenResponse:
@@ -205,24 +222,33 @@ async def resolve_oauth_user(profile: dict, session: AsyncSession) -> User:
     role = await get_default_role(session)
     new_user = User(
         email=profile.get("email"),
-        role_id=role.id,
+        role_id=role.id,  # Legacy field for backward compatibility
         is_active=True
     )
     session.add(new_user)
     await session.flush()
-    
+
     new_identity = AuthIdentity(
         user_id=new_user.id,
         provider=profile["provider"],
         provider_user_id=profile["provider_user_id"]
     )
     session.add(new_identity)
+
+    user_role = UserRole(
+        user_id=new_user.id,
+        role_id=role.id,
+        assigned_at=datetime.utcnow(),
+        assigned_by=None
+    )
+    session.add(user_role)
+
     await session.commit()
     await session.refresh(new_user)
     stmt = select(User).options(selectinload(User.role)).where(User.id == new_user.id)
     result = await session.execute(stmt)
     new_user = result.scalar_one()
-    
+
     return new_user
 
 async def update_user_password(user_id: uuid.UUID, password: str, session: AsyncSession):

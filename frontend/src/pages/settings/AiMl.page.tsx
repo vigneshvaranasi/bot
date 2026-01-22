@@ -28,8 +28,17 @@ import type {
 import { toast } from "react-hot-toast";
 import { logger } from "../../utils/logger";
 import { SkeletonAiMlSettings } from "../../components/ui/Skeleton";
+import { usePermissions } from "../../hooks/usePermissions";
+import { PERMISSIONS } from "../../types/Permission";
 
 const AiMlConfigPage = () => {
+  const { hasPermission } = usePermissions();
+  const canEditAiMl = hasPermission(PERMISSIONS.AIML_EDIT);
+  const canCreateProvider = hasPermission(PERMISSIONS.LLM_PROVIDER_CREATE);
+  const canEditProvider = hasPermission(PERMISSIONS.LLM_PROVIDER_EDIT);
+  const canDeleteProvider = hasPermission(PERMISSIONS.LLM_PROVIDER_DELETE);
+  const canTestProvider = hasPermission(PERMISSIONS.LLM_PROVIDER_TEST);
+
   const [model, setModel] = useState<Model>("gemma3:4b");
   const [temperature, setTemperature] = useState("0.2");
   const [langfuseEnabled, setLangfuseEnabled] = useState<boolean | undefined>(undefined);
@@ -333,13 +342,15 @@ const AiMlConfigPage = () => {
               Configure API keys and endpoints for AI model providers.
             </p>
           </div>
-          <Button
-            variant="primary"
-            onClick={() => setNewProviderOpen(true)}
-            disabled={newProviderOpen}
-          >
-            Add Provider
-          </Button>
+          {canCreateProvider && (
+            <Button
+              variant="primary"
+              onClick={() => setNewProviderOpen(true)}
+              disabled={newProviderOpen}
+            >
+              Add Provider
+            </Button>
+          )}
         </div>
 
         {loadingProviders ? (
@@ -347,13 +358,16 @@ const AiMlConfigPage = () => {
         ) : (
           <div className="space-y-4">
             {/* New Provider Form */}
-            {newProviderOpen && (
+            {newProviderOpen && canCreateProvider && (
               <div className="border-2 border-dashed border-blue-300 rounded-lg p-2">
                 <LlmProviderControl
                   isNew={true}
                   onSave={handleSaveProvider}
                   onDelete={() => setNewProviderOpen(false)}
                   onDiscoverModelsFromConfig={handleDiscoverModelsFromConfig}
+                  canEdit={true}
+                  canDelete={true}
+                  canTest={canTestProvider}
                 />
               </div>
             )}
@@ -361,18 +375,21 @@ const AiMlConfigPage = () => {
             {/* Existing Providers */}
             {providers.length === 0 && !newProviderOpen ? (
               <div className="text-sm text-gray-500 text-center py-4">
-                No providers configured. Click "Add Provider" to get started.
+                No providers configured.{canCreateProvider ? " Click \"Add Provider\" to get started." : ""}
               </div>
             ) : (
               providers.map((provider) => (
                 <LlmProviderControl
                   key={provider.id}
                   provider={provider}
-                  onSave={handleSaveProvider}
-                  onDelete={handleDeleteProvider}
-                  onTest={handleTestProvider}
-                  onDiscoverModels={handleDiscoverModels}
-                  onDiscoverModelsFromConfig={handleDiscoverModelsFromConfig}
+                  onSave={canEditProvider ? handleSaveProvider : undefined}
+                  onDelete={canDeleteProvider ? handleDeleteProvider : undefined}
+                  onTest={canTestProvider ? handleTestProvider : undefined}
+                  onDiscoverModels={canEditProvider ? handleDiscoverModels : undefined}
+                  onDiscoverModelsFromConfig={canEditProvider ? handleDiscoverModelsFromConfig : undefined}
+                  canEdit={canEditProvider}
+                  canDelete={canDeleteProvider}
+                  canTest={canTestProvider}
                 />
               ))
             )}
@@ -386,9 +403,11 @@ const AiMlConfigPage = () => {
             <h3 className="text-sm font-semibold text-gray-900">Model & Generation</h3>
             <p className="text-xs text-gray-600">Select model and configure generation parameters.</p>
           </div>
-          <Button variant="primary" onClick={handleSaveModel} disabled={savingModel}>
-            {savingModel ? "Saving…" : "Save"}
-          </Button>
+          {canEditAiMl && (
+            <Button variant="primary" onClick={handleSaveModel} disabled={savingModel}>
+              {savingModel ? "Saving…" : "Save"}
+            </Button>
+          )}
         </div>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <div className="space-y-3">
@@ -441,9 +460,11 @@ const AiMlConfigPage = () => {
             <h3 className="text-sm font-semibold text-gray-900">Safety & Observability</h3>
             <p className="text-xs text-gray-600"> Configure safety filters and tracing options.</p>
           </div>
-          <Button variant="primary" onClick={handleSaveSafety} disabled={savingSafety}>
-            {savingSafety ? "Saving…" : "Save"}
-          </Button>
+          {canEditAiMl && (
+            <Button variant="primary" onClick={handleSaveSafety} disabled={savingSafety}>
+              {savingSafety ? "Saving…" : "Save"}
+            </Button>
+          )}
         </div>
 
         <div className="space-y-3">

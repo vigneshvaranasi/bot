@@ -163,14 +163,17 @@ class SettingHistoryResponse(BaseModel):
 
 
 class RollbackRequest(BaseModel):
-    """Request for rollback endpoint."""
-    version_id: UUID4
+    """Request for rollback endpoint (version_id comes from URL path)."""
     reason: Optional[str] = None
 
 
 class SegmentSettingResponse(BaseModel):
-    """Generic response wrapper for segment settings."""
+    """Generic response wrapper for segment settings.
+
+    version_id and updated_at are optional because they are None
+    when returning default values (no settings in database yet).
+    """
     segment: SettingSegment
     settings: dict
-    version_id: UUID4
-    updated_at: datetime
+    version_id: Optional[UUID4] = None
+    updated_at: Optional[datetime] = None

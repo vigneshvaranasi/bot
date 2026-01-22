@@ -26,11 +26,15 @@ type ModelDiscoveryResult = {
 type LlmProviderControlProps = {
   provider?: LlmProvider;
   isNew?: boolean;
-  onSave: (payload: LlmProviderCreate | (LlmProviderUpdate & { id: string })) => Promise<void>;
+  onSave?: (payload: LlmProviderCreate | (LlmProviderUpdate & { id: string })) => Promise<void>;
   onDelete?: (id?: string) => void | Promise<void>;
   onTest?: (id: string) => Promise<HealthCheckResult | null>;
   onDiscoverModels?: (id: string) => Promise<ModelDiscoveryResult | null>;
   onDiscoverModelsFromConfig?: (config: LlmProviderCreate) => Promise<ModelDiscoveryResult | null>;
+  // Permission flags
+  canEdit?: boolean;
+  canDelete?: boolean;
+  canTest?: boolean;
 };
 
 const providerTypeOptions = [
@@ -48,6 +52,9 @@ export default function LlmProviderControl({
   onTest,
   onDiscoverModels,
   onDiscoverModelsFromConfig,
+  canEdit = true,
+  canDelete = true,
+  canTest = true,
 }: LlmProviderControlProps) {
   // Form state
   const [name, setName] = useState(provider?.name || "");
@@ -184,6 +191,8 @@ export default function LlmProviderControl({
   };
 
   const handleSave = async () => {
+    if (!onSave) return;
+
     const validationError = validate();
     if (validationError) {
       setError(validationError);
@@ -381,7 +390,7 @@ export default function LlmProviderControl({
       {/* Header */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          {isNameEditable ? (
+          {isNameEditable && canEdit ? (
             <input
               ref={nameInputRef}
               value={name}
@@ -391,10 +400,12 @@ export default function LlmProviderControl({
             />
           ) : (
             <h3
-              className="text-lg font-semibold cursor-text"
+              className={`text-lg font-semibold ${canEdit ? "cursor-text" : ""}`}
               onClick={() => {
-                setIsNameEditable(true);
-                setIsConfigOpen(true);
+                if (canEdit) {
+                  setIsNameEditable(true);
+                  setIsConfigOpen(true);
+                }
               }}
             >
               {name || "Unnamed Provider"}
@@ -477,7 +488,7 @@ export default function LlmProviderControl({
           )}
         </div>
 
-        {!isNew && provider?.id && (
+        {!isNew && provider?.id && canTest && onTest && (
           <Button
             variant="secondary"
             className="w-fit font-normal"
@@ -731,16 +742,18 @@ export default function LlmProviderControl({
 
           {/* Action buttons */}
           <div className="flex flex-row gap-2 mt-2">
-            <Button
-              variant="secondary"
-              className="w-fit"
-              onClick={handleSave}
-              disabled={isSaving}
-            >
-              {isSaving ? "Saving..." : "Save Configuration"}
-            </Button>
+            {canEdit && onSave && (
+              <Button
+                variant="secondary"
+                className="w-fit"
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? "Saving..." : "Save Configuration"}
+              </Button>
+            )}
 
-            {onDelete && (isNew || provider?.id) && (
+            {((isNew && canEdit) || (!isNew && canDelete)) && onDelete && (isNew || provider?.id) && (
               <Button
                 variant="secondary"
                 className={`w-fit ${isNew ? "bg-gray-500 hover:bg-gray-700" : "bg-red-500 hover:bg-red-800 border-red-300"}`}

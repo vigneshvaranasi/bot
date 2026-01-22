@@ -5,12 +5,11 @@ import SettingsHeader from "../../components/settings/SettingsHeader";
 import {
   fetchUsers,
   fetchRoles,
-  updateUser,
   deleteUser,
+  updateUserRoles,
   type AdminUser,
   type Role,
 } from "../../handlers/adminHandlers";
-import Dropdown from "../../components/ui/Dropdown";
 import { toast } from "react-hot-toast";
 import Toggle from "../../components/ui/Toggle";
 import { fetchSettings, updateSettings } from "../../handlers/settingsHandlers";
@@ -20,10 +19,17 @@ import { SkeletonUserManagement, SkeletonToggle } from "../../components/ui/Skel
 import { ConfirmModal } from "../../components/ui/Modal";
 import { Pagination, DEFAULT_PAGE_SIZE_OPTIONS } from "../../components/ui/Pagination";
 import { useDelayedLoading } from "../../hooks/useDelayedLoading";
+import { usePermissions } from "../../hooks/usePermissions";
+import { PERMISSIONS } from "../../types/Permission";
 
 const DEFAULT_PAGE_SIZE = 10;
 
 const UserManagement: React.FC = () => {
+  const { hasPermission } = usePermissions();
+  const canEditUser = hasPermission(PERMISSIONS.USER_EDIT);
+  const canDeleteUser = hasPermission(PERMISSIONS.USER_DELETE);
+  const canEditAuth = hasPermission(PERMISSIONS.AUTH_EDIT);
+
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,7 +63,7 @@ const UserManagement: React.FC = () => {
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
-  const [selectedRoleId, setSelectedRoleId] = useState("");
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
 
   const loadUsers = useCallback(async (page: number, size: number, search?: string) => {
     setLoadingUsers(true);
@@ -82,12 +88,11 @@ const UserManagement: React.FC = () => {
           fetchSettings(),
         ]);
         setRoles(rolesData);
-        if (settings) {
-          setAuthGoogleEnabled(settings.auth_google_enabled ?? true);
-          setAuthGithubEnabled(settings.auth_github_enabled ?? true);
-          setAuthMicrosoftEnabled(settings.auth_microsoft_enabled ?? true);
-          setAuthLocalEnabled(settings.auth_local_enabled ?? true);
-        }
+        // Set auth settings with defaults - even if settings is null (no settings in DB yet)
+        setAuthGoogleEnabled(settings?.auth_google_enabled ?? true);
+        setAuthGithubEnabled(settings?.auth_github_enabled ?? true);
+        setAuthMicrosoftEnabled(settings?.auth_microsoft_enabled ?? true);
+        setAuthLocalEnabled(settings?.auth_local_enabled ?? true);
         // Load initial users
         await loadUsers(1, pageSize);
       } catch (error) {
@@ -121,27 +126,38 @@ const UserManagement: React.FC = () => {
 
   const handleEditUser = (user: AdminUser) => {
     setEditingUser(user);
-    setSelectedRoleId(user.role_id);
+    // Initialize with current roles
+    const roleIds = user.roles.map((r) => r.role_id);
+    setSelectedRoleIds(roleIds);
     setIsEditModalOpen(true);
+  };
+
+  const handleToggleRole = (roleId: string) => {
+    setSelectedRoleIds((prev) =>
+      prev.includes(roleId)
+        ? prev.filter((id) => id !== roleId)
+        : [...prev, roleId]
+    );
   };
 
   const handleSaveUser = async () => {
     if (!editingUser) return;
+    if (selectedRoleIds.length === 0) {
+      toast.error("User must have at least one role");
+      return;
+    }
     try {
       setSaving(true);
-      await updateUser(editingUser.id, {
-        is_active: editingUser.is_active,
-        role_id: selectedRoleId,
-      });
+      await updateUserRoles(editingUser.id, selectedRoleIds);
 
       // Refresh list - stay on current page
       await loadUsers(currentPage, pageSize, searchTerm || undefined);
       setIsEditModalOpen(false);
       setEditingUser(null);
-      toast.success("User updated");
+      toast.success("User roles updated");
     } catch (error) {
-      logger.error("Failed to update user", error);
-      toast.error("Failed to update user");
+      logger.error("Failed to update user roles", error);
+      toast.error("Failed to update user roles");
     } finally {
       setSaving(false);
     }
@@ -201,30 +217,52 @@ const UserManagement: React.FC = () => {
       headerClassName: "text-xs md:text-sm font-medium text-gray-700",
     },
     {
-      header: "Role",
-      accessor: "role_name" as keyof AdminUser,
-      className: "text-xs md:text-sm text-gray-900",
+      header: "Roles",
       headerClassName: "text-xs md:text-sm font-medium text-gray-700",
+      className: "text-xs md:text-sm text-gray-900",
+      render: (user: AdminUser) => (
+        <div className="flex flex-wrap gap-1">
+          {user.roles.length > 0 ? (
+            user.roles.map((role) => (
+              <span
+                key={role.role_id}
+                className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs"
+              >
+                {role.role_name}
+              </span>
+            ))
+          ) : (
+            <span className="text-gray-400 text-xs">No roles</span>
+          )}
+        </div>
+      ),
     },
     {
       header: "Actions",
       searchable: false,
       render: (user: AdminUser) => (
         <div className="flex flex-row gap-1 sm:gap-2">
-          <Button
-            variant="secondary"
-            className="bg-gray-400 text-white hover:bg-gray-500 text-xs md:text-sm px-2 py-1 w-full sm:w-auto"
-            onClick={() => handleEditUser(user)}
-          >
-            EDIT
-          </Button>
-          <Button
-            variant="secondary"
-            className="bg-red-500 text-white hover:bg-red-600 text-xs md:text-sm px-2 py-1 w-full sm:w-auto"
-            onClick={() => openDeleteModal(user)}
-          >
-            DELETE
-          </Button>
+          {canEditUser && (
+            <Button
+              variant="secondary"
+              className="bg-gray-400 text-white hover:bg-gray-500 text-xs md:text-sm px-2 py-1 w-full sm:w-auto"
+              onClick={() => handleEditUser(user)}
+            >
+              EDIT
+            </Button>
+          )}
+          {canDeleteUser && (
+            <Button
+              variant="secondary"
+              className="bg-red-500 text-white hover:bg-red-600 text-xs md:text-sm px-2 py-1 w-full sm:w-auto"
+              onClick={() => openDeleteModal(user)}
+            >
+              DELETE
+            </Button>
+          )}
+          {!canEditUser && !canDeleteUser && (
+            <span className="text-xs text-gray-400">View only</span>
+          )}
         </div>
       ),
       headerClassName: "text-xs md:text-sm font-medium text-gray-700",
@@ -257,9 +295,11 @@ const UserManagement: React.FC = () => {
             <h3 className="text-sm font-semibold text-gray-900">Authentication Methods</h3>
             <p className="text-xs text-gray-600">Toggle available login providers for the org.</p>
           </div>
-          <Button variant="primary" onClick={handleSaveAuth} disabled={authSaving}>
-            {authSaving ? "Saving…" : "Save"}
-          </Button>
+          {canEditAuth && (
+            <Button variant="primary" onClick={handleSaveAuth} disabled={authSaving}>
+              {authSaving ? "Saving…" : "Save"}
+            </Button>
+          )}
         </div>
         <div className="space-y-3">
           {authSettingsLoaded ? (
@@ -268,32 +308,36 @@ const UserManagement: React.FC = () => {
                 <span className="text-sm text-gray-900">Basic Authentication</span>
                 <Toggle
                   enabled={authLocalEnabled}
-                  onChange={setAuthLocalEnabled}
+                  onChange={canEditAuth ? setAuthLocalEnabled : undefined}
                   id="authLocalToggle"
+                  disabled={!canEditAuth}
                 />
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-900">Google Authentication</span>
                 <Toggle
                   enabled={authGoogleEnabled}
-                  onChange={setAuthGoogleEnabled}
+                  onChange={canEditAuth ? setAuthGoogleEnabled : undefined}
                   id="authGoogleToggle"
+                  disabled={!canEditAuth}
                 />
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-900">GitHub Authentication</span>
                 <Toggle
                   enabled={authGithubEnabled}
-                  onChange={setAuthGithubEnabled}
+                  onChange={canEditAuth ? setAuthGithubEnabled : undefined}
                   id="authGithubToggle"
+                  disabled={!canEditAuth}
                 />
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-900">Microsoft Authentication</span>
                 <Toggle
                   enabled={authMicrosoftEnabled}
-                  onChange={setAuthMicrosoftEnabled}
+                  onChange={canEditAuth ? setAuthMicrosoftEnabled : undefined}
                   id="authMicrosoftToggle"
+                  disabled={!canEditAuth}
                 />
               </div>
             </>
@@ -354,7 +398,7 @@ const UserManagement: React.FC = () => {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md border border-gray-200">
             <div className="flex items-start justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Edit User</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Edit User Roles</h2>
               <Button
                 variant="secondary"
                 className="bg-gray-200 text-gray-800 hover:bg-gray-300 px-3 py-1"
@@ -366,13 +410,33 @@ const UserManagement: React.FC = () => {
             <p className="text-sm text-gray-600 mb-4 truncate">{editingUser.email}</p>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-              <Dropdown
-                options={roles.map((r) => ({ label: r.name, value: r.id }))}
-                value={selectedRoleId}
-                onChange={(val) => val && setSelectedRoleId(val)}
-                placeholder="Select Role"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Roles <span className="text-gray-500 font-normal">({selectedRoleIds.length} selected)</span>
+              </label>
+              <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
+                {roles.map((role) => (
+                  <label
+                    key={role.id}
+                    className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedRoleIds.includes(role.id)}
+                      onChange={() => handleToggleRole(role.id)}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-900">{role.name}</div>
+                      {role.description && (
+                        <div className="text-xs text-gray-500 truncate">{role.description}</div>
+                      )}
+                    </div>
+                  </label>
+                ))}
+              </div>
+              {selectedRoleIds.length === 0 && (
+                <p className="text-xs text-red-500 mt-1">At least one role is required</p>
+              )}
             </div>
 
             <div className="flex justify-end gap-3">
@@ -383,7 +447,11 @@ const UserManagement: React.FC = () => {
               >
                 Cancel
               </Button>
-              <Button variant="primary" onClick={handleSaveUser} disabled={saving}>
+              <Button
+                variant="primary"
+                onClick={handleSaveUser}
+                disabled={saving || selectedRoleIds.length === 0}
+              >
                 {saving ? "Saving…" : "Save Changes"}
               </Button>
             </div>

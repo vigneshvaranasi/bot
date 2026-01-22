@@ -1,17 +1,18 @@
 import React from "react";
 
 type ToggleProps = {
-  enabled: boolean;
-  onChange: (enabled: boolean) => void;
+  enabled?: boolean;
+  onChange?: (enabled: boolean) => void;
   label?: string;
   id?: string;
+  disabled?: boolean;
 };
 
-const Toggle: React.FC<ToggleProps> = ({ enabled, onChange, label, id }) => {
+const Toggle: React.FC<ToggleProps> = ({ enabled, onChange, label, id, disabled = false }) => {
   return (
     <label
       htmlFor={id}
-      className="flex items-center space-x-3 cursor-pointer select-none"
+      className={`flex items-center space-x-3 select-none ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
     >
       {label && <span>{label}</span>}
 
@@ -22,8 +23,9 @@ const Toggle: React.FC<ToggleProps> = ({ enabled, onChange, label, id }) => {
           id={id}
           type="checkbox"
           checked={enabled}
-          onChange={(e) => onChange(e.target.checked)}
+          onChange={(e) => !disabled && onChange?.(e.target.checked)}
           className="sr-only peer"
+          disabled={disabled}
         />
 
           <div

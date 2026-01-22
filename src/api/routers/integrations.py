@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from src.api.auth.dependencies import get_current_user, require_role
+from src.api.auth.dependencies import get_current_user, require_permission
 from src.api.db.models.integration import Integration
 from src.api.db.session import get_session
 from src.api.schemas.integration_schema import (
@@ -57,7 +57,7 @@ def mask_integration_response(integration) -> dict:
 # GET All Integrations
 @router.get("/all")
 async def get_integrations(
-    session: AsyncSession = Depends(get_session), current_user=Depends(require_role("admin"))
+    session: AsyncSession = Depends(get_session), current_user=Depends(require_permission("integration.view"))
 ):
     try:
         result = await session.execute(select(Integration))
@@ -76,7 +76,7 @@ async def get_integrations(
 async def get_integration(
     integration_id: str,
     session: AsyncSession = Depends(get_session),
-    current_user=Depends(require_role("admin")),
+    current_user=Depends(require_permission("integration.view")),
 ):
     try:
         result = await session.execute(
@@ -98,7 +98,7 @@ async def get_integration(
 async def create_integration(
     integration: IntegrationCreate,
     session: AsyncSession = Depends(get_session),
-    current_user=Depends(require_role("admin")),
+    current_user=Depends(require_permission("integration.create")),
 ):
     try:
         user_id = current_user["user_id"] if current_user else None
@@ -129,7 +129,7 @@ async def create_integration(
 async def delete_integration(
     integration_id: str,
     session: AsyncSession = Depends(get_session),
-    current_user=Depends(require_role("admin")),
+    current_user=Depends(require_permission("integration.delete")),
 ):
     try:
         result = await session.execute(
@@ -155,7 +155,7 @@ async def update_integration(
     integration_id: str,
     integration_data: IntegrationBase,
     session: AsyncSession = Depends(get_session),
-    current_user=Depends(require_role("admin")),
+    current_user=Depends(require_permission("integration.edit")),
 ):
     try:
         result = await session.execute(
@@ -188,7 +188,7 @@ async def update_integration(
 async def sync_integration(
     integration_id: str,
     session: AsyncSession = Depends(get_session),
-    current_user=Depends(require_role("admin")),
+    current_user=Depends(require_permission("integration.sync")),
 ):
     try:
         result = await session.execute(

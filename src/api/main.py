@@ -61,3 +61,6 @@ app.include_router(integrations.router, prefix="/integrations", tags=["Integrati
 
 from src.api.routers import llm_providers
 app.include_router(llm_providers.router, prefix="/llm-providers", tags=["LLM Providers"])
+
+from src.api.routers import permissions
+app.include_router(permissions.router, tags=["Permissions"])

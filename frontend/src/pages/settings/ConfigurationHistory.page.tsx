@@ -11,6 +11,8 @@ import { logger } from "../../utils/logger";
 import { SkeletonAudit } from "../../components/ui/Skeleton";
 import { Pagination, DEFAULT_PAGE_SIZE_OPTIONS } from "../../components/ui/Pagination";
 import { useDelayedLoading } from "../../hooks/useDelayedLoading";
+import { usePermissions } from "../../hooks/usePermissions";
+import { PERMISSIONS } from "../../types/Permission";
 
 const DEFAULT_PAGE_SIZE = 15;
 
@@ -74,6 +76,9 @@ const ChangeBadges = ({ changes }: { changes: ChangeDescription[] }) => {
 };
 
 const ConfigurationHistoryPage = () => {
+  const { hasPermission } = usePermissions();
+  const canRollback = hasPermission(PERMISSIONS.HISTORY_ROLLBACK);
+
   const [history, setHistory] = useState<SettingHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -332,18 +337,20 @@ const ConfigurationHistoryPage = () => {
                             >
                               Details
                             </button>
-                            <Button
-                              variant="secondary"
-                              className={`text-xs px-2 py-1 ${
-                                isCurrentVersion
-                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                  : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                              }`}
-                              onClick={() => openRollbackModal(item.id)}
-                              disabled={isCurrentVersion || rollingBack === item.id}
-                            >
-                              {rollingBack === item.id ? "..." : "Rollback"}
-                            </Button>
+                            {canRollback && (
+                              <Button
+                                variant="secondary"
+                                className={`text-xs px-2 py-1 ${
+                                  isCurrentVersion
+                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                    : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                }`}
+                                onClick={() => openRollbackModal(item.id)}
+                                disabled={isCurrentVersion || rollingBack === item.id}
+                              >
+                                {rollingBack === item.id ? "..." : "Rollback"}
+                              </Button>
+                            )}
                           </div>
                         );
                       },
@@ -384,7 +391,7 @@ const ConfigurationHistoryPage = () => {
       </section>
 
       {/* Legend */}
-      <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+      <section className="hidden border border-gray-200 rounded-lg p-4 space-y-4">
         <h3 className="text-sm font-semibold text-gray-900">Legend</h3>
         <div className="flex flex-wrap gap-6 text-xs text-gray-600">
           <div>

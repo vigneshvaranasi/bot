@@ -51,6 +51,21 @@ const AuthPage = () => {
     }
   };
 
+  const getErrorMessage = (error: unknown): string => {
+    if (error && typeof error === "object" && "response" in error) {
+      const response = (error as { response?: { data?: { detail?: string | { msg?: string }[] } } }).response;
+      const detail = response?.data?.detail;
+      if (typeof detail === "string") {
+        return detail;
+      }
+      // Handle Pydantic validation errors (array format)
+      if (Array.isArray(detail) && detail.length > 0) {
+        return detail.map(d => d.msg || String(d)).join(", ");
+      }
+    }
+    return "Authentication failed. Please check your credentials.";
+  };
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -62,20 +77,25 @@ const AuthPage = () => {
           await login(response.data.access_token);
           return;
         }
-      } catch {
+      } catch (loginError) {
         // Login failed, try signup then login
-        await http.post("/auth/signup", {
-            email,
-            password
-        });
-        const loginResponse = await http.post("/auth/login", { email, password });
-        if (loginResponse.data?.access_token) {
+        try {
+          await http.post("/auth/signup", { email, password });
+          const loginResponse = await http.post("/auth/login", { email, password });
+          if (loginResponse.data?.access_token) {
             await login(loginResponse.data.access_token);
+          }
+        } catch (signupError) {
+          // Show signup error (likely password validation)
+          const errorMsg = getErrorMessage(signupError);
+          logger.error("Signup failed", signupError);
+          toast.error(errorMsg);
+          return;
         }
       }
     } catch (error) {
       logger.error("Auth failed", error);
-      toast.error("Authentication failed. Please check your credentials.");
+      toast.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
