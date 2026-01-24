@@ -424,6 +424,7 @@ const AiMlConfigPage = () => {
               value={model}
               onChange={(val) => setModel(val as Model)}
               placeholder="Select model"
+              disabled={!canEditAiMl}
             />
             {availableModels.length === 0 && (
               <p className="text-xs text-amber-600">
@@ -449,6 +450,7 @@ const AiMlConfigPage = () => {
               step={0.1}
               min={0}
               max={1}
+              disabled={!canEditAiMl}
             />
           </div>
         </div>
@@ -495,11 +497,13 @@ const AiMlConfigPage = () => {
               placeholder="Add words to deny"
               variant="primary"
               className="w-full rounded-[5px] border-gray-400 border-b-1"
+              disabled={!canEditAiMl}
             />
             <Button
               variant="secondary"
               className="font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer w-full sm:w-auto"
               onClick={handleAddDenyWords}
+              disabled={!canEditAiMl}
             >
               Add word
             </Button>
@@ -527,11 +531,11 @@ const AiMlConfigPage = () => {
                         className: "text-xs md:text-sm text-gray-900 py-3",
                         searchable: true,
                       },
-                      {
+                      ...(canEditAiMl ? [{
                         header: "Action",
                         headerClassName:
                           "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200 w-20",
-                        render: (denyWord) => (
+                        render: (denyWord: DenyWordRecord) => (
                           <div className="flex flex-row gap-1 sm:gap-2">
                             <Button
                               variant="default"
@@ -543,7 +547,7 @@ const AiMlConfigPage = () => {
                           </div>
                         ),
                         searchable: false,
-                      },
+                      }] : []),
                     ]}
                     headerRowClassName="bg-gray-50 sticky top-0 z-10"
                     rowClassName="bg-white border-t border-gray-200 hover:bg-gray-50"
@@ -560,7 +564,7 @@ const AiMlConfigPage = () => {
             <InfoHint text="Toggle Langfuse tracing for observability." position="top" gap={2} />
           </div>
           {langfuseEnabled !== undefined ? (
-            <Toggle id="langfuse-toggle" enabled={langfuseEnabled} onChange={setLangfuseEnabled} />
+            <Toggle id="langfuse-toggle" enabled={langfuseEnabled} onChange={setLangfuseEnabled} disabled={!canEditAiMl} />
           ) : (
             <div className="w-11 h-6 bg-gray-200 rounded-full animate-pulse" />
           )}

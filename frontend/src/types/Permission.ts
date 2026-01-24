@@ -127,6 +127,45 @@ export interface UserEffectivePermissionsResponse {
   permissions: string[];
 }
 
+// ==================== Direct User Permission Types ====================
+
+export interface UserDirectPermission {
+  permission_id: string;
+  permission_code: string;
+  permission_name: string;
+  assigned_at?: string;
+  assigned_by?: string;
+}
+
+export interface UserDirectPermissionsResponse {
+  status: string;
+  user_id: string;
+  direct_permissions: UserDirectPermission[];
+}
+
+export interface UserDirectPermissionSet {
+  permission_set_id: string;
+  permission_set_code: string;
+  permission_set_name: string;
+  assigned_at?: string;
+  assigned_by?: string;
+}
+
+export interface UserDirectPermissionSetsResponse {
+  status: string;
+  user_id: string;
+  direct_permission_sets: UserDirectPermissionSet[];
+}
+
+export interface UserEffectivePermissionsDetailedResponse {
+  status: string;
+  user_id: string;
+  from_roles: string[];
+  from_direct_sets: string[];
+  from_direct_permissions: string[];
+  effective: string[];
+}
+
 // ==================== Permission Categories ====================
 
 export const PERMISSION_CATEGORIES = {

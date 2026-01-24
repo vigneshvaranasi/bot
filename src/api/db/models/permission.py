@@ -26,6 +26,13 @@ class Permission(Base):
         cascade="all, delete-orphan"
     )
 
+    # Direct user assignments (bypassing roles)
+    user_permissions = relationship(
+        "UserPermission",
+        back_populates="permission",
+        cascade="all, delete-orphan"
+    )
+
 
 class PermissionSet(Base):
     """Groups of permissions."""
@@ -47,6 +54,13 @@ class PermissionSet(Base):
     )
     role_permission_sets = relationship(
         "RolePermissionSet",
+        back_populates="permission_set",
+        cascade="all, delete-orphan"
+    )
+
+    # Direct user assignments (bypassing roles)
+    user_permission_sets = relationship(
+        "UserPermissionSet",
         back_populates="permission_set",
         cascade="all, delete-orphan"
     )

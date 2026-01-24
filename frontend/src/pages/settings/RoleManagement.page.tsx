@@ -219,6 +219,7 @@ const RoleManagement = () => {
   const canCreate = hasPermission(PERMISSIONS.ROLE_CREATE);
   const canEdit = hasPermission(PERMISSIONS.ROLE_EDIT);
   const canDelete = hasPermission(PERMISSIONS.ROLE_DELETE);
+  const canViewPermissionSets = hasPermission(PERMISSIONS.PERMISSION_SET_VIEW);
 
   useEffect(() => {
     loadData();
@@ -228,12 +229,18 @@ const RoleManagement = () => {
     try {
       setLoading(true);
       setError(null);
-      const [rolesData, permissionSetsData] = await Promise.all([
-        fetchRoles(),
-        fetchPermissionSets(),
-      ]);
+
+      // Always fetch roles, conditionally fetch permission sets
+      const rolesData = await fetchRoles();
       setRoles(rolesData);
-      setPermissionSets(permissionSetsData);
+
+      // Only fetch permission sets if user has permission
+      if (canViewPermissionSets) {
+        const permissionSetsData = await fetchPermissionSets();
+        setPermissionSets(permissionSetsData);
+      } else {
+        setPermissionSets([]);
+      }
     } catch (err) {
       logger.error("Error fetching roles", err);
       setError("Failed to load roles");
@@ -337,14 +344,14 @@ const RoleManagement = () => {
         </div>
       ),
     },
-    ...(canEdit || canDelete
+    ...((canEdit && canViewPermissionSets) || canDelete
       ? [
           {
             header: "Actions",
             headerClassName: "text-sm font-medium text-gray-700",
             render: (role: Role) => (
               <div className="flex gap-2">
-                {canEdit && (
+                {canEdit && canViewPermissionSets && (
                   <Button
                     variant="secondary"
                     className="bg-gray-400 text-white hover:bg-gray-500 text-xs px-2 py-1"
@@ -397,6 +404,14 @@ const RoleManagement = () => {
         </div>
       )}
 
+      {!canViewPermissionSets && (canCreate || canEdit) && (
+        <div className="p-3 bg-yellow-50 text-sm text-yellow-800 border border-yellow-200 rounded">
+          You have role management permissions but cannot view permission sets.
+          Create/Edit functionality is limited. Contact an administrator to grant you the
+          "permission_set.view" permission.
+        </div>
+      )}
+
       <section className="border border-gray-200 rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -409,7 +424,7 @@ const RoleManagement = () => {
             <Button variant="secondary" onClick={loadData} disabled={loading}>
               Refresh
             </Button>
-            {canCreate && (
+            {canCreate && canViewPermissionSets && (
               <Button variant="primary" onClick={handleOpenCreateModal}>
                 Add Role
               </Button>

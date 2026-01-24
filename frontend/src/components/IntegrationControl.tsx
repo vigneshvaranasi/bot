@@ -19,7 +19,8 @@ type IntegrationControlProps = {
   authType?: keyof typeof AUTH_SCHEMAS;
   config?: Record<string, string>;
   isNew?: boolean;
-  onSave: (
+  readOnly?: boolean;
+  onSave?: (
     payload: IntegrationPayload & { id?: string; isNew?: boolean }
   ) => Promise<void> | void;
   onDelete?: (id?: string, isNew?: boolean) => Promise<void> | void;
@@ -42,6 +43,7 @@ export default function IntegrationControl({
   authType: initialAuthType,
   config: initialConfig,
   isNew = false,
+  readOnly = false,
   onSave,
   onDelete,
   onSync,
@@ -105,6 +107,8 @@ export default function IntegrationControl({
   };
 
   const handleSave = async () => {
+    if (!onSave || readOnly) return;
+
     const validationError = validate();
     if (validationError) {
       setError(validationError);
@@ -173,7 +177,7 @@ export default function IntegrationControl({
       {/* Header */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
-          {isNameEditable ? (
+          {isNameEditable && !readOnly ? (
             <input
               ref={nameInputRef}
               value={name}
@@ -183,14 +187,19 @@ export default function IntegrationControl({
             />
           ) : (
             <h3
-              className="text-lg font-semibold cursor-text"
+              className={`text-lg font-semibold ${readOnly ? "" : "cursor-text"}`}
               onClick={() => {
-                setIsNameEditable(true);
-                setIsConfigOpen(true);
+                if (!readOnly) {
+                  setIsNameEditable(true);
+                  setIsConfigOpen(true);
+                }
               }}
             >
               {name || "Unnamed Integration"}
             </h3>
+          )}
+          {readOnly && (
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">View only</span>
           )}
         </div>
 
@@ -199,7 +208,8 @@ export default function IntegrationControl({
             <input
               type="checkbox"
               checked={isEnabled}
-              onChange={() => setIsEnabled((prev) => !prev)}
+              onChange={() => !readOnly && setIsEnabled((prev) => !prev)}
+              disabled={readOnly}
             />
             Enabled
           </label>
@@ -209,7 +219,7 @@ export default function IntegrationControl({
             className="underline"
             onClick={() => setIsConfigOpen((prev) => !prev)}
           >
-            {isConfigOpen ? "Close" : "Configure"}
+            {isConfigOpen ? "Close" : readOnly ? "View" : "Configure"}
           </Button>
         </div>
       </div>
@@ -241,14 +251,16 @@ export default function IntegrationControl({
           )}
         </div>
 
-        <Button
-          variant="secondary"
-          className="w-fit font-normal"
-          onClick={handleSync}
-          disabled={isSyncing}
-        >
-          {isSyncing ? "Syncing..." : "Sync Now"}
-        </Button>
+        {onSync && (
+          <Button
+            variant="secondary"
+            className="w-fit font-normal"
+            onClick={handleSync}
+            disabled={isSyncing}
+          >
+            {isSyncing ? "Syncing..." : "Sync Now"}
+          </Button>
+        )}
       </div>
 
       {/* Config */}
@@ -258,7 +270,8 @@ export default function IntegrationControl({
           <Dropdown
             options={authOptions}
             value={authType}
-            onChange={handleAuthChange}
+            onChange={readOnly ? undefined : handleAuthChange}
+            disabled={readOnly}
           />
 
           {authType && (
@@ -282,12 +295,13 @@ export default function IntegrationControl({
                       placeholder={field.label}
                       type={field.type === "url" ? "text" : field.type}
                       variant="primary"
-                      onChange={(value) =>
+                      onChange={readOnly ? undefined : (value) =>
                         setConfig({
                           ...config,
                           [field.key]: value,
                         })
                       }
+                      disabled={readOnly}
                     />
                   </div>
                 ))}
@@ -296,15 +310,22 @@ export default function IntegrationControl({
           )}
 
           {error && <span className="text-xs text-red-500">{error}</span>}
+          {readOnly && (
+            <p className="text-xs text-gray-500 mt-2">
+              You don't have permission to edit this integration.
+            </p>
+          )}
           <div className="flex flex-row gap-2">
-            <Button
-              variant="secondary"
-              className="w-fit mt-2"
-              onClick={handleSave}
-              disabled={isSaving}
-            >
-              {isSaving ? "Saving..." : "Save Configuration"}
-            </Button>
+            {onSave && !readOnly && (
+              <Button
+                variant="secondary"
+                className="w-fit mt-2"
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? "Saving..." : "Save Configuration"}
+              </Button>
+            )}
             {onDelete && !isSaving && (
               <Button
                 variant="secondary"

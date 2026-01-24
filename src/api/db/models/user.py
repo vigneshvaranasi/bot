@@ -33,3 +33,19 @@ class User(Base):
         foreign_keys="UserRole.user_id",
         cascade="all, delete-orphan"
     )
+
+    # Direct permission assignments (bypassing roles)
+    user_permissions = relationship(
+        "UserPermission",
+        back_populates="user",
+        foreign_keys="UserPermission.user_id",
+        cascade="all, delete-orphan"
+    )
+
+    # Direct permission set assignments (bypassing roles)
+    user_permission_sets = relationship(
+        "UserPermissionSet",
+        back_populates="user",
+        foreign_keys="UserPermissionSet.user_id",
+        cascade="all, delete-orphan"
+    )

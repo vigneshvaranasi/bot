@@ -155,3 +155,96 @@ class BulkRoleAssignmentResponse(BaseModel):
     assigned_count: int
     failed_count: int
     errors: List[str] = []
+
+
+# ==================== Direct User Permission Schemas ====================
+
+class UserDirectPermissionAssignment(BaseModel):
+    """Request to assign a permission directly to a user."""
+    permission_id: UUID4
+
+
+class UserDirectPermissionsUpdate(BaseModel):
+    """Request to replace all direct permissions for a user."""
+    permission_ids: List[UUID4]
+
+
+class UserDirectPermissionResponse(BaseModel):
+    """Response for a direct user permission assignment."""
+    permission_id: UUID4
+    permission_code: str
+    permission_name: str
+    assigned_at: Optional[datetime] = None
+    assigned_by: Optional[UUID4] = None
+
+
+class UserDirectPermissionsResponse(BaseModel):
+    """Response listing all direct permissions for a user."""
+    status: str = Field(default="success")
+    user_id: UUID4
+    direct_permissions: List[UserDirectPermissionResponse]
+
+
+# ==================== Direct User Permission Set Schemas ====================
+
+class UserDirectPermissionSetAssignment(BaseModel):
+    """Request to assign a permission set directly to a user."""
+    permission_set_id: UUID4
+
+
+class UserDirectPermissionSetsUpdate(BaseModel):
+    """Request to replace all direct permission sets for a user."""
+    permission_set_ids: List[UUID4]
+
+
+class UserDirectPermissionSetResponse(BaseModel):
+    """Response for a direct user permission set assignment."""
+    permission_set_id: UUID4
+    permission_set_code: str
+    permission_set_name: str
+    assigned_at: Optional[datetime] = None
+    assigned_by: Optional[UUID4] = None
+
+
+class UserDirectPermissionSetsResponse(BaseModel):
+    """Response listing all direct permission sets for a user."""
+    status: str = Field(default="success")
+    user_id: UUID4
+    direct_permission_sets: List[UserDirectPermissionSetResponse]
+
+
+# ==================== Effective Permissions Detailed Schemas ====================
+
+class UserEffectivePermissionsDetailedResponse(BaseModel):
+    """Response showing effective permissions with breakdown by source."""
+    status: str = Field(default="success")
+    user_id: UUID4
+    from_roles: List[str]  # Permission codes from role assignments
+    from_direct_sets: List[str]  # Permission codes from direct permission set assignments
+    from_direct_permissions: List[str]  # Permission codes from direct permission assignments
+    effective: List[str]  # Union of all (deduplicated)
+
+
+# ==================== RBAC Audit Log Schemas ====================
+
+class RbacAuditLogResponse(BaseModel):
+    """Response for a single RBAC audit log entry."""
+    id: UUID4
+    entity_type: str
+    entity_id: UUID4
+    secondary_entity_id: Optional[UUID4] = None
+    action: str
+    old_value: Optional[dict] = None
+    new_value: Optional[dict] = None
+    changed_by: Optional[UUID4] = None
+    changed_at: datetime
+    ip_address: Optional[str] = None
+
+
+class RbacAuditLogsResponse(BaseModel):
+    """Response listing RBAC audit logs."""
+    status: str = Field(default="success")
+    audit_logs: List[RbacAuditLogResponse]
+    total: int
+    limit: int
+    offset: int

@@ -76,28 +76,28 @@ const NAV_ITEMS: SettingsNavItemConfig[] = [
       "Basic Authentication",
     ],
   },
-  // {
-  //   label: "Roles & Permissions",
-  //   to: "/settings/roles",
-  //   permissions: [PERMISSIONS.ROLE_VIEW],
-  //   searchTexts: [
-  //     "Roles",
-  //     "Permissions",
-  //     "RBAC",
-  //     "Access Control",
-  //   ],
-  // },
-  // {
-  //   label: "Permission Sets",
-  //   to: "/settings/permission-sets",
-  //   permissions: [PERMISSIONS.PERMISSION_SET_VIEW],
-  //   searchTexts: [
-  //     "Permission Sets",
-  //     "Permissions",
-  //     "Groups",
-  //     "RBAC",
-  //   ],
-  // },
+  {
+    label: "Roles & Permissions",
+    to: "/settings/roles",
+    permissions: [PERMISSIONS.ROLE_VIEW],
+    searchTexts: [
+      "Roles",
+      "Permissions",
+      "RBAC",
+      "Access Control",
+    ],
+  },
+  {
+    label: "Permission Sets",
+    to: "/settings/permission-sets",
+    permissions: [PERMISSIONS.PERMISSION_SET_VIEW],
+    searchTexts: [
+      "Permission Sets",
+      "Permissions",
+      "Groups",
+      "RBAC",
+    ],
+  },
   {
     label: "Configuration History",
     to: "/settings/config-history",

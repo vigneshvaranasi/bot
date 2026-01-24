@@ -5,6 +5,7 @@ from sqlalchemy import func, or_, delete
 from fastapi import HTTPException
 from ..db.models import AuthProvider, User, Role, UserRole
 from ..auth.service import revoke_all_user_tokens
+from ..services.audit_service import log_rbac_change, AuditEntityType, AuditAction
 from typing import Optional, Tuple, List
 import uuid
 from datetime import datetime
@@ -104,6 +105,17 @@ async def assign_role_to_user(
     )
     session.add(user_role)
 
+    # Audit log
+    await log_rbac_change(
+        session=session,
+        entity_type=AuditEntityType.USER_ROLE,
+        entity_id=user_id,
+        secondary_entity_id=role_id,
+        action=AuditAction.ASSIGN,
+        changed_by=assigned_by,
+        new_value={"role_id": str(role_id), "role_name": role.name}
+    )
+
     # Increment token version to invalidate existing tokens (permissions changed)
     user.token_version = int(user.token_version) + 1
 
@@ -111,7 +123,7 @@ async def assign_role_to_user(
     return True
 
 
-async def remove_role_from_user(user_id: uuid.UUID, role_id: uuid.UUID, session: AsyncSession) -> bool:
+async def remove_role_from_user(user_id: uuid.UUID, role_id: uuid.UUID, session: AsyncSession, removed_by: Optional[uuid.UUID] = None) -> bool:
     """Remove a role from a user. Returns True if removed, False if not found."""
     # Check if user exists
     user_stmt = select(User).where(User.id == user_id, User.deleted_at.is_(None))
@@ -119,6 +131,12 @@ async def remove_role_from_user(user_id: uuid.UUID, role_id: uuid.UUID, session:
     user = user_result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Get role info for audit before deletion
+    role_stmt = select(Role).where(Role.id == role_id)
+    role_result = await session.execute(role_stmt)
+    role = role_result.scalar_one_or_none()
+    role_name = role.name if role else "Unknown"
 
     # Remove the assignment
     delete_stmt = delete(UserRole).where(
@@ -129,6 +147,17 @@ async def remove_role_from_user(user_id: uuid.UUID, role_id: uuid.UUID, session:
 
     if result.rowcount == 0:
         return False
+
+    # Audit log
+    await log_rbac_change(
+        session=session,
+        entity_type=AuditEntityType.USER_ROLE,
+        entity_id=user_id,
+        secondary_entity_id=role_id,
+        action=AuditAction.UNASSIGN,
+        changed_by=removed_by,
+        old_value={"role_id": str(role_id), "role_name": role_name}
+    )
 
     # Increment token version to invalidate existing tokens (permissions changed)
     user.token_version = int(user.token_version) + 1
@@ -151,11 +180,24 @@ async def set_user_roles(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Verify all roles exist
+    # Get existing roles for audit
+    existing_stmt = (
+        select(UserRole)
+        .options(selectinload(UserRole.role))
+        .where(UserRole.user_id == user_id)
+    )
+    existing_result = await session.execute(existing_stmt)
+    existing_user_roles = existing_result.scalars().all()
+    old_role_info = [
+        {"role_id": str(ur.role_id), "role_name": ur.role.name if ur.role else "Unknown"}
+        for ur in existing_user_roles
+    ]
+
+    # Verify all new roles exist
     if role_ids:
         roles_stmt = select(Role).where(Role.id.in_(role_ids))
         roles_result = await session.execute(roles_stmt)
-        roles = roles_result.scalars().all()
+        roles = list(roles_result.scalars().all())
         if len(roles) != len(role_ids):
             raise HTTPException(status_code=400, detail="One or more roles not found")
     else:
@@ -166,14 +208,27 @@ async def set_user_roles(
     await session.execute(delete_stmt)
 
     # Add new role assignments
-    for role_id in role_ids:
+    new_role_info = []
+    for role in roles:
         user_role = UserRole(
             user_id=user_id,
-            role_id=role_id,
+            role_id=role.id,
             assigned_at=datetime.utcnow(),
             assigned_by=assigned_by
         )
         session.add(user_role)
+        new_role_info.append({"role_id": str(role.id), "role_name": role.name})
+
+    # Audit log for the bulk update
+    await log_rbac_change(
+        session=session,
+        entity_type=AuditEntityType.USER_ROLE,
+        entity_id=user_id,
+        action=AuditAction.UPDATE,
+        changed_by=assigned_by,
+        old_value={"roles": old_role_info},
+        new_value={"roles": new_role_info}
+    )
 
     # Increment token version to invalidate existing tokens (permissions changed)
     user.token_version = int(user.token_version) + 1

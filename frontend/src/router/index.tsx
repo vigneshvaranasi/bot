@@ -56,8 +56,8 @@ const normalRoutes: RouteObject = {
                 { path: "ai-ml", element: <AiMlConfigPage /> },
                 { path: "integrations", element: <IntegrationsPage /> },
                 { path: "user-management", element: <UserManagementPage /> },
-                // { path: "roles", element: <RoleManagementPage /> },
-                // { path: "permission-sets", element: <PermissionSetsPage /> },
+                { path: "roles", element: <RoleManagementPage /> },
+                { path: "permission-sets", element: <PermissionSetsPage /> },
                 {
                   path: "config-history",
                   element: <ConfigurationHistoryPage />,

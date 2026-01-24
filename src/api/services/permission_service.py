@@ -1,9 +1,10 @@
 """Permission service for RBAC operations.
 
 This service provides functions to:
-- Resolve user permissions from roles
+- Resolve user permissions from roles AND direct assignments
 - Cache permissions for performance
 - CRUD operations for permissions, permission sets, and roles
+- Direct user permission and permission set assignments
 """
 
 import logging
@@ -22,17 +23,22 @@ from ..db.models import (
     Role,
     RolePermissionSet,
     UserRole,
+    UserPermission,
+    UserPermissionSet,
     User,
 )
+from .audit_service import log_rbac_change, AuditEntityType, AuditAction
 
 logger = logging.getLogger(__name__)
 
 
 async def get_user_permissions(user_id: UUID, session: AsyncSession) -> Set[str]:
-    """Get all permission codes for a user from all their roles.
+    """Get all permission codes for a user from ALL sources.
 
-    This uses a single efficient query to get all permissions across
-    all roles assigned to the user.
+    Sources (UNION of all):
+    1. Permissions from roles (Role -> PermissionSet -> Permission)
+    2. Permissions from direct permission set assignments (User -> PermissionSet -> Permission)
+    3. Permissions from direct permission assignments (User -> Permission)
 
     Args:
         user_id: The user's UUID
@@ -42,12 +48,32 @@ async def get_user_permissions(user_id: UUID, session: AsyncSession) -> Set[str]
         Set of permission code strings
     """
     query = text("""
+        -- Source 1: Permissions from roles
         SELECT DISTINCT p.code
         FROM permissions p
         JOIN permission_set_permissions psp ON p.id = psp.permission_id
         JOIN role_permission_sets rps ON psp.permission_set_id = rps.permission_set_id
         JOIN user_roles ur ON rps.role_id = ur.role_id
         WHERE ur.user_id = :user_id
+        AND p.deleted_at IS NULL
+
+        UNION
+
+        -- Source 2: Permissions from direct permission set assignments
+        SELECT DISTINCT p.code
+        FROM permissions p
+        JOIN permission_set_permissions psp ON p.id = psp.permission_id
+        JOIN user_permission_sets ups ON psp.permission_set_id = ups.permission_set_id
+        WHERE ups.user_id = :user_id
+        AND p.deleted_at IS NULL
+
+        UNION
+
+        -- Source 3: Direct permission assignments
+        SELECT DISTINCT p.code
+        FROM permissions p
+        JOIN user_permissions up ON p.id = up.permission_id
+        WHERE up.user_id = :user_id
         AND p.deleted_at IS NULL
     """)
 
@@ -140,6 +166,16 @@ async def get_permission_by_code(code: str, session: AsyncSession) -> Optional[P
     result = await session.execute(
         select(Permission)
         .where(Permission.code == code)
+        .where(Permission.deleted_at.is_(None))
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_permission_by_id(id: UUID, session: AsyncSession) -> Optional[Permission]:
+    """Get a permission by its ID."""
+    result = await session.execute(
+        select(Permission)
+        .where(Permission.id == id)
         .where(Permission.deleted_at.is_(None))
     )
     return result.scalar_one_or_none()
@@ -459,27 +495,62 @@ async def assign_role_to_user(
     if existing:
         return existing
 
+    # Get role name for audit
+    role = await get_role_by_id(role_id, session)
+    role_name = role.name if role else "Unknown"
+
     user_role = UserRole(
         user_id=user_id,
         role_id=role_id,
         assigned_by=assigned_by
     )
     session.add(user_role)
+
+    # Audit log
+    await log_rbac_change(
+        session=session,
+        entity_type=AuditEntityType.USER_ROLE,
+        entity_id=user_id,
+        secondary_entity_id=role_id,
+        action=AuditAction.ASSIGN,
+        changed_by=assigned_by,
+        new_value={"role_id": str(role_id), "role_name": role_name}
+    )
+
     await session.commit()
     await session.refresh(user_role)
     return user_role
 
 
-async def remove_role_from_user(user_id: UUID, role_id: UUID, session: AsyncSession) -> bool:
+async def remove_role_from_user(
+    user_id: UUID,
+    role_id: UUID,
+    session: AsyncSession,
+    removed_by: Optional[UUID] = None
+) -> bool:
     """Remove a role from a user."""
     result = await session.execute(
         select(UserRole)
         .where(UserRole.user_id == user_id)
         .where(UserRole.role_id == role_id)
+        .options(selectinload(UserRole.role))
     )
     user_role = result.scalar_one_or_none()
     if not user_role:
         return False
+
+    role_name = user_role.role.name if user_role.role else "Unknown"
+
+    # Audit log
+    await log_rbac_change(
+        session=session,
+        entity_type=AuditEntityType.USER_ROLE,
+        entity_id=user_id,
+        secondary_entity_id=role_id,
+        action=AuditAction.UNASSIGN,
+        changed_by=removed_by,
+        old_value={"role_id": str(role_id), "role_name": role_name}
+    )
 
     await session.delete(user_role)
     await session.commit()
@@ -512,3 +583,297 @@ async def set_user_roles(
 
     await session.commit()
     return user_roles
+
+
+# ==================== Direct User Permission Management ====================
+
+async def get_user_direct_permissions(user_id: UUID, session: AsyncSession) -> List[UserPermission]:
+    """Get all permissions directly assigned to a user (bypassing roles)."""
+    result = await session.execute(
+        select(UserPermission)
+        .where(UserPermission.user_id == user_id)
+        .options(selectinload(UserPermission.permission))
+    )
+    return list(result.scalars().all())
+
+
+async def assign_permission_to_user(
+    user_id: UUID,
+    permission_id: UUID,
+    assigned_by: Optional[UUID] = None,
+    session: AsyncSession = None
+) -> UserPermission:
+    """Assign a permission directly to a user (bypassing roles)."""
+    # Check if already assigned
+    result = await session.execute(
+        select(UserPermission)
+        .where(UserPermission.user_id == user_id)
+        .where(UserPermission.permission_id == permission_id)
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        return existing
+
+    # Get permission info for audit
+    permission = await get_permission_by_id(permission_id, session)
+    perm_code = permission.code if permission else "Unknown"
+
+    user_permission = UserPermission(
+        user_id=user_id,
+        permission_id=permission_id,
+        assigned_by=assigned_by
+    )
+    session.add(user_permission)
+
+    # Audit log
+    await log_rbac_change(
+        session=session,
+        entity_type=AuditEntityType.USER_PERMISSION,
+        entity_id=user_id,
+        secondary_entity_id=permission_id,
+        action=AuditAction.ASSIGN,
+        changed_by=assigned_by,
+        new_value={"permission_id": str(permission_id), "permission_code": perm_code}
+    )
+
+    await session.commit()
+    await session.refresh(user_permission)
+    return user_permission
+
+
+async def remove_permission_from_user(
+    user_id: UUID,
+    permission_id: UUID,
+    session: AsyncSession,
+    removed_by: Optional[UUID] = None
+) -> bool:
+    """Remove a direct permission assignment from a user."""
+    result = await session.execute(
+        select(UserPermission)
+        .where(UserPermission.user_id == user_id)
+        .where(UserPermission.permission_id == permission_id)
+        .options(selectinload(UserPermission.permission))
+    )
+    user_permission = result.scalar_one_or_none()
+    if not user_permission:
+        return False
+
+    perm_code = user_permission.permission.code if user_permission.permission else "Unknown"
+
+    # Audit log
+    await log_rbac_change(
+        session=session,
+        entity_type=AuditEntityType.USER_PERMISSION,
+        entity_id=user_id,
+        secondary_entity_id=permission_id,
+        action=AuditAction.UNASSIGN,
+        changed_by=removed_by,
+        old_value={"permission_id": str(permission_id), "permission_code": perm_code}
+    )
+
+    await session.delete(user_permission)
+    await session.commit()
+    return True
+
+
+async def set_user_direct_permissions(
+    user_id: UUID,
+    permission_ids: List[UUID],
+    assigned_by: Optional[UUID] = None,
+    session: AsyncSession = None
+) -> List[UserPermission]:
+    """Set all direct permissions for a user (replaces existing direct permissions)."""
+    # Remove existing direct permissions
+    await session.execute(
+        text("DELETE FROM user_permissions WHERE user_id = :user_id"),
+        {"user_id": str(user_id)}
+    )
+
+    # Add new permissions
+    user_permissions = []
+    for permission_id in permission_ids:
+        user_permission = UserPermission(
+            user_id=user_id,
+            permission_id=permission_id,
+            assigned_by=assigned_by
+        )
+        session.add(user_permission)
+        user_permissions.append(user_permission)
+
+    await session.commit()
+    return user_permissions
+
+
+# ==================== Direct User Permission Set Management ====================
+
+async def get_user_direct_permission_sets(user_id: UUID, session: AsyncSession) -> List[UserPermissionSet]:
+    """Get all permission sets directly assigned to a user (bypassing roles)."""
+    result = await session.execute(
+        select(UserPermissionSet)
+        .where(UserPermissionSet.user_id == user_id)
+        .options(selectinload(UserPermissionSet.permission_set))
+    )
+    return list(result.scalars().all())
+
+
+async def assign_permission_set_to_user(
+    user_id: UUID,
+    permission_set_id: UUID,
+    assigned_by: Optional[UUID] = None,
+    session: AsyncSession = None
+) -> UserPermissionSet:
+    """Assign a permission set directly to a user (bypassing roles)."""
+    # Check if already assigned
+    result = await session.execute(
+        select(UserPermissionSet)
+        .where(UserPermissionSet.user_id == user_id)
+        .where(UserPermissionSet.permission_set_id == permission_set_id)
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        return existing
+
+    # Get permission set info for audit
+    perm_set = await get_permission_set_by_id(permission_set_id, session)
+    perm_set_code = perm_set.code if perm_set else "Unknown"
+
+    user_permission_set = UserPermissionSet(
+        user_id=user_id,
+        permission_set_id=permission_set_id,
+        assigned_by=assigned_by
+    )
+    session.add(user_permission_set)
+
+    # Audit log
+    await log_rbac_change(
+        session=session,
+        entity_type=AuditEntityType.USER_PERMISSION_SET,
+        entity_id=user_id,
+        secondary_entity_id=permission_set_id,
+        action=AuditAction.ASSIGN,
+        changed_by=assigned_by,
+        new_value={"permission_set_id": str(permission_set_id), "permission_set_code": perm_set_code}
+    )
+
+    await session.commit()
+    await session.refresh(user_permission_set)
+    return user_permission_set
+
+
+async def remove_permission_set_from_user(
+    user_id: UUID,
+    permission_set_id: UUID,
+    session: AsyncSession,
+    removed_by: Optional[UUID] = None
+) -> bool:
+    """Remove a direct permission set assignment from a user."""
+    result = await session.execute(
+        select(UserPermissionSet)
+        .where(UserPermissionSet.user_id == user_id)
+        .where(UserPermissionSet.permission_set_id == permission_set_id)
+        .options(selectinload(UserPermissionSet.permission_set))
+    )
+    user_permission_set = result.scalar_one_or_none()
+    if not user_permission_set:
+        return False
+
+    perm_set_code = user_permission_set.permission_set.code if user_permission_set.permission_set else "Unknown"
+
+    # Audit log
+    await log_rbac_change(
+        session=session,
+        entity_type=AuditEntityType.USER_PERMISSION_SET,
+        entity_id=user_id,
+        secondary_entity_id=permission_set_id,
+        action=AuditAction.UNASSIGN,
+        changed_by=removed_by,
+        old_value={"permission_set_id": str(permission_set_id), "permission_set_code": perm_set_code}
+    )
+
+    await session.delete(user_permission_set)
+    await session.commit()
+    return True
+
+
+async def set_user_direct_permission_sets(
+    user_id: UUID,
+    permission_set_ids: List[UUID],
+    assigned_by: Optional[UUID] = None,
+    session: AsyncSession = None
+) -> List[UserPermissionSet]:
+    """Set all direct permission sets for a user (replaces existing direct permission sets)."""
+    # Remove existing direct permission sets
+    await session.execute(
+        text("DELETE FROM user_permission_sets WHERE user_id = :user_id"),
+        {"user_id": str(user_id)}
+    )
+
+    # Add new permission sets
+    user_permission_sets = []
+    for permission_set_id in permission_set_ids:
+        user_permission_set = UserPermissionSet(
+            user_id=user_id,
+            permission_set_id=permission_set_id,
+            assigned_by=assigned_by
+        )
+        session.add(user_permission_set)
+        user_permission_sets.append(user_permission_set)
+
+    await session.commit()
+    return user_permission_sets
+
+
+# ==================== Effective Permissions Breakdown ====================
+
+async def get_user_permissions_detailed(user_id: UUID, session: AsyncSession) -> dict:
+    """Get user's permissions with breakdown by source.
+
+    Returns:
+        Dict with keys:
+        - from_roles: Set of permission codes from role assignments
+        - from_direct_sets: Set of permission codes from direct permission set assignments
+        - from_direct_permissions: Set of permission codes from direct permission assignments
+        - effective: Set of all permission codes (union of all sources)
+    """
+    # Source 1: Permissions from roles
+    from_roles_query = text("""
+        SELECT DISTINCT p.code
+        FROM permissions p
+        JOIN permission_set_permissions psp ON p.id = psp.permission_id
+        JOIN role_permission_sets rps ON psp.permission_set_id = rps.permission_set_id
+        JOIN user_roles ur ON rps.role_id = ur.role_id
+        WHERE ur.user_id = :user_id
+        AND p.deleted_at IS NULL
+    """)
+    from_roles_result = await session.execute(from_roles_query, {"user_id": str(user_id)})
+    from_roles = {row[0] for row in from_roles_result.fetchall()}
+
+    # Source 2: Permissions from direct permission sets
+    from_direct_sets_query = text("""
+        SELECT DISTINCT p.code
+        FROM permissions p
+        JOIN permission_set_permissions psp ON p.id = psp.permission_id
+        JOIN user_permission_sets ups ON psp.permission_set_id = ups.permission_set_id
+        WHERE ups.user_id = :user_id
+        AND p.deleted_at IS NULL
+    """)
+    from_direct_sets_result = await session.execute(from_direct_sets_query, {"user_id": str(user_id)})
+    from_direct_sets = {row[0] for row in from_direct_sets_result.fetchall()}
+
+    # Source 3: Direct permissions
+    from_direct_perms_query = text("""
+        SELECT DISTINCT p.code
+        FROM permissions p
+        JOIN user_permissions up ON p.id = up.permission_id
+        WHERE up.user_id = :user_id
+        AND p.deleted_at IS NULL
+    """)
+    from_direct_perms_result = await session.execute(from_direct_perms_query, {"user_id": str(user_id)})
+    from_direct_permissions = {row[0] for row in from_direct_perms_result.fetchall()}
+
+    return {
+        "from_roles": list(from_roles),
+        "from_direct_sets": list(from_direct_sets),
+        "from_direct_permissions": list(from_direct_permissions),
+        "effective": list(from_roles | from_direct_sets | from_direct_permissions),
+    }

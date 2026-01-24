@@ -10,3 +10,6 @@ from .llm_provider import LlmProvider
 from .permission import Permission, PermissionSet, PermissionSetPermission
 from .role_permission_set import RolePermissionSet
 from .user_role import UserRole
+from .user_permission import UserPermission
+from .user_permission_set import UserPermissionSet
+from .rbac_audit_log import RbacAuditLog

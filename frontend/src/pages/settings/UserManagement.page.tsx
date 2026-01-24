@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Button } from "../../components/ui/Button";
 import { ConfigurableTable } from "../../components/ui/Table";
 import SettingsHeader from "../../components/settings/SettingsHeader";
@@ -20,12 +20,28 @@ import { ConfirmModal } from "../../components/ui/Modal";
 import { Pagination, DEFAULT_PAGE_SIZE_OPTIONS } from "../../components/ui/Pagination";
 import { useDelayedLoading } from "../../hooks/useDelayedLoading";
 import { usePermissions } from "../../hooks/usePermissions";
-import { PERMISSIONS } from "../../types/Permission";
+import { useAuthContext } from "../../hooks/useAuthContext";
+import {
+  PERMISSIONS,
+  PERMISSION_CATEGORIES,
+  type Permission,
+  type PermissionSet,
+  type PermissionCategory,
+} from "../../types/Permission";
+import {
+  fetchPermissions,
+  fetchPermissionSets,
+  fetchUserDirectPermissions,
+  fetchUserDirectPermissionSets,
+  updateUserDirectPermissions,
+  updateUserDirectPermissionSets,
+} from "../../handlers/permissionHandlers";
 
 const DEFAULT_PAGE_SIZE = 10;
 
 const UserManagement: React.FC = () => {
-  const { hasPermission } = usePermissions();
+  const { hasPermission, refreshPermissions } = usePermissions();
+  const { user: currentUser } = useAuthContext();
   const canEditUser = hasPermission(PERMISSIONS.USER_EDIT);
   const canDeleteUser = hasPermission(PERMISSIONS.USER_DELETE);
   const canEditAuth = hasPermission(PERMISSIONS.AUTH_EDIT);
@@ -64,6 +80,14 @@ const UserManagement: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<"roles" | "permissionSets" | "permissions">("roles");
+
+  // Direct permissions state
+  const [allPermissions, setAllPermissions] = useState<Permission[]>([]);
+  const [allPermissionSets, setAllPermissionSets] = useState<PermissionSet[]>([]);
+  const [selectedDirectPermissionIds, setSelectedDirectPermissionIds] = useState<string[]>([]);
+  const [selectedDirectPermissionSetIds, setSelectedDirectPermissionSetIds] = useState<string[]>([]);
+  const [loadingDirectPerms, setLoadingDirectPerms] = useState(false);
 
   const loadUsers = useCallback(async (page: number, size: number, search?: string) => {
     setLoadingUsers(true);
@@ -124,12 +148,35 @@ const UserManagement: React.FC = () => {
     setCurrentPage(1); // Reset to page 1 when changing page size
   };
 
-  const handleEditUser = (user: AdminUser) => {
+  const handleEditUser = async (user: AdminUser) => {
     setEditingUser(user);
     // Initialize with current roles
     const roleIds = user.roles.map((r) => r.role_id);
     setSelectedRoleIds(roleIds);
+    setActiveTab("roles");
     setIsEditModalOpen(true);
+
+    // Load permissions data for the modal
+    setLoadingDirectPerms(true);
+    try {
+      const [permsData, permSetsData, userDirectPerms, userDirectSets] = await Promise.all([
+        allPermissions.length === 0 ? fetchPermissions() : Promise.resolve(allPermissions),
+        allPermissionSets.length === 0 ? fetchPermissionSets() : Promise.resolve(allPermissionSets),
+        fetchUserDirectPermissions(user.id),
+        fetchUserDirectPermissionSets(user.id),
+      ]);
+
+      if (allPermissions.length === 0) setAllPermissions(permsData);
+      if (allPermissionSets.length === 0) setAllPermissionSets(permSetsData);
+
+      setSelectedDirectPermissionIds(userDirectPerms.direct_permissions.map((p) => p.permission_id));
+      setSelectedDirectPermissionSetIds(userDirectSets.direct_permission_sets.map((s) => s.permission_set_id));
+    } catch (error) {
+      logger.error("Failed to load permission data", error);
+      toast.error("Failed to load permission data");
+    } finally {
+      setLoadingDirectPerms(false);
+    }
   };
 
   const handleToggleRole = (roleId: string) => {
@@ -140,6 +187,68 @@ const UserManagement: React.FC = () => {
     );
   };
 
+  const handleToggleDirectPermissionSet = (setId: string) => {
+    setSelectedDirectPermissionSetIds((prev) =>
+      prev.includes(setId)
+        ? prev.filter((id) => id !== setId)
+        : [...prev, setId]
+    );
+  };
+
+  const handleToggleDirectPermission = (permId: string) => {
+    setSelectedDirectPermissionIds((prev) =>
+      prev.includes(permId)
+        ? prev.filter((id) => id !== permId)
+        : [...prev, permId]
+    );
+  };
+
+  // Group permissions by category for the UI
+  const permissionsByCategory = useMemo(() => {
+    const grouped: Record<string, Permission[]> = {};
+    for (const perm of allPermissions) {
+      if (!grouped[perm.category]) {
+        grouped[perm.category] = [];
+      }
+      grouped[perm.category].push(perm);
+    }
+    return grouped;
+  }, [allPermissions]);
+
+  // Handle toggling all permissions in a category
+  const handleToggleCategory = (category: string) => {
+    const categoryPerms = permissionsByCategory[category] || [];
+    const categoryPermIds = categoryPerms.map((p) => p.id);
+    const allSelected = categoryPermIds.every((id) => selectedDirectPermissionIds.includes(id));
+
+    if (allSelected) {
+      // Deselect all in this category
+      setSelectedDirectPermissionIds((prev) =>
+        prev.filter((id) => !categoryPermIds.includes(id))
+      );
+    } else {
+      // Select all in this category
+      setSelectedDirectPermissionIds((prev) => {
+        const newIds = new Set(prev);
+        categoryPermIds.forEach((id) => newIds.add(id));
+        return Array.from(newIds);
+      });
+    }
+  };
+
+  // Check if all permissions in a category are selected
+  const isCategoryFullySelected = (category: string) => {
+    const categoryPerms = permissionsByCategory[category] || [];
+    return categoryPerms.length > 0 && categoryPerms.every((p) => selectedDirectPermissionIds.includes(p.id));
+  };
+
+  // Check if some but not all permissions in a category are selected
+  const isCategoryPartiallySelected = (category: string) => {
+    const categoryPerms = permissionsByCategory[category] || [];
+    const selectedCount = categoryPerms.filter((p) => selectedDirectPermissionIds.includes(p.id)).length;
+    return selectedCount > 0 && selectedCount < categoryPerms.length;
+  };
+
   const handleSaveUser = async () => {
     if (!editingUser) return;
     if (selectedRoleIds.length === 0) {
@@ -148,16 +257,26 @@ const UserManagement: React.FC = () => {
     }
     try {
       setSaving(true);
-      await updateUserRoles(editingUser.id, selectedRoleIds);
+      // Save roles, direct permission sets, and direct permissions in parallel
+      await Promise.all([
+        updateUserRoles(editingUser.id, selectedRoleIds),
+        updateUserDirectPermissionSets(editingUser.id, selectedDirectPermissionSetIds),
+        updateUserDirectPermissions(editingUser.id, selectedDirectPermissionIds),
+      ]);
+
+      // If editing the current user, refresh their permissions
+      if (currentUser && editingUser.id === currentUser.id) {
+        await refreshPermissions();
+      }
 
       // Refresh list - stay on current page
       await loadUsers(currentPage, pageSize, searchTerm || undefined);
       setIsEditModalOpen(false);
       setEditingUser(null);
-      toast.success("User roles updated");
+      toast.success("User permissions updated");
     } catch (error) {
-      logger.error("Failed to update user roles", error);
-      toast.error("Failed to update user roles");
+      logger.error("Failed to update user permissions", error);
+      toast.error("Failed to update user permissions");
     } finally {
       setSaving(false);
     }
@@ -396,9 +515,12 @@ const UserManagement: React.FC = () => {
 
       {isEditModalOpen && editingUser && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md border border-gray-200">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl border border-gray-200 max-h-[90vh] flex flex-col">
             <div className="flex items-start justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Edit User Roles</h2>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Edit User Permissions</h2>
+                <p className="text-sm text-gray-600 truncate">{editingUser.email}</p>
+              </div>
               <Button
                 variant="secondary"
                 className="bg-gray-200 text-gray-800 hover:bg-gray-300 px-3 py-1"
@@ -407,39 +529,191 @@ const UserManagement: React.FC = () => {
                 Close
               </Button>
             </div>
-            <p className="text-sm text-gray-600 mb-4 truncate">{editingUser.email}</p>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Roles <span className="text-gray-500 font-normal">({selectedRoleIds.length} selected)</span>
-              </label>
-              <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
-                {roles.map((role) => (
-                  <label
-                    key={role.id}
-                    className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedRoleIds.includes(role.id)}
-                      onChange={() => handleToggleRole(role.id)}
-                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900">{role.name}</div>
-                      {role.description && (
-                        <div className="text-xs text-gray-500 truncate">{role.description}</div>
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200 mb-4">
+              <button
+                onClick={() => setActiveTab("roles")}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "roles"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Roles ({selectedRoleIds.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("permissionSets")}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "permissionSets"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Direct Sets ({selectedDirectPermissionSetIds.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("permissions")}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "permissions"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                Direct Perms ({selectedDirectPermissionIds.length})
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {loadingDirectPerms ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                  <span className="ml-2 text-sm text-gray-500">Loading permissions...</span>
+                </div>
+              ) : (
+                <>
+                  {/* Roles Tab */}
+                  {activeTab === "roles" && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">
+                        Assign roles to this user. Roles grant permission sets.
+                      </p>
+                      <div className="border border-gray-200 rounded-lg max-h-72 overflow-y-auto">
+                        {roles.map((role) => (
+                          <label
+                            key={role.id}
+                            className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedRoleIds.includes(role.id)}
+                              onChange={() => handleToggleRole(role.id)}
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-gray-900">{role.name}</div>
+                              {role.description && (
+                                <div className="text-xs text-gray-500 truncate">{role.description}</div>
+                              )}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                      {selectedRoleIds.length === 0 && (
+                        <p className="text-xs text-red-500 mt-1">At least one role is required</p>
                       )}
                     </div>
-                  </label>
-                ))}
-              </div>
-              {selectedRoleIds.length === 0 && (
-                <p className="text-xs text-red-500 mt-1">At least one role is required</p>
+                  )}
+
+                  {/* Permission Sets Tab */}
+                  {activeTab === "permissionSets" && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">
+                        Assign permission sets directly (bypasses roles).
+                      </p>
+                      <div className="border border-gray-200 rounded-lg max-h-72 overflow-y-auto">
+                        {allPermissionSets.length === 0 ? (
+                          <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                            No permission sets available
+                          </div>
+                        ) : (
+                          allPermissionSets.map((permSet) => (
+                            <label
+                              key={permSet.id}
+                              className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedDirectPermissionSetIds.includes(permSet.id)}
+                                onChange={() => handleToggleDirectPermissionSet(permSet.id)}
+                                className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-gray-900">{permSet.name}</div>
+                                {permSet.description && (
+                                  <div className="text-xs text-gray-500 truncate">{permSet.description}</div>
+                                )}
+                                <div className="text-xs text-gray-400 mt-0.5">
+                                  {permSet.permissions.length} permission{permSet.permissions.length !== 1 ? "s" : ""}
+                                </div>
+                              </div>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Permissions Tab */}
+                  {activeTab === "permissions" && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">
+                        Assign individual permissions directly (bypasses roles and sets).
+                      </p>
+                      <div className="border border-gray-200 rounded-lg max-h-72 overflow-y-auto">
+                        {Object.keys(permissionsByCategory).length === 0 ? (
+                          <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                            No permissions available
+                          </div>
+                        ) : (
+                          Object.entries(permissionsByCategory).map(([category, perms]) => (
+                            <div key={category} className="border-b border-gray-100 last:border-b-0">
+                              {/* Category Header */}
+                              <label className="flex items-center gap-3 px-3 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100">
+                                <input
+                                  type="checkbox"
+                                  checked={isCategoryFullySelected(category)}
+                                  ref={(el) => {
+                                    if (el) el.indeterminate = isCategoryPartiallySelected(category);
+                                  }}
+                                  onChange={() => handleToggleCategory(category)}
+                                  className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                />
+                                <span className="text-sm font-medium text-gray-700">
+                                  {PERMISSION_CATEGORIES[category as PermissionCategory] || category}
+                                </span>
+                                <span className="text-xs text-gray-400">
+                                  ({perms.filter((p) => selectedDirectPermissionIds.includes(p.id)).length}/{perms.length})
+                                </span>
+                              </label>
+                              {/* Permissions in Category */}
+                              <div className="pl-6">
+                                {perms.map((perm) => (
+                                  <label
+                                    key={perm.id}
+                                    className="flex items-center gap-3 px-3 py-1.5 hover:bg-gray-50 cursor-pointer"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedDirectPermissionIds.includes(perm.id)}
+                                      onChange={() => handleToggleDirectPermission(perm.id)}
+                                      className="w-3.5 h-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs font-medium text-gray-800">{perm.name}</div>
+                                      {perm.description && (
+                                        <div className="text-xs text-gray-400 truncate">{perm.description}</div>
+                                      )}
+                                    </div>
+                                    <code className="text-xs text-gray-400 bg-gray-100 px-1 rounded">
+                                      {perm.code}
+                                    </code>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
-            <div className="flex justify-end gap-3">
+            {/* Footer */}
+            <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200">
               <Button
                 variant="secondary"
                 onClick={() => setIsEditModalOpen(false)}
@@ -450,7 +724,7 @@ const UserManagement: React.FC = () => {
               <Button
                 variant="primary"
                 onClick={handleSaveUser}
-                disabled={saving || selectedRoleIds.length === 0}
+                disabled={saving || selectedRoleIds.length === 0 || loadingDirectPerms}
               >
                 {saving ? "Saving…" : "Save Changes"}
               </Button>
