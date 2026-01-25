@@ -15,6 +15,7 @@ export interface ChatMessage {
   userMessage: string;
   botMessage: string;
   streaming?: boolean;
+  statusMessage?: string;
   _streamBuffer?: string;
   _finalAnswerStarted?: boolean;
   _finalAnswerDone?: boolean;

@@ -45,6 +45,7 @@ export function createMessageStreamer(params: {
             return {
               ...m,
               botMessage: buffer,
+              statusMessage: undefined,
               streaming: true,
               _finalAnswerStarted: true,
               _streamBuffer: buffer,
@@ -73,7 +74,8 @@ export function createMessageStreamer(params: {
             if (m._finalAnswerStarted || m._finalAnswerDone) return m;
             return {
               ...m,
-              botMessage: evt.data?.message || "",
+              botMessage: "",
+              statusMessage: evt.data?.message || "Processing...",
               streaming: true,
             };
           }),

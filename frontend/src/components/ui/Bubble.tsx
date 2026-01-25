@@ -6,9 +6,10 @@ type BubbleProps = {
   variant?: "bot" | "user";
   content: string;
   streaming?: boolean;
+  statusMessage?: string;
 };
 
-const Bubble = ({ variant = "bot", content, streaming = false }: BubbleProps) => {
+const Bubble = ({ variant = "bot", content, streaming = false, statusMessage }: BubbleProps) => {
   const variantClasses = {
     bot: "border-none bg-transparent",
     user: "order border-gray-300 bg-bubblegray max-w-3/4",
@@ -68,6 +69,8 @@ const Bubble = ({ variant = "bot", content, streaming = false }: BubbleProps) =>
     }
   }, [content, streaming, variant]);
 
+  const isLoadingStatus = streaming && statusMessage && !content;
+
   return (
     <div
       className={`flex ${
@@ -79,10 +82,16 @@ const Bubble = ({ variant = "bot", content, streaming = false }: BubbleProps) =>
           variantClasses[variant] || defaultClass
         }`}
       >
-        <div
-          className="markdown-body"
-          dangerouslySetInnerHTML={{ __html: renderedContent }}
-        />
+        {isLoadingStatus ? (
+          <div className="flex items-center gap-2">
+            <span className="shimmer-text text-base">{statusMessage}</span>
+          </div>
+        ) : (
+          <div
+            className="markdown-body"
+            dangerouslySetInnerHTML={{ __html: renderedContent }}
+          />
+        )}
       </div>
     </div>
   );

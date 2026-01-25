@@ -178,7 +178,12 @@ const ChatView = () => {
           currentChat?.allMessages.map((message) => (
           <div key={message.id}>
             <Bubble variant="user" content={message.userMessage} />
-            <Bubble variant="bot" content={message.botMessage} streaming={message.streaming} />
+            <Bubble
+              variant="bot"
+              content={message.botMessage}
+              streaming={message.streaming}
+              statusMessage={message.statusMessage}
+            />
             {/* chat Actions */}
             {
               !message.streaming &&

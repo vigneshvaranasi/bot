@@ -113,7 +113,8 @@ function ChatPage() {
           {
             id: newMessageId,
             userMessage: prompt,
-            botMessage: "Thinking...",
+            botMessage: "",
+            statusMessage: "Thinking...",
             streaming: true,
           },
         ],
