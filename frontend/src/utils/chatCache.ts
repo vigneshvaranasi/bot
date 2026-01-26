@@ -4,10 +4,19 @@ export type CachedChatMessage = {
   botMessage: string;
 };
 
+/** Pagination metadata stored with cached chat */
+export type CachedChatPagination = {
+  hasMore: boolean;
+  total: number;
+  offset: number;
+};
+
 type CachedChat = {
   chatId: string;
   messages: CachedChatMessage[];
   updatedAt: number;
+  /** Pagination state */
+  pagination?: CachedChatPagination;
 };
 
 const DB_NAME = "chat-db";
@@ -34,7 +43,13 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
-export async function loadChatFromCache(chatId: string, userKey?: string): Promise<CachedChatMessage[] | null> {
+/** Result from loading chat cache including pagination metadata */
+export type LoadChatCacheResult = {
+  messages: CachedChatMessage[];
+  pagination?: CachedChatPagination;
+} | null;
+
+export async function loadChatFromCache(chatId: string, userKey?: string): Promise<LoadChatCacheResult> {
   try {
     const db = await openDb();
     return await new Promise((resolve, reject) => {
@@ -43,7 +58,14 @@ export async function loadChatFromCache(chatId: string, userKey?: string): Promi
       const getReq = store.get(keyFor(userKey, chatId));
       getReq.onsuccess = () => {
         const result = getReq.result as CachedChat | undefined;
-        resolve(result ? result.messages : null);
+        if (result) {
+          resolve({
+            messages: result.messages,
+            pagination: result.pagination,
+          });
+        } else {
+          resolve(null);
+        }
       };
       getReq.onerror = () => reject(getReq.error);
     });
@@ -57,14 +79,21 @@ export async function saveChatToCache(
   chatId: string,
   messages: CachedChatMessage[],
   keepMostRecent = 20,
-  userKey?: string
+  userKey?: string,
+  pagination?: CachedChatPagination
 ): Promise<void> {
   try {
     const db = await openDb();
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE_CHATS, "readwrite");
       const store = tx.objectStore(STORE_CHATS);
-      const putReq = store.put({ chatId: keyFor(userKey, chatId), messages, updatedAt: Date.now() } as CachedChat);
+      const cacheEntry: CachedChat = {
+        chatId: keyFor(userKey, chatId),
+        messages,
+        updatedAt: Date.now(),
+        pagination,
+      };
+      const putReq = store.put(cacheEntry);
       putReq.onerror = () => reject(putReq.error);
       putReq.onsuccess = () => resolve();
     });
@@ -155,5 +184,42 @@ export async function removeAllChatCache(): Promise<void> {
     });
   } catch (e) {
     console.warn("clearChatCache failed", e);
+  }
+}
+
+/**
+ * Merge older messages (prepend) with existing cached messages.
+ * Useful when loading older messages via infinite scroll.
+ * Returns a new array with older messages at the beginning.
+ */
+export function mergeOlderMessages(
+  existingMessages: CachedChatMessage[],
+  olderMessages: CachedChatMessage[]
+): CachedChatMessage[] {
+  // Create a Set of existing message IDs for deduplication
+  const existingIds = new Set(existingMessages.map((m) => m.id));
+
+  // Filter out any duplicates from older messages
+  const uniqueOlderMessages = olderMessages.filter((m) => !existingIds.has(m.id));
+
+  // Prepend older messages
+  return [...uniqueOlderMessages, ...existingMessages];
+}
+
+/**
+ * Update pagination metadata in cache for a chat.
+ */
+export async function updateChatCachePagination(
+  chatId: string,
+  pagination: CachedChatPagination,
+  userKey?: string
+): Promise<void> {
+  try {
+    const cached = await loadChatFromCache(chatId, userKey);
+    if (cached) {
+      await saveChatToCache(chatId, cached.messages, 20, userKey, pagination);
+    }
+  } catch (e) {
+    console.warn("updateChatCachePagination failed", e);
   }
 }

@@ -74,6 +74,7 @@ class AgentState(TypedDict):
     session_id: Optional[str]
     user_id: Optional[str]
     langfuse_enabled: Optional[bool]
+    generate_title: Optional[bool]
 
 
 # Global LLM instance cache (refreshed when provider config changes)
@@ -255,7 +256,9 @@ def wants_qdrant_tool(state: AgentState) -> str:
 
     last_message = state["messages"][-1]
     if not getattr(last_message, "tool_calls", None):
-        if not state.get("title"):
+        should_generate_in_graph = state.get("generate_title", True)
+
+        if not state.get("title") and should_generate_in_graph:
             writer({"status": "Generating title for the incident report..."})
             logger.debug("DECISION: Call Title Generation Node.")
             return "title_generation"
@@ -317,6 +320,57 @@ def title_generation_node(state: AgentState) -> dict:
     writer({"status": "Almost done, wrapping up the details"})
 
     return {"title": title_text}
+
+
+def generate_title_from_query(
+    query: str,
+    session_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    langfuse_enabled: bool = False,
+) -> str:
+    """Generate a title from user query (standalone, for parallel execution).
+
+    This function is designed to be called in parallel with the main response
+    generation. It uses only the user query to generate a title, allowing
+    title generation to start immediately without waiting for the response.
+
+    Args:
+        query: The user's query/message
+        session_id: Optional session ID for tracing
+        user_id: Optional user ID for tracing
+        langfuse_enabled: Whether Langfuse tracing is enabled
+
+    Returns:
+        Generated title string
+    """
+    logger.debug("PARALLEL TITLE GENERATION: Starting")
+
+    llm = get_configured_llm()
+
+    prompt = SystemMessage(
+        "Generate a concise, 2-4 word title for this query. "
+        "The title should clearly represent the main theme or subject. "
+        f"Query: {query}\n\n"
+        "Prioritize accuracy over excessive creativity; keep it clear and simple. "
+        "The output must be only the title, without any markdown code fences or other encapsulating text."
+    )
+
+    callbacks = []
+    if langfuse_enabled:
+        callbacks = [_get_langfuse_handler()]
+
+    with propagate_attributes(session_id=session_id, user_id=user_id):
+        response = llm.invoke(
+            [prompt],
+            config={"callbacks": callbacks, "run_name": "Parallel Title Generator"},
+        )
+
+    title_text = response.content.strip()
+    if not title_text:
+        title_text = "Untitled Chat"
+
+    logger.debug(f"PARALLEL TITLE GENERATION: Generated '{title_text}'")
+    return title_text
 
 
 def create_agent_graph():

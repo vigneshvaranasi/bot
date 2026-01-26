@@ -9,12 +9,12 @@ import archiveIcon from "../assets/ArchiveIcon.svg";
 import editPencilIcon from "../assets/EditPencilIcon.svg";
 import { Link, useNavigate } from "react-router-dom";
 import InputBox from "./ui/InputBox";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuthContext } from "../hooks/useAuthContext";
 import { archiveChatById, renameChatById, getAllMyChats } from "../handlers/chatHandler";
 import { SkeletonChatList } from "./ui/Skeleton";
-import { LoadMoreButton } from "./ui/Pagination";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
+import { usePaginatedChats } from "../hooks/usePaginatedChats";
 
 const CHATS_PAGE_SIZE = 20;
 
@@ -28,7 +28,11 @@ function Sidebar() {
     isSidebarLoading,
     setIsSidebarLoading,
     refreshChatsTick,
-    triggerRefreshChats
+    triggerRefreshChats,
+    chatsPagination,
+    setChatsPagination,
+    appendChats,
+    setIsLoadingMoreChats,
   } = useSidebarContext();
   const [searchInput, setSearchInput] = useState("");
   const { user, logout } = useAuthContext();
@@ -39,13 +43,22 @@ function Sidebar() {
   const editingInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
 
-  // Pagination state
-  const [hasMore, setHasMore] = useState(false);
-  const [totalChats, setTotalChats] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
+  // Refs for infinite scroll
+  const bottomSentinelRef = useRef<HTMLDivElement>(null);
+  const sidebarListRef = useRef<HTMLDivElement>(null);
+  const loadingMoreRef = useRef(false);
 
   // Delayed loading - only show skeleton after 150ms
   const showSidebarLoading = useDelayedLoading(isSidebarLoading);
+
+  // Use the paginated chats hook
+  const { loadMoreChats } = usePaginatedChats({
+    currentChats: chats,
+    hasMore: chatsPagination.hasMore,
+    isLoadingMore: chatsPagination.isLoadingMore,
+    setIsLoadingMore: setIsLoadingMoreChats,
+    appendChats,
+  });
 
   // All hooks must be called unconditionally at the top (React Rules of Hooks)
   useEffect(() => {
@@ -88,51 +101,73 @@ function Sidebar() {
               date: chat.updated_at,
             }))
           );
-          setHasMore(response.has_more);
-          setTotalChats(response.total);
+          // Update pagination state in context
+          setChatsPagination({
+            hasMore: response.has_more,
+            total: response.total,
+            offset: response.chats.length,
+            isLoadingMore: false,
+          });
         } else {
           setChats([]);
-          setHasMore(false);
-          setTotalChats(0);
+          setChatsPagination({
+            hasMore: false,
+            total: 0,
+            offset: 0,
+            isLoadingMore: false,
+          });
         }
       } catch (err) {
         console.error("Failed to fetch chats:", err);
         setChats([]);
-        setHasMore(false);
-        setTotalChats(0);
+        setChatsPagination({
+          hasMore: false,
+          total: 0,
+          offset: 0,
+          isLoadingMore: false,
+        });
       } finally {
         setIsSidebarLoading(false);
       }
     };
     fetchChats();
-  }, [user, refreshChatsTick, setChats, setIsSidebarLoading]);
+  }, [user, refreshChatsTick, setChats, setIsSidebarLoading, setChatsPagination]);
 
-  // Load more chats handler
-  const loadMoreChats = useCallback(async () => {
-    if (!user || loadingMore || !hasMore) return;
+  // IntersectionObserver for infinite scroll on sidebar chat list
+  useEffect(() => {
+    const sentinel = bottomSentinelRef.current;
+    const container = sidebarListRef.current;
 
-    setLoadingMore(true);
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-      const response = await getAllMyChats(token, CHATS_PAGE_SIZE, chats.length);
-      if (response && Array.isArray(response.chats)) {
-        const newChats = response.chats.map(
-          (chat: { id: string; title: string; updated_at: string }) => ({
-            chatId: chat.id,
-            chatTitle: chat.title,
-            date: chat.updated_at,
-          })
-        );
-        setChats([...chats, ...newChats]);
-        setHasMore(response.has_more);
+    if (!sentinel || !container || !chatsPagination.hasMore || searchInput) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (
+          entry.isIntersecting &&
+          chatsPagination.hasMore &&
+          !chatsPagination.isLoadingMore &&
+          !loadingMoreRef.current
+        ) {
+          loadingMoreRef.current = true;
+          loadMoreChats().finally(() => {
+            loadingMoreRef.current = false;
+          });
+        }
+      },
+      {
+        root: container,
+        rootMargin: "0px 0px 100px 0px", // Trigger 100px before reaching the bottom
+        threshold: 0.1,
       }
-    } catch (err) {
-      console.error("Failed to load more chats:", err);
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [user, loadingMore, hasMore, chats, setChats]);
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [chatsPagination.hasMore, chatsPagination.isLoadingMore, loadMoreChats, searchInput]);
 
   const handleLogout = () => {
     logout();
@@ -240,7 +275,7 @@ function Sidebar() {
               New Chat
             </button>
           </Link>
-          <div className="flex-1 overflow-y-auto p-4">
+          <div ref={sidebarListRef} className="flex-1 overflow-y-auto p-4">
             {showSidebarLoading && chats.length === 0 ? (
               <SkeletonChatList count={6} />
             ) : filteredChats.length === 0 ? (
@@ -349,15 +384,23 @@ function Sidebar() {
                     )}
                   </div>
                 ))}
-                {/* Load More button - only show when not searching */}
-                {!searchInput && hasMore && (
-                  <LoadMoreButton
-                    onClick={loadMoreChats}
-                    loading={loadingMore}
-                    hasMore={hasMore}
-                    loadedCount={chats.length}
-                    totalCount={totalChats}
-                  />
+
+                {/* Bottom sentinel for infinite scroll - only show when not searching */}
+                {!searchInput && chatsPagination.hasMore && (
+                  <div ref={bottomSentinelRef} className="h-1" data-bottom-sentinel />
+                )}
+
+                {/* Loading indicator for loading more chats */}
+                {!searchInput && chatsPagination.isLoadingMore && (
+                  <div className="flex justify-center py-3">
+                    <div className="flex items-center gap-2 text-gray-500 text-sm">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span>Loading...</span>
+                    </div>
+                  </div>
                 )}
               </div>
             )}

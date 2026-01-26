@@ -2,11 +2,11 @@ import Bubble from "../components/ui/Bubble";
 import { useParams } from "react-router-dom";
 import { useAuthContext } from "../hooks/useAuthContext";
 import { useEffect, useLayoutEffect, useState, useRef, useCallback } from "react";
-import { getChatMessagesById } from "../handlers/chatHandler";
+import { getChatMessagesById, type PaginatedMessagesResponse } from "../handlers/chatHandler";
 import { readChatMetrics, removeChatMetrics } from "../utils/metrics";
 import { useSidebarContext } from "../hooks/useSidebarContext";
 import { useSpeechSynthesis } from "../hooks/useSpeechSynthesis";
-import { loadChatFromCache, saveChatToCache, messagesEqual } from "../utils/chatCache";
+import { loadChatFromCache, saveChatToCache, messagesEqual, mergeOlderMessages } from "../utils/chatCache";
 import { ChatAction } from "../components/ui/ChatAction";
 import { logger } from "../utils/logger";
 import type { ChatMessage } from "../types";
@@ -20,6 +20,8 @@ interface ApiChatMessage {
   bot: string;
 }
 
+const MESSAGES_PAGE_SIZE = 50;
+
 const ChatView = () => {
   const { chatId } = useParams<{ chatId: string }>();
   const { user } = useAuthContext();
@@ -28,11 +30,17 @@ const ChatView = () => {
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Pagination state for infinite scroll
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const loadingOlderRef = useRef(false);
+
   // Delayed loading - only show skeleton after 150ms
   const showLoading = useDelayedLoading(loading);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const topSentinelRef = useRef<HTMLDivElement | null>(null);
 
   const scrollToBottom = useCallback((smooth: boolean = true) => {
     const container = containerRef.current;
@@ -50,25 +58,31 @@ const ChatView = () => {
   useEffect(() => {
     if (!user || !chatId) return;
     setLoading(true);
+    // Reset pagination state for new chat
+    setHasOlderMessages(false);
 
     const fetchMessages = async () => {
       try {
         const userKey = user?.email;
         // Try IndexedDB cache
         const cached = await loadChatFromCache(chatId, userKey);
-        if (cached && Array.isArray(cached)) {
-          setCurrentChat({ chatId, allMessages: cached as ChatMessage[] });
+        if (cached && cached.messages && Array.isArray(cached.messages)) {
+          setCurrentChat({ chatId, allMessages: cached.messages as ChatMessage[] });
+          // Restore pagination state from cache if available
+          if (cached.pagination) {
+            setHasOlderMessages(cached.pagination.hasMore);
+          }
           setLoading(false);
         }
 
         // Always fetch from server in the bg
         const token = localStorage.getItem("token");
         if (!token) return;
-        const res = await getChatMessagesById(token, chatId);
+        const res: PaginatedMessagesResponse = await getChatMessagesById(token, chatId, MESSAGES_PAGE_SIZE, 0);
         let freshMessages: ChatMessage[] = [];
         // Handle new paginated response format - messages are in res.messages
-        const messageData = res && res.messages ? res.messages : res;
-        if (messageData && Array.isArray(messageData)) {
+        const messageData = res && res.messages ? res.messages : [];
+        if (Array.isArray(messageData)) {
           freshMessages = (messageData as ApiChatMessage[]).map((message: ApiChatMessage) => ({
             id: message.id,
             userMessage: message.human || "",
@@ -86,13 +100,20 @@ const ChatView = () => {
           }
         }
 
+        // Update pagination state from API response
+        setHasOlderMessages(res.has_more ?? false);
+
         // Update UI only if changed vs cached
-        const curr = (cached as ChatMessage[]) || [];
-        if (!messagesEqual(curr, freshMessages)) {
+        const cachedMessages = cached?.messages || [];
+        if (!messagesEqual(cachedMessages, freshMessages)) {
           setCurrentChat({ chatId, allMessages: freshMessages });
         }
-        // Save refreshed messages to cache
-        await saveChatToCache(chatId, freshMessages, 20, userKey);
+        // Save refreshed messages to cache with pagination info
+        await saveChatToCache(chatId, freshMessages, 20, userKey, {
+          hasMore: res.has_more ?? false,
+          total: res.total ?? freshMessages.length,
+          offset: freshMessages.length,
+        });
       } catch (err) {
         logger.error("Failed to fetch messages:", err);
         setCurrentChat({
@@ -158,6 +179,101 @@ const ChatView = () => {
     }
   }, [scrollToBottom]);
 
+  // Load older messages with scroll position preservation
+  const loadOlderMessages = useCallback(async () => {
+    if (loadingOlderRef.current || isLoadingOlder || !hasOlderMessages || !chatId) {
+      return;
+    }
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Capture scroll position before loading
+    const prevScrollHeight = container.scrollHeight;
+    const prevScrollTop = container.scrollTop;
+
+    loadingOlderRef.current = true;
+    setIsLoadingOlder(true);
+
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const currentMessages = currentChat?.allMessages || [];
+      const offset = currentMessages.length;
+
+      const res: PaginatedMessagesResponse = await getChatMessagesById(
+        token,
+        chatId,
+        MESSAGES_PAGE_SIZE,
+        offset
+      );
+
+      if (res && Array.isArray(res.messages)) {
+        const olderMessages: ChatMessage[] = res.messages.map((message) => ({
+          id: message.id,
+          userMessage: message.human || "",
+          botMessage: message.bot || "",
+        }));
+
+        // Merge older messages with existing ones (prepend)
+        const mergedMessages = mergeOlderMessages(currentMessages, olderMessages);
+
+        // Update state
+        setHasOlderMessages(res.has_more ?? false);
+        setCurrentChat({ chatId, allMessages: mergedMessages });
+
+        // Save to cache with updated pagination
+        const userKey = user?.email;
+        await saveChatToCache(chatId, mergedMessages, 20, userKey, {
+          hasMore: res.has_more ?? false,
+          total: res.total ?? mergedMessages.length,
+          offset: mergedMessages.length,
+        });
+
+        // Restore scroll position after DOM update
+        requestAnimationFrame(() => {
+          const newScrollHeight = container.scrollHeight;
+          const heightDiff = newScrollHeight - prevScrollHeight;
+          container.scrollTop = prevScrollTop + heightDiff;
+        });
+      }
+    } catch (err) {
+      logger.error("Failed to load older messages:", err);
+    } finally {
+      setIsLoadingOlder(false);
+      loadingOlderRef.current = false;
+    }
+  }, [chatId, currentChat?.allMessages, hasOlderMessages, isLoadingOlder, setCurrentChat, user?.email]);
+
+  // IntersectionObserver for loading older messages when scrolling up
+  useEffect(() => {
+    const sentinel = topSentinelRef.current;
+    const container = containerRef.current;
+
+    if (!sentinel || !container || !hasOlderMessages || !chatId) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting && hasOlderMessages && !isLoadingOlder && !loadingOlderRef.current) {
+          loadOlderMessages();
+        }
+      },
+      {
+        root: container,
+        rootMargin: "100px 0px 0px 0px", // Trigger 100px before reaching the top
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasOlderMessages, isLoadingOlder, loadOlderMessages, chatId]);
+
   if (!user) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -167,7 +283,25 @@ const ChatView = () => {
   }
 
   return (
-    <div ref={containerRef} className="flex-1 space-y-4 px-3" style={{ WebkitOverflowScrolling: "touch" }}>
+    <div ref={containerRef} className="flex-1 space-y-4 px-3 relative" style={{ WebkitOverflowScrolling: "touch" }}>
+        {/* Top sentinel for loading older messages */}
+        {hasOlderMessages && currentChat?.allMessages?.length ? (
+          <div ref={topSentinelRef} className="h-1" data-top-sentinel />
+        ) : null}
+
+        {/* Loading indicator for older messages */}
+        {isLoadingOlder && (
+          <div className="flex justify-center py-4">
+            <div className="flex items-center gap-2 text-gray-500 text-sm">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <span>Loading older messages...</span>
+            </div>
+          </div>
+        )}
+
         {showLoading && !currentChat?.allMessages?.length ? (
           <div className="py-6 px-2">
             <SkeletonChatConversation messages={2} />
@@ -192,14 +326,14 @@ const ChatView = () => {
                 <ChatAction type="thumbsUp"/>
                 <ChatAction type="thumbsDown"/> */}
                 <ChatAction type="copy" content={message.botMessage}/>
-                <ChatAction 
-                  type="speaker" 
+                <ChatAction
+                  type="speaker"
                   content={message.botMessage}
                   isSpeaking={isSpeaking && speakingMessageId === message.id}
                   onSpeakToggle={() => handleSpeechToggle(message.id, message.botMessage)}
                 />
                 {
-                  message.responseMetrics && 
+                  message.responseMetrics &&
                   <ChatAction type="metrics" responseMetrics={message.responseMetrics}/>
                 }
             </div>
@@ -217,6 +351,7 @@ const ChatView = () => {
           </div>
         )
       }
+
       </div>
   );
 };

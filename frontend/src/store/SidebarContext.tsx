@@ -1,10 +1,22 @@
-import { createContext, useState, type ReactNode } from "react";
+import { createContext, useState, useCallback, type ReactNode } from "react";
 import type { ChatInSidebar } from "../types/Chats";
 import type { ChatMessage } from "../types";
 
 export type CurrentChatType = {
   chatId: string;
   allMessages: ChatMessage[];
+  /** Whether there are older messages to load */
+  hasOlderMessages?: boolean;
+  /** Total messages count from API */
+  totalMessages?: number;
+};
+
+/** Pagination state for sidebar chats */
+export type ChatsPaginationState = {
+  hasMore: boolean;
+  total: number;
+  offset: number;
+  isLoadingMore: boolean;
 };
 
 type SidebarContextType = {
@@ -19,6 +31,21 @@ type SidebarContextType = {
   setIsSidebarLoading: React.Dispatch<React.SetStateAction<boolean>>;
   refreshChatsTick: number;
   triggerRefreshChats: () => void;
+  /** Pagination state for sidebar chats */
+  chatsPagination: ChatsPaginationState;
+  /** Set pagination state */
+  setChatsPagination: React.Dispatch<React.SetStateAction<ChatsPaginationState>>;
+  /** Append chats for infinite scroll */
+  appendChats: (newChats: ChatInSidebar[], hasMore: boolean, total: number) => void;
+  /** Set loading more state */
+  setIsLoadingMoreChats: (loading: boolean) => void;
+};
+
+const initialPaginationState: ChatsPaginationState = {
+  hasMore: false,
+  total: 0,
+  offset: 0,
+  isLoadingMore: false,
 };
 
 export const SidebarContext = createContext<SidebarContextType>({
@@ -32,7 +59,11 @@ export const SidebarContext = createContext<SidebarContextType>({
   isSidebarLoading: false,
   setIsSidebarLoading: () => {},
   refreshChatsTick: 0,
-  triggerRefreshChats: () => {}
+  triggerRefreshChats: () => {},
+  chatsPagination: initialPaginationState,
+  setChatsPagination: () => {},
+  appendChats: () => {},
+  setIsLoadingMoreChats: () => {},
 });
 
 export const SidebarProvider = ({
@@ -45,6 +76,7 @@ export const SidebarProvider = ({
   const [currentChat, setCurrentChat] = useState<CurrentChatType | null>(null);
   const [isSidebarLoading, setIsSidebarLoading] = useState<boolean>(false);
   const [refreshChatsTick, setRefreshChatsTick] = useState<number>(0);
+  const [chatsPagination, setChatsPagination] = useState<ChatsPaginationState>(initialPaginationState);
 
   const toggleSidebar = () => {
     setSidebarOpen((prev) => !prev);
@@ -53,7 +85,24 @@ export const SidebarProvider = ({
 
   const triggerRefreshChats = () => {
     setRefreshChatsTick((prev) => prev + 1);
-  }
+  };
+
+  const appendChats = useCallback((newChats: ChatInSidebar[], hasMore: boolean, total: number) => {
+    setChats((prev) => [...prev, ...newChats]);
+    setChatsPagination((prev) => ({
+      ...prev,
+      hasMore,
+      total,
+      offset: prev.offset + newChats.length,
+    }));
+  }, []);
+
+  const setIsLoadingMoreChats = useCallback((loading: boolean) => {
+    setChatsPagination((prev) => ({
+      ...prev,
+      isLoadingMore: loading,
+    }));
+  }, []);
 
   return (
     <SidebarContext.Provider
@@ -68,7 +117,11 @@ export const SidebarProvider = ({
         isSidebarLoading,
         setIsSidebarLoading,
         refreshChatsTick,
-        triggerRefreshChats
+        triggerRefreshChats,
+        chatsPagination,
+        setChatsPagination,
+        appendChats,
+        setIsLoadingMoreChats,
       }}
     >
       {children}

@@ -17,7 +17,7 @@ from src.api.db.session import get_session
 from src.api.schemas.chat_schema import ChatListItem, ChatRenameRequest, PromptModel
 from src.api.utils.llm_provider_helper import get_provider_config_for_chat
 from src.api.utils.tracing import conditional_observation
-from src.copilot.graph import create_agent_graph, set_llm_from_config
+from src.copilot.graph import create_agent_graph, set_llm_from_config, generate_title_from_query
 from src.copilot.guardrails.prompt_guardrails import PromptGuardrail
 from src.copilot.utils import should_ask_clarification
 
@@ -242,61 +242,84 @@ async def prompt_stream(
             temperature=provider_config.get("temperature"),
         )
 
+        needs_title = (
+            request.generate_title
+            and (not current_title or current_title.strip() in ("", "New Chat"))
+        )
+
         inputs = {
             "messages": [("user", human_message)],
             "session_id": actual_chat_id,
             "user_id": str(user_id),
             "langfuse_enabled": langfuse_enabled,
+            "generate_title": not needs_title,
         }
 
         async def stream_generator():
-            # Check cache first before processing with LangGraph
-            # Only use cache for self-contained queries without conversation context
-            logger.debug(f"[CACHE CHECK] Checking cache for query: '{human_message[:50]}...'")
-            logger.debug(f"[CACHE CHECK] Has conversation history: {has_conversation_history}")
-            cached_response = check_cache_for_query(human_message)
-            
-            if cached_response:
-                logger.debug(f"[CACHE HIT] Found cached response, streaming from cache")
-                # Stream cached response
-                yield f"event: status\ndata: {json.dumps({'message': 'Found cached response, delivering instantly...'})}\n\n"
-                
-                # Generate title for new chat
+            title_queue = asyncio.Queue()
+            title_task = None
+            title_sent = False
+
+            async def parallel_title_generator():
+                """Generate title in parallel with main response."""
+                try:
+                    logger.debug("[PARALLEL TITLE] Starting parallel title generation")
+                    title = await asyncio.to_thread(
+                        generate_title_from_query,
+                        human_message,
+                        str(actual_chat_id),
+                        str(user_id),
+                        langfuse_enabled,
+                    )
+                    await title_queue.put({"title": title})
+                    logger.debug(f"[PARALLEL TITLE] Generated: {title}")
+                except Exception as e:
+                    logger.debug(f"[PARALLEL TITLE] Error: {e}")
+                    await title_queue.put({"error": str(e)})
+
+            async def check_and_emit_title():
+                """Check if title is ready and emit event (non-blocking)."""
+                nonlocal title_sent
+                if title_sent:
+                    return None
+                try:
+                    result = title_queue.get_nowait()
+                    if "title" in result:
+                        title_sent = True
+                        return result["title"]
+                except asyncio.QueueEmpty:
+                    pass
+                return None
+
+            async def save_title_to_db(title_text):
+                """Save generated title to database."""
                 try:
                     result = await session.execute(
                         select(Chat).where(Chat.id == actual_chat_id, Chat.user_id == user_id)
                     )
                     chat_row = result.scalar_one_or_none()
                     if chat_row and (not chat_row.title or chat_row.title.strip() in ("", "New Chat")):
-                        # Generate title using the configured LLM
-                        from langchain_core.messages import SystemMessage
-                        from src.copilot.graph import get_configured_llm
-
-                        llm = get_configured_llm()
-
-                        prompt = SystemMessage(
-                            "Generate a concise, 2-4 word title for this query. "
-                            "The title should clearly represent the main theme or subject. "
-                            f"Query: {human_message}\n\n"
-                            "Prioritize accuracy over excessive creativity; keep it clear and simple. "
-                            "The output must be only the title, without any markdown code fences or other encapsulating text."
-                        )
-                        # Run blocking LLM call in thread pool to avoid blocking event loop
-                        response = await asyncio.to_thread(llm.invoke, [prompt])
-                        generated_title = response.content.strip()
-                        if not generated_title:
-                            generated_title = "Untitled Chat"
-
-                        chat_row.title = generated_title
+                        chat_row.title = title_text
                         await session.commit()
-
-                        # Send title event to frontend
-                        yield f"event: title\ndata: {json.dumps({'title': generated_title})}\n\n"
-                        logger.debug(f"[CACHE] Generated title: {generated_title}")
+                        logger.debug(f"[TITLE DB] Saved title: {title_text}")
                 except Exception as e:
                     await session.rollback()
-                    logger.debug(f"Error generating title for cached response: {e}")
-                
+                    logger.debug(f"[TITLE DB] Error saving title: {e}")
+
+            # Check cache first before processing with LangGraph
+            # Only use cache for self-contained queries without conversation context
+            logger.debug(f"[CACHE CHECK] Checking cache for query: '{human_message[:50]}...'")
+            logger.debug(f"[CACHE CHECK] Has conversation history: {has_conversation_history}")
+            cached_response = check_cache_for_query(human_message)
+
+            if cached_response:
+                logger.debug(f"[CACHE HIT] Found cached response, streaming from cache")
+                # Stream cached response
+                yield f"event: status\ndata: {json.dumps({'message': 'Found cached response, delivering instantly...'})}\n\n"
+
+                if needs_title:
+                    title_task = asyncio.create_task(parallel_title_generator())
+
                 # Save cached response to database (if new chat)
                 try:
                     new_message = Message(
@@ -320,18 +343,38 @@ async def prompt_stream(
                     chunk_text = cached_response[i:i + chunk_size]
                     chunk_payload = {"chunk": chunk_text}
                     yield f"event: final_answer\ndata: {json.dumps(chunk_payload)}\n\n"
-                    await asyncio.sleep(0.01)  # Small delay for streaming effect
-                
+
+                    # Check for title ready (non-blocking) during streaming
+                    title_result = await check_and_emit_title()
+                    if title_result:
+                        yield f"event: title\ndata: {json.dumps({'title': title_result})}\n\n"
+                        await save_title_to_db(title_result)
+
+                    await asyncio.sleep(0.01)
+
+                if needs_title and not title_sent and title_task:
+                    try:
+                        result = await asyncio.wait_for(title_queue.get(), timeout=10.0)
+                        if "title" in result:
+                            yield f"event: title\ndata: {json.dumps({'title': result['title']})}\n\n"
+                            await save_title_to_db(result["title"])
+                    except asyncio.TimeoutError:
+                        logger.debug("[PARALLEL TITLE] Timeout waiting for title")
+
                 # Send completion event with full answer
                 final_data = {"answer": cached_response, "chat_id": str(actual_chat_id)}
                 yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
                 logger.debug(f"[CACHE STREAM] Stream completed successfully")
                 return
-            
+
             logger.debug(f"[CACHE MISS] No cached response found, processing with LangGraph")
+
+            if needs_title:
+                title_task = asyncio.create_task(parallel_title_generator())
+                logger.debug("[PARALLEL TITLE] Task started")
+
             answer = ""
             memory_saved = False
-            accumulate_answer = True
             generated_title = current_title
 
             workflow_observation = conditional_observation(
@@ -352,37 +395,44 @@ async def prompt_stream(
                             config=thread_config, input=inputs, stream_mode=["custom", "messages"]
                         )
                         async for mode, chunk in async_stream_wrapper(sync_stream):
+                            
+                            title_result = await check_and_emit_title()
+                            if title_result:
+                                generated_title = title_result
+                                yield f"event: title\ndata: {json.dumps({'title': title_result})}\n\n"
+                                await save_title_to_db(title_result)
+
                             if mode == "custom":
-                                # Title event
-                                if isinstance(chunk, dict) and "title" in chunk:
+                                if isinstance(chunk, dict) and "title" in chunk and not title_sent:
                                     generated_title = chunk["title"]
+                                    title_sent = True
                                     yield f"event: title\ndata: {json.dumps({'title': generated_title})}\n\n"
-                                    try:
-                                        result = await session.execute(
-                                            select(Chat).where(Chat.id == actual_chat_id, Chat.user_id == user_id)
-                                        )
-                                        chat_row = result.scalar_one_or_none()
-                                        if chat_row and (not chat_row.title or chat_row.title.strip() in ("", "New Chat")):
-                                            chat_row.title = generated_title
-                                            await session.commit()
-                                    except Exception as e:
-                                        await session.rollback()
-                                        logger.debug(f"Error saving generated title to database: {e}")
+                                    await save_title_to_db(generated_title)
 
                                 # Status event
                                 if isinstance(chunk, dict) and "status" in chunk:
                                     status_payload = {"message": chunk["status"]}
                                     yield f"event: status\ndata: {json.dumps(status_payload)}\n\n"
-                                    # Once title generation begins, stop accumulating answer chunks
-                                    if "Generating title for the incident report" in chunk["status"]:
-                                        accumulate_answer = False
+
                                     if (
                                         "Almost done, wrapping up the details" in chunk["status"]
                                         and not memory_saved
                                     ):
+                                        # Wait for title if not yet received (with timeout)
+                                        if needs_title and not title_sent and title_task:
+                                            try:
+                                                result = await asyncio.wait_for(title_queue.get(), timeout=5.0)
+                                                if "title" in result:
+                                                    generated_title = result["title"]
+                                                    title_sent = True
+                                                    yield f"event: title\ndata: {json.dumps({'title': generated_title})}\n\n"
+                                                    await save_title_to_db(generated_title)
+                                            except asyncio.TimeoutError:
+                                                logger.debug("[PARALLEL TITLE] Timeout at completion")
+
                                         final_data = {"answer": answer, "chat_id": str(actual_chat_id)}
                                         yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
-                                        
+
                                         # Store response in cache for future use
                                         try:
                                             logger.debug(f"[CACHE STORE] Storing response in cache for query: '{human_message[:50]}...'")
@@ -390,7 +440,7 @@ async def prompt_stream(
                                             logger.debug(f"[CACHE STORE] Successfully cached response")
                                         except Exception as e:
                                             logger.debug(f"[CACHE ERROR] Error storing response in cache: {e}")
-                                        
+
                                         # Finalize and save message to DB
                                         try:
                                             message = Message(
@@ -410,15 +460,21 @@ async def prompt_stream(
                                     and isinstance(token_chunk, AIMessageChunk)
                                     and token_chunk.content
                                 ):
-                                    if accumulate_answer:
-                                        answer += token_chunk.content
-                                        chunk_payload = {"chunk": token_chunk.content}
-                                        yield f"event: final_answer\ndata: {json.dumps(chunk_payload)}\n\n"
-                        
-                        observation.update(output=answer,name=generated_title)
+                                    answer += token_chunk.content
+                                    chunk_payload = {"chunk": token_chunk.content}
+                                    yield f"event: final_answer\ndata: {json.dumps(chunk_payload)}\n\n"
+
+                        observation.update(output=answer, name=generated_title)
             except Exception as e:
                 logger.debug(f"Error during streaming response: {e}")
+                # Cancel title task if still running
+                if title_task and not title_task.done():
+                    title_task.cancel()
                 raise e
+            finally:
+                # Ensure title task is cleaned up
+                if title_task and not title_task.done():
+                    title_task.cancel()
 
         return StreamingResponse(
             stream_generator(),
@@ -518,15 +574,56 @@ async def prompt(
             temperature=provider_config.get("temperature"),
         )
 
+        # Check if we need to generate a title
+        result = await session.execute(
+            select(Chat.title).where(Chat.id == actual_chat_id)
+        )
+        current_title = result.scalar_one_or_none()
+        needs_title = (
+            request.generate_title
+            and (not current_title or current_title.strip() in ("", "New Chat"))
+        )
+        langfuse_enabled = settings.langfuse_enabled if settings else True
+
         inputs = {
             "messages": [("user", human_message)],
             "session_id": str(actual_chat_id),
             "user_id": str(user_id),
-            "langfuse_enabled": settings.langfuse_enabled if settings else True,
+            "langfuse_enabled": langfuse_enabled,
+            "generate_title": not needs_title,  # False = API handles title in parallel
         }
-        answer, title = await get_graph_response_non_stream(
+
+        # Run main response and title generation in parallel
+        title_task = None
+        if needs_title:
+            title_task = asyncio.create_task(
+                asyncio.to_thread(
+                    generate_title_from_query,
+                    human_message,
+                    str(actual_chat_id),
+                    str(user_id),
+                    langfuse_enabled,
+                )
+            )
+            logger.debug("[PARALLEL TITLE] Non-stream: Task started")
+
+        answer, graph_title = await get_graph_response_non_stream(
             inputs, thread_config
         )
+
+        # Get title from parallel task or graph
+        title = None
+        if title_task:
+            try:
+                title = await asyncio.wait_for(title_task, timeout=10.0)
+                logger.debug(f"[PARALLEL TITLE] Non-stream: Got title '{title}'")
+            except asyncio.TimeoutError:
+                logger.debug("[PARALLEL TITLE] Non-stream: Timeout")
+            except Exception as e:
+                logger.debug(f"[PARALLEL TITLE] Non-stream: Error {e}")
+        elif graph_title:
+            title = graph_title
+
         if title:
             try:
                 result = await session.execute(
