@@ -28,6 +28,10 @@ def is_context_dependent_query(query: str) -> Tuple[bool, str]:
     
     query_lower = query.lower().strip()
     words = query_lower.split()
+    # If query contains an explicit incident ID
+    incident_id_pattern = r'\bINC-\d{4}-\d{2}-\d{2}-\d+\b'
+    if re.search(incident_id_pattern, query, re.IGNORECASE):
+        return False, ""
     
     # Very short queries are often context-dependent
     if len(words) <= 2:

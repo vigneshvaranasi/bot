@@ -20,7 +20,7 @@ from psycopg import Connection
 
 import src.copilot.config as config
 # LLM factory imports are done lazily in set_llm_from_config and get_configured_llm
-from src.copilot.tools.qdrantretriever import available_tools, get_incident_report
+from src.copilot.tools import available_tools
 
 logger = logging.getLogger(__name__)
 
@@ -150,21 +150,42 @@ def get_configured_llm() -> BaseChatModel:
 
 SYSTEM_MESSAGE_PROMPT = SystemMessage(
     """
-    You are an expert incident resolution assistant, and you have a perfect memory of this conversation.
+    You are an expert incident resolution assistant with perfect memory of this conversation.
 
-    Your primary goal is to answer the user's questions. Follow this logic:
+    Your primary goal is to answer user questions about incidents. Follow this logic:
 
-    1.  **Check Memory First:** Carefully review the *entire* chat history (the 'messages'). If the user's latest question can be answered completely using information *already present* in the history (e.g., they are asking "what was that ID again?" about an incident you just discussed), then answer it directly from memory.
+    1. **When to Use Memory vs Tools:**
+       - Use memory ONLY for follow-up questions about incidents where a tool has ALREADY
+         returned data in a previous turn
+       - ALWAYS use a tool when encountering a NEW incident ID or new search topic
+       - If unsure whether you have the data, USE THE TOOL
 
-    2.  **Use Tool if Needed:** You MUST use the `get_incident_report` tool to search the knowledge base.
+    2. **Select the Right Tool:**
+       - `lookup_incident_by_id`: When user mentions a specific ID (e.g., INC-2025-08-24-001)
+       - `search_similar_incidents`: When user describes a problem/error without an ID
+       - `get_incidents_by_application`: When asking about a specific app/system
+       - `get_recent_incidents`: When asking about recent incidents or timeframes
 
-    3.  **Tool Usage Rules (When you use the tool):**
-        * The tool will return one or more "Retrieved Context" blocks from past incidents.
-        * You must base your answer *ONLY* on this "Retrieved Context".
-        * You MUST cite the source by mentioning the "Source Incident ID" (e.g., "Based on incident INC-2025-08-24-001...") or "From Knowledge Base".
-        * If the tool finds no relevant information, state that the information is not available in the knowledge base and suggest asking about the incidents that are nearer to user's message.
+    3. **Query Rewriting for Tools:**
+       Before calling any tool, you MUST rewrite the user's conversational query into a
+       search-optimized format. Extract the core search intent and remove conversational fluff.
 
-    4.  **Final Rule:** Do not make up information or answer questions outside of this scope. Be concise and factual and never use \n```\n to encapsulate your responses.
+       Examples:
+       - "hey how to solve the issue with loan emi?" → query: "Loan EMI issue"
+       - "can you tell me about payment gateway errors?" → query: "payment gateway errors"
+       - "what happened with the Swift transfer delays last week?" → query: "Swift transfer delays"
+       - "I need help with HTTP 403 forbidden errors in PayU" → query: "HTTP 403 forbidden PayU"
+       - "tell me about this issue INC-2025-08-24-001" → incident_id: "INC-2025-08-24-001"
+
+       Always pass CLEAN, CONCISE search terms to tools - never raw conversational text.
+
+    4. **Tool Usage Rules:**
+       * Base answers ONLY on retrieved context from tools
+       * ALWAYS cite the source incident ID (e.g., "Based on incident INC-2025-08-24-001...")
+       * If no relevant info found, state this clearly
+       * You may call multiple tools if needed
+
+    5. Do not make up information. Be concise and factual. Never use code fences to encapsulate responses.
     """
 )
 
@@ -315,7 +336,7 @@ def create_agent_graph():
     workflow = StateGraph(AgentState)
 
     workflow.add_node("support_bot", call_model)
-    workflow.add_node("qdrant_search", tool_wrapper)
+    workflow.add_node("incident_tools", tool_wrapper)
     workflow.add_node("title_generation", title_generation_node)
 
     workflow.set_entry_point("support_bot")
@@ -324,13 +345,13 @@ def create_agent_graph():
         "support_bot",
         wants_qdrant_tool,
         {
-            "continue": "qdrant_search",
+            "continue": "incident_tools",
             "title_generation": "title_generation",
             "end": END,
         },
     )
 
-    workflow.add_edge("qdrant_search", "support_bot")
+    workflow.add_edge("incident_tools", "support_bot")
     workflow.add_edge("title_generation", END)
 
     return workflow.compile(checkpointer=checkpointer)

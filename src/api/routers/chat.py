@@ -406,7 +406,7 @@ async def prompt_stream(
                             elif mode == "messages":
                                 token_chunk, metadata = chunk
                                 if (
-                                    metadata.get('langgraph_node')!='qdrant_search'
+                                    metadata.get('langgraph_node') != 'incident_tools'
                                     and isinstance(token_chunk, AIMessageChunk)
                                     and token_chunk.content
                                 ):
