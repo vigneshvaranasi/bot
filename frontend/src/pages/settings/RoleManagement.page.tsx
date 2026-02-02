@@ -433,11 +433,11 @@ const RoleManagement = () => {
         </div>
 
         {roles.length === 0 ? (
-          <div className="p-6 text-center text-gray-500 text-sm border border-dashed border-gray-300 rounded-lg bg-gray-50">
+          <div className="p-6 text-center text-gray-500 text-sm rounded-lg bg-gray-50 border border-gray-200">
             No roles configured.
           </div>
         ) : (
-          <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
+          <div className="overflow-x-auto bg-white rounded-lg shadow-sm">
             <ConfigurableTable
               columns={columns}
               data={roles}

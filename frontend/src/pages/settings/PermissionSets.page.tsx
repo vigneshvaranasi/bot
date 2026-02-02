@@ -481,7 +481,7 @@ const PermissionSetsPage = () => {
             No permission sets configured.
           </div>
         ) : (
-          <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
+          <div className="overflow-x-auto bg-white rounded-lg">
             <ConfigurableTable
               columns={columns}
               data={permissionSets}
