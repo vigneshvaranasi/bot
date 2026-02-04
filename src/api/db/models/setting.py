@@ -21,6 +21,12 @@ class Setting(Base):
     # LLM Provider selection
     provider_id = Column(UUID(as_uuid=True), ForeignKey("llm_providers.id", ondelete="SET NULL"), nullable=True)
 
+    # Feedback settings for human feedback loop
+    feedback_auto_approve_positive = Column(Boolean, default=True, nullable=False)
+    feedback_auto_approve_negative = Column(Boolean, default=False, nullable=False)
+    feedback_require_reason_positive = Column(Boolean, default=False, nullable=False)
+    feedback_require_reason_negative = Column(Boolean, default=False, nullable=False)
+
     # Audit trail columns
     change_type = Column(String(20), nullable=False, default="update")  # 'create', 'update', 'rollback'
     source_version_id = Column(UUID(as_uuid=True), ForeignKey("settings.id", ondelete="SET NULL"), nullable=True)

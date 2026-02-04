@@ -2,17 +2,9 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useAuthContext } from "../hooks/useAuthContext";
 import { usePermissions } from "../hooks/usePermissions";
 
-/**
- * AdminRoute - Route guard for settings pages that require specific permissions.
- *
- * Unlike the old role-based approach (user.role === "admin"), this now uses the
- * RBAC permission system. Users need at least one view permission for any admin
- * area to access this route. Individual pages handle their own fine-grained
- * permission checks.
- */
 const AdminRoute = () => {
   const { user, loading: authLoading } = useAuthContext();
-  const { permissions, loading: permissionsLoading, hasAnyPermission } = usePermissions();
+  const { permissions, loading: permissionsLoading } = usePermissions();
 
   if (authLoading || permissionsLoading) {
     return (
@@ -26,19 +18,8 @@ const AdminRoute = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // Check if user has any admin-level permissions
-  // This is a broad check - individual pages handle specific permissions
-  const adminPermissionPrefixes = [
-    "aiml.", "auth.", "llm_provider.", "integration.",
-    "user.", "role.", "permission_set.", "history.", "system."
-  ];
 
-  const hasAnyAdminPermission = permissions.size > 0 &&
-    Array.from(permissions).some(p =>
-      adminPermissionPrefixes.some(prefix => p.startsWith(prefix))
-    );
-
-  if (!hasAnyAdminPermission) {
+  if (permissions.size === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-screen text-center px-6">
         <p className="text-lg font-semibold text-gray-900">Admin access required</p>

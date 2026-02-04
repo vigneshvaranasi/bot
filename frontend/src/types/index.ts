@@ -20,6 +20,8 @@ export interface ChatMessage {
   _finalAnswerStarted?: boolean;
   _finalAnswerDone?: boolean;
   responseMetrics?: StreamMetrics;
+  feedback?: 'positive' | 'negative' | null;
+  feedbackId?: string;
 }
 
 /**
@@ -176,6 +178,64 @@ export interface Integration {
 export interface Role {
   id: string;
   name: string;
+}
+
+export type FeedbackType = 'positive' | 'negative';
+
+export interface FeedbackCreate {
+  message_id: string;
+  feedback_type: FeedbackType;
+  reason?: string;
+}
+
+export interface FeedbackResponse {
+  id: string;
+  message_id: string;
+  user_id: string | null;
+  feedback_type: FeedbackType;
+  reason: string | null;
+  status: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export interface FeedbackItem {
+  id: string;
+  message_id: string;
+  user_id: string | null;
+  user_email: string | null;
+  feedback_type: FeedbackType;
+  reason: string | null;
+  status: string;
+  reviewed_by: string | null;
+  reviewer_email: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  original_query: string;
+  original_response: string;
+  chat_id: string;
+  has_golden_example: boolean;
+  golden_example_id: string | null;
+  golden_response: string | null;
+}
+
+export interface FeedbackStats {
+  total_feedback: number;
+  positive_count: number;
+  negative_count: number;
+  pending_count: number;
+  auto_approved_count: number;
+  reviewed_count: number;
+  dismissed_count: number;
+  golden_examples_count: number;
+}
+
+export interface FeedbackSettings {
+  auto_approve_positive: boolean;
+  auto_approve_negative: boolean;
+  require_reason_positive: boolean;
+  require_reason_negative: boolean;
 }
 
 // ============================================================================

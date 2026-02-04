@@ -43,6 +43,21 @@ const NAV_ITEMS: SettingsNavItemConfig[] = [
     ],
   },
   {
+    label: "Feedback Dashboard",
+    to: "/settings/feedback",
+    permissions: [PERMISSIONS.FEEDBACK_VIEW, PERMISSIONS.FEEDBACK_MANAGE],
+    searchTexts: [
+      "Feedback",
+      "Dashboard",
+      "Golden Examples",
+      "Thumbs Up",
+      "Thumbs Down",
+      "User Feedback",
+      "AI Learning",
+      "Review",
+    ],
+  },
+  {
     label: "Integrations",
     to: "/settings/integrations",
     permissions: [PERMISSIONS.INTEGRATION_VIEW],

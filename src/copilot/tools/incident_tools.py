@@ -7,7 +7,7 @@ improving LLM tool selection accuracy and maintainability.
 import logging
 import re
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional, Callable
 
 from langchain.schema import Document
 from langchain_core.tools import tool
@@ -22,6 +22,19 @@ from src.copilot.tools._base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _get_safe_stream_writer() -> Callable:
+    """Get stream writer if available, otherwise return a no-op function.
+    
+    This allows tools to work both within LangGraph context (with streaming)
+    and outside of it
+    """
+    try:
+        writer = get_stream_writer()
+        return writer
+    except Exception:
+        return lambda x: None
 
 
 def _scroll_qdrant_with_filter(qdrant_filter: Filter, limit: int = 100) -> List[Document]:
@@ -86,7 +99,7 @@ def lookup_incident_by_id(incident_id: str) -> str:
     Returns:
         Detailed incident report or message if not found.
     """
-    writer = get_stream_writer()
+    writer = _get_safe_stream_writer()
     writer({"status": f"Searching for {incident_id}..."})
 
     # Normalize the incident ID (handle unicode hyphens)
@@ -139,7 +152,7 @@ def search_similar_incidents(query: str, limit: int = 5) -> str:
     Returns:
         Matching incident reports or message if none found.
     """
-    writer = get_stream_writer()
+    writer = _get_safe_stream_writer()
     writer({"status": "Searching for Similar Incidents..."})
 
     retriever = _get_retriever()
@@ -211,7 +224,7 @@ def get_incidents_by_application(app_name: str, limit: int = 5) -> str:
     Returns:
         Incident reports for the application or message if none found.
     """
-    writer = get_stream_writer()
+    writer = _get_safe_stream_writer()
     writer({"status": f"Searching incidents for {app_name}..."})
 
     try:
@@ -284,7 +297,7 @@ def get_recent_incidents(days: int = 7, limit: int = 10) -> str:
     Returns:
         Recent incident reports or message if none found.
     """
-    writer = get_stream_writer()
+    writer = _get_safe_stream_writer()
     writer({"status": f"Searching incidents from the last {days} days..."})
 
     try:

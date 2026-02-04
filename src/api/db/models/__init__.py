@@ -13,3 +13,5 @@ from .user_role import UserRole
 from .user_permission import UserPermission
 from .user_permission_set import UserPermissionSet
 from .rbac_audit_log import RbacAuditLog
+from .message_feedback import MessageFeedback
+from .golden_example import GoldenExample
