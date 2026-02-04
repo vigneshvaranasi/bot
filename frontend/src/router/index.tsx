@@ -16,6 +16,7 @@ import IntegrationsPage from "../pages/settings/Integrations.page";
 import ConfigurationHistoryPage from "../pages/settings/ConfigurationHistory.page";
 import RoleManagementPage from "../pages/settings/RoleManagement.page";
 import PermissionSetsPage from "../pages/settings/PermissionSets.page";
+import FeedbackDashboardPage from "../pages/settings/FeedbackDashboard.page";
 import AdminRoute from "./AdminRoute";
 
 const normalRoutes: RouteObject = {
@@ -58,6 +59,7 @@ const normalRoutes: RouteObject = {
                 { path: "user-management", element: <UserManagementPage /> },
                 { path: "roles", element: <RoleManagementPage /> },
                 { path: "permission-sets", element: <PermissionSetsPage /> },
+                { path: "feedback", element: <FeedbackDashboardPage /> },
                 {
                   path: "config-history",
                   element: <ConfigurationHistoryPage />,

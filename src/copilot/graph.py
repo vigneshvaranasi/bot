@@ -21,6 +21,10 @@ from psycopg import Connection
 import src.copilot.config as config
 # LLM factory imports are done lazily in set_llm_from_config and get_configured_llm
 from src.copilot.tools import available_tools
+from src.api.services.golden_example_service import (
+    search_golden_examples_sync,
+    build_prompt_with_golden_examples,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -155,19 +159,26 @@ SYSTEM_MESSAGE_PROMPT = SystemMessage(
 
     Your primary goal is to answer user questions about incidents. Follow this logic:
 
-    1. **When to Use Memory vs Tools:**
+    1. **Verified Knowledge (Highest Priority):**
+       - If a "Verified Knowledge" section is provided below with a "Direct Answer Available",
+         you MAY use that verified response directly WITHOUT calling tools
+       - This applies ONLY when the user's question is asking for the SAME information
+       - Just respond naturally - do NOT add any special prefix
+       - If the question differs or needs additional details, use tools as normal
+
+    2. **When to Use Memory vs Tools:**
        - Use memory ONLY for follow-up questions about incidents where a tool has ALREADY
          returned data in a previous turn
        - ALWAYS use a tool when encountering a NEW incident ID or new search topic
        - If unsure whether you have the data, USE THE TOOL
 
-    2. **Select the Right Tool:**
+    3. **Select the Right Tool:**
        - `lookup_incident_by_id`: When user mentions a specific ID (e.g., INC-2025-08-24-001)
        - `search_similar_incidents`: When user describes a problem/error without an ID
        - `get_incidents_by_application`: When asking about a specific app/system
        - `get_recent_incidents`: When asking about recent incidents or timeframes
 
-    3. **Query Rewriting for Tools:**
+    4. **Query Rewriting for Tools:**
        Before calling any tool, you MUST rewrite the user's conversational query into a
        search-optimized format. Extract the core search intent and remove conversational fluff.
 
@@ -180,19 +191,24 @@ SYSTEM_MESSAGE_PROMPT = SystemMessage(
 
        Always pass CLEAN, CONCISE search terms to tools - never raw conversational text.
 
-    4. **Tool Usage Rules:**
-       * Base answers ONLY on retrieved context from tools
-       * ALWAYS cite the source incident ID (e.g., "Based on incident INC-2025-08-24-001...")
+    5. **Tool Usage Rules:**
+       * Base answers on retrieved context from tools OR verified knowledge
+       * When using tool data, ALWAYS cite the source incident ID (e.g., "Based on incident INC-2025-08-24-001...")
        * If no relevant info found, state this clearly
        * You may call multiple tools if needed
 
-    5. Do not make up information. Be concise and factual. Never use code fences to encapsulate responses.
+    6. Do not make up information. Be concise and factual. Never use code fences to encapsulate responses.
     """
 )
 
 
 def call_model(state: AgentState) -> dict:
     """Node to call the LLM with the current state.
+
+    This function:
+    1. Searches for similar golden examples based on the user's query
+    2. Enhances the system prompt with relevant examples
+    3. Invokes the LLM with the enhanced prompt
 
     Args:
         state: Current agent state with messages
@@ -205,7 +221,27 @@ def call_model(state: AgentState) -> dict:
     # Get the configured LLM with tools
     model_with_tools = _get_model_with_tools()
 
-    messages = [SYSTEM_MESSAGE_PROMPT] + list(state["messages"])
+    user_messages = [m for m in state["messages"] if hasattr(m, 'type') and m.type == 'human']
+    latest_query = user_messages[-1].content if user_messages else ""
+
+    enhanced_system_prompt = SYSTEM_MESSAGE_PROMPT
+    if latest_query:
+        try:
+            golden_examples = search_golden_examples_sync(
+                query=latest_query,
+                top_k=2,
+                score_threshold=0.6,
+            )            
+            if golden_examples:
+                logger.debug(f"Found {len(golden_examples)} golden examples for query")
+                enhanced_content = build_prompt_with_golden_examples(
+                    base_prompt=SYSTEM_MESSAGE_PROMPT.content,
+                    golden_examples=golden_examples,
+                )
+                enhanced_system_prompt = SystemMessage(enhanced_content)
+        except Exception as e:
+            logger.warning(f"Error searching golden examples: {e}")
+    messages = [enhanced_system_prompt] + list(state["messages"])
     callbacks = _get_callbacks(state)
 
     with propagate_attributes(

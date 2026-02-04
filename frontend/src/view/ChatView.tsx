@@ -3,15 +3,18 @@ import { useParams } from "react-router-dom";
 import { useAuthContext } from "../hooks/useAuthContext";
 import { useEffect, useLayoutEffect, useState, useRef, useCallback } from "react";
 import { getChatMessagesById, type PaginatedMessagesResponse } from "../handlers/chatHandler";
+import { submitFeedback, getFeedbackForMessages } from "../handlers/feedbackHandler";
 import { readChatMetrics, removeChatMetrics } from "../utils/metrics";
 import { useSidebarContext } from "../hooks/useSidebarContext";
 import { useSpeechSynthesis } from "../hooks/useSpeechSynthesis";
 import { loadChatFromCache, saveChatToCache, messagesEqual, mergeOlderMessages } from "../utils/chatCache";
 import { ChatAction } from "../components/ui/ChatAction";
+import { InlineFeedback } from "../components/ui/InlineFeedback";
 import { logger } from "../utils/logger";
-import type { ChatMessage } from "../types";
+import type { ChatMessage, FeedbackType } from "../types";
 import { SkeletonChatConversation } from "../components/ui/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
+import { toast } from "react-hot-toast";
 
 // API response message structure from getChatMessagesById
 interface ApiChatMessage {
@@ -29,6 +32,12 @@ const ChatView = () => {
   const { speak, stop, isSpeaking } = useSpeechSynthesis();
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const [activeFeedback, setActiveFeedback] = useState<{
+    messageId: string | null;
+    feedbackType: FeedbackType;
+  }>({ messageId: null, feedbackType: 'positive' });
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
 
   // Pagination state for infinite scroll
   const [hasOlderMessages, setHasOlderMessages] = useState(false);
@@ -155,6 +164,100 @@ const ChatView = () => {
       speak(content);
     }
   }, [isSpeaking, speakingMessageId, speak, stop]);
+
+  const handleFeedbackClick = useCallback((messageId: string, feedbackType: FeedbackType) => {
+    const message = currentChat?.allMessages.find(m => m.id === messageId);
+    if (message?.feedback === feedbackType) {
+      return;
+    }
+    
+    if (activeFeedback.messageId === messageId && activeFeedback.feedbackType === feedbackType) {
+      setActiveFeedback({ messageId: null, feedbackType: 'positive' });
+    } else {
+      setActiveFeedback({ messageId, feedbackType });
+    }
+  }, [currentChat?.allMessages, activeFeedback.messageId, activeFeedback.feedbackType]);
+
+  const handleFeedbackSubmit = useCallback(async (reason: string) => {
+    const { messageId, feedbackType } = activeFeedback;
+    if (!messageId) return;
+
+    setFeedbackLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Not authenticated");
+
+      const response = await submitFeedback(token, messageId, feedbackType, reason);
+      
+      setCurrentChat((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          allMessages: prev.allMessages.map((m) =>
+            m.id === messageId
+              ? { ...m, feedback: feedbackType, feedbackId: response.id }
+              : m
+          ),
+        };
+      });
+
+      toast.success(feedbackType === 'positive' ? 'Thanks for the feedback!' : 'Feedback submitted');
+
+      setActiveFeedback({ messageId: null, feedbackType: 'positive' });
+    } catch (err: any) {
+      logger.error("Failed to submit feedback:", err);
+      toast.error(err.message || 'Failed to submit feedback');
+    } finally {
+      setFeedbackLoading(false);
+    }
+  }, [activeFeedback, setCurrentChat]);
+
+  const handleFeedbackCancel = useCallback(() => {
+    setActiveFeedback({ messageId: null, feedbackType: 'positive' });
+  }, []);
+
+  useEffect(() => {
+    const loadFeedback = async () => {
+      if (!currentChat?.allMessages?.length) return;
+      
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const messageIds = currentChat.allMessages
+        .filter(m => !m.streaming && !m.feedback)
+        .map(m => m.id);
+      
+      if (messageIds.length === 0) return;
+
+      try {
+        const feedbackMap = await getFeedbackForMessages(token, messageIds);
+        
+        if (feedbackMap.size > 0) {
+          setCurrentChat((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              allMessages: prev.allMessages.map((m) => {
+                const feedback = feedbackMap.get(m.id);
+                if (feedback) {
+                  return {
+                    ...m,
+                    feedback: feedback.feedback_type,
+                    feedbackId: feedback.id,
+                  };
+                }
+                return m;
+              }),
+            };
+          });
+        }
+      } catch (err) {
+        logger.error("Failed to load feedback:", err);
+      }
+    };
+
+    loadFeedback();
+  }, [currentChat?.chatId, currentChat?.allMessages?.length, setCurrentChat]);
 
   useEffect(() => {
     return () => {
@@ -322,9 +425,16 @@ const ChatView = () => {
             {
               !message.streaming &&
               <div className="flex items-center gap-0.5 ml-2">
-                {/* <ChatAction type="retry"/>
-                <ChatAction type="thumbsUp"/>
-                <ChatAction type="thumbsDown"/> */}
+                <ChatAction
+                  type="thumbsUp"
+                  active={message.feedback === 'positive' || (activeFeedback.messageId === message.id && activeFeedback.feedbackType === 'positive')}
+                  onClick={() => handleFeedbackClick(message.id, 'positive')}
+                />
+                <ChatAction
+                  type="thumbsDown"
+                  active={message.feedback === 'negative' || (activeFeedback.messageId === message.id && activeFeedback.feedbackType === 'negative')}
+                  onClick={() => handleFeedbackClick(message.id, 'negative')}
+                />
                 <ChatAction type="copy" content={message.botMessage}/>
                 <ChatAction
                   type="speaker"
@@ -338,6 +448,14 @@ const ChatView = () => {
                 }
             </div>
             }
+            {activeFeedback.messageId === message.id && (
+              <InlineFeedback
+                feedbackType={activeFeedback.feedbackType}
+                onSubmit={handleFeedbackSubmit}
+                onCancel={handleFeedbackCancel}
+                isLoading={feedbackLoading}
+              />
+            )}
           </div>
         ))
       )}

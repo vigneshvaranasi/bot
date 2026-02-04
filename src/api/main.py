@@ -64,3 +64,6 @@ app.include_router(llm_providers.router, prefix="/llm-providers", tags=["LLM Pro
 
 from src.api.routers import permissions
 app.include_router(permissions.router, tags=["Permissions"])
+
+from src.api.routers import feedback
+app.include_router(feedback.router, prefix="/feedback", tags=["Feedback"])
