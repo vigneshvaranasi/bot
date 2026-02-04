@@ -24,8 +24,10 @@ from src.api.schemas.feedback_schemas import (
     GoldenExampleUpdate,
     GoldenExampleResponse,
     GoldenExampleListResponse,
+    GenerateResponseResult,
 )
 from src.api.services.feedback_service import FeedbackService
+from src.api.services.golden_response_generator import get_golden_response_generator
 
 logger = logging.getLogger(__name__)
 
@@ -390,6 +392,66 @@ async def delete_feedback(
             detail="Failed to delete feedback"
         )
 
+
+@router.post("/admin/{feedback_id}/generate-response", response_model=GenerateResponseResult)
+async def generate_golden_response(
+    feedback_id: str,
+    current_user: dict = Depends(require_permission("feedback.manage")),
+    db: AsyncSession = Depends(get_session),
+):
+    """
+    Generate an AI-suggested golden response based on feedback context.
+    
+    Uses the configured LLM with full RAG tool access. The LLM decides
+    autonomously whether to use tools for additional context.
+    
+    Features:
+    - Specialized prompt for response improvement
+    - Full access to incident lookup tools
+    - Timeout protection (60s)
+    - Concurrency control
+    """
+    try:
+        service = FeedbackService(db)
+        feedback_data = await service.get_feedback_with_context(UUID(feedback_id))
+        
+        if not feedback_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Feedback not found"
+            )
+        
+        
+        generator = get_golden_response_generator()
+        result = await generator.generate(
+            original_query=feedback_data["original_query"],
+            original_response=feedback_data["original_response"],
+            feedback_reason=feedback_data.get("reason"),
+            feedback_type=feedback_data["feedback_type"],
+        )
+        
+        if not result.success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=result.error or "Failed to generate response"
+            )
+        
+        return GenerateResponseResult(
+            generated_response=result.generated_response,
+            tool_calls_made=result.tool_calls_made,
+            generation_time_ms=result.generation_time_ms,
+            success=result.success,
+            error=result.error,
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error generating golden response")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate response: {str(e)}"
+        )
 
 
 @router.get("/golden-examples/", response_model=GoldenExampleListResponse)

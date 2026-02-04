@@ -227,3 +227,30 @@ export async function updateGoldenExample(
     throw new Error(error.detail || 'Failed to update golden example');
   }
 }
+
+export interface GenerateResponseResult {
+  generated_response: string;
+  tool_calls_made: number;
+  generation_time_ms: number;
+  success: boolean;
+  error?: string;
+}
+
+export async function generateGoldenResponse(
+  token: string,
+  feedbackId: string
+): Promise<GenerateResponseResult> {
+  const response = await fetch(`${BE_URL}/feedback/admin/${feedbackId}/generate-response`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to generate response' }));
+    throw new Error(error.detail || 'Failed to generate response');
+  }
+  
+  return response.json();
+}

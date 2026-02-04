@@ -140,3 +140,12 @@ class FeedbackStats(BaseModel):
     reviewed_count: int
     dismissed_count: int
     golden_examples_count: int
+
+
+class GenerateResponseResult(BaseModel):
+    """Schema for AI-generated golden response result."""
+    generated_response: str = Field(..., description="The AI-generated improved response")
+    tool_calls_made: int = Field(..., description="Number of RAG tool calls made during generation")
+    generation_time_ms: int = Field(..., description="Time taken to generate the response in milliseconds")
+    success: bool = Field(..., description="Whether generation was successful")
+    error: Optional[str] = Field(None, description="Error message if generation failed")

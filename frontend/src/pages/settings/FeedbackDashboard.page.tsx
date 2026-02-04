@@ -23,6 +23,7 @@ import {
   deleteFeedback,
   restoreFeedback,
   updateGoldenExample,
+  generateGoldenResponse,
 } from "../../handlers/feedbackHandler";
 
 marked.setOptions({
@@ -79,6 +80,12 @@ const FeedbackDashboard: React.FC = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedGoldenResponse, setEditedGoldenResponse] = useState('');
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [hasGenerated, setHasGenerated] = useState(false);
+  const [generationInfo, setGenerationInfo] = useState<{ toolCalls: number; timeMs: number } | null>(null);
+  const [goldenResponseTab, setGoldenResponseTab] = useState<'edit' | 'preview'>('edit');
+  const [editGoldenResponseTab, setEditGoldenResponseTab] = useState<'edit' | 'preview'>('edit');
 
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -153,6 +160,9 @@ const FeedbackDashboard: React.FC = () => {
     setIsGoldenResponseExpanded(false);
     setIsEditing(false);
     setEditedGoldenResponse('');
+    setHasGenerated(false);
+    setGenerationInfo(null);
+    setGoldenResponseTab('edit');
     setIsDetailModalOpen(true);
   };
 
@@ -245,17 +255,56 @@ const FeedbackDashboard: React.FC = () => {
     }
   };
 
+  const handleGenerateResponse = async (forEdit: boolean = false) => {
+    if (!selectedFeedback) return;
+
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    setIsGenerating(true);
+    setGenerationInfo(null);
+    try {
+      const result = await generateGoldenResponse(token, selectedFeedback.id);
+      
+      if (result.success) {
+        if (forEdit) {
+          setEditedGoldenResponse(result.generated_response);
+        } else {
+          setGoldenResponse(result.generated_response);
+        }
+        setHasGenerated(true);
+        setGenerationInfo({
+          toolCalls: result.tool_calls_made,
+          timeMs: result.generation_time_ms,
+        });
+        toast.success('Response generated successfully');
+      } else {
+        toast.error(result.error || 'Failed to generate response');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to generate response');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleStartEdit = () => {
     if (selectedFeedback?.golden_response) {
       setEditedGoldenResponse(selectedFeedback.golden_response);
       setIsEditing(true);
       setIsGoldenResponseExpanded(true);
+      setEditGoldenResponseTab('edit');
+      setHasGenerated(false);
+      setGenerationInfo(null);
     }
   };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditedGoldenResponse('');
+    setEditGoldenResponseTab('edit');
+    setHasGenerated(false);
+    setGenerationInfo(null);
   };
 
   const handleSaveEdit = async () => {
@@ -729,18 +778,91 @@ const FeedbackDashboard: React.FC = () => {
                   <div className="border-t border-violet-200">
                     {isEditing ? (
                       <div className="p-4">
-                        <textarea
-                          value={editedGoldenResponse}
-                          onChange={(e) => setEditedGoldenResponse(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 text-sm"
-                          rows={10}
-                          placeholder="Edit the golden response..."
-                        />
+                        <div className="flex justify-end mb-2">
+                          <button
+                            type="button"
+                            onClick={() => handleGenerateResponse(true)}
+                            disabled={isGenerating || isSubmitting}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                          >
+                            {isGenerating ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                                {hasGenerated ? 'Regenerate' : 'Generate with AI'}
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        
+                        <div className="border border-gray-300 rounded-lg overflow-hidden">
+                          <div className="flex border-b border-gray-300 bg-gray-50">
+                            <button
+                              type="button"
+                              onClick={() => setEditGoldenResponseTab('edit')}
+                              className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer ${
+                                editGoldenResponseTab === 'edit'
+                                  ? 'bg-white text-gray-900 border-b-2 border-violet-600 -mb-px'
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                              }`}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditGoldenResponseTab('preview')}
+                              className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer ${
+                                editGoldenResponseTab === 'preview'
+                                  ? 'bg-white text-gray-900 border-b-2 border-violet-600 -mb-px'
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                              }`}
+                            >
+                              Preview
+                            </button>
+                          </div>
+                          
+                          {editGoldenResponseTab === 'edit' ? (
+                            <textarea
+                              value={editedGoldenResponse}
+                              onChange={(e) => setEditedGoldenResponse(e.target.value)}
+                              className="w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 text-sm resize-none"
+                              rows={10}
+                              placeholder="Edit the golden response..."
+                              disabled={isGenerating}
+                            />
+                          ) : (
+                            <div 
+                              className="p-4 bg-white min-h-[200px] max-h-[350px] overflow-y-auto markdown-body"
+                              dangerouslySetInnerHTML={{ 
+                                __html: editedGoldenResponse.trim() 
+                                  ? renderMarkdown(editedGoldenResponse) 
+                                  : '<p class="text-gray-400 italic">No content to preview</p>'
+                              }}
+                            />
+                          )}
+                        </div>
+                        
+                        {generationInfo && (
+                          <p className="text-xs text-violet-600 mt-1.5">
+                            Generated in {(generationInfo.timeMs / 1000).toFixed(1)}s
+                            {generationInfo.toolCalls > 0 && ` (${generationInfo.toolCalls} tool call${generationInfo.toolCalls > 1 ? 's' : ''} made)`}
+                          </p>
+                        )}
+                        
                         <div className="flex justify-end gap-2 mt-3">
                           <button
                             type="button"
                             onClick={handleCancelEdit}
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || isGenerating}
                             className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
                           >
                             Cancel
@@ -748,7 +870,7 @@ const FeedbackDashboard: React.FC = () => {
                           <button
                             type="button"
                             onClick={handleSaveEdit}
-                            disabled={isSubmitting || !editedGoldenResponse.trim()}
+                            disabled={isSubmitting || isGenerating || !editedGoldenResponse.trim()}
                             className="px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                           >
                             {isSubmitting ? 'Saving...' : 'Save Changes'}
@@ -770,17 +892,91 @@ const FeedbackDashboard: React.FC = () => {
 
             {selectedFeedback.status === 'pending' && selectedFeedback.feedback_type === 'negative' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Golden Response
-                  <span className="font-normal text-gray-500 ml-1">(Write the ideal response)</span>
-                </label>
-                <textarea
-                  value={goldenResponse}
-                  onChange={(e) => setGoldenResponse(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-gray-400 text-sm"
-                  rows={8}
-                  placeholder="Write the ideal response that the AI should have given..."
-                />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Golden Response
+                    <span className="font-normal text-gray-500 ml-1">(Write the ideal response)</span>
+                  </label>
+                  {canManageFeedback && (
+                    <button
+                      type="button"
+                      onClick={() => handleGenerateResponse(false)}
+                      disabled={isGenerating || isSubmitting}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          {hasGenerated ? 'Regenerate' : 'Generate with AI'}
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+                
+                <div className="border border-gray-300 rounded-lg overflow-hidden">
+                  <div className="flex border-b border-gray-300 bg-gray-50">
+                    <button
+                      type="button"
+                      onClick={() => setGoldenResponseTab('edit')}
+                      className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer ${
+                        goldenResponseTab === 'edit'
+                          ? 'bg-white text-gray-900 border-b-2 border-violet-600 -mb-px'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGoldenResponseTab('preview')}
+                      className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer ${
+                        goldenResponseTab === 'preview'
+                          ? 'bg-white text-gray-900 border-b-2 border-violet-600 -mb-px'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      Preview
+                    </button>
+                  </div>
+                  
+                  {goldenResponseTab === 'edit' ? (
+                    <textarea
+                      value={goldenResponse}
+                      onChange={(e) => setGoldenResponse(e.target.value)}
+                      className="w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 text-sm resize-none"
+                      rows={10}
+                      placeholder="Write the ideal response that the AI should have given, or click 'Generate with AI' to auto-generate..."
+                      disabled={isGenerating}
+                    />
+                  ) : (
+                    <div 
+                      className="p-4 bg-white min-h-[200px] max-h-[350px] overflow-y-auto markdown-body"
+                      dangerouslySetInnerHTML={{ 
+                        __html: goldenResponse.trim() 
+                          ? renderMarkdown(goldenResponse) 
+                          : '<p class="text-gray-400 italic">No content to preview</p>'
+                      }}
+                    />
+                  )}
+                </div>
+                
+                {generationInfo && (
+                  <p className="text-xs text-violet-600 mt-1.5">
+                    Generated in {(generationInfo.timeMs / 1000).toFixed(1)}s
+                    {generationInfo.toolCalls > 0 && ` (${generationInfo.toolCalls} tool call${generationInfo.toolCalls > 1 ? 's' : ''} made)`}
+                  </p>
+                )}
                 <p className="text-xs text-gray-500 mt-1.5">
                   This response will be used as a golden example to improve future AI responses.
                 </p>
