@@ -1,6 +1,14 @@
 import { BE_URL } from "../config/config";
+import { logger } from "../utils/logger";
 
-export type ChatSSEEvent = { event: string; data: any; label?: string };
+export interface ChatSSEEventData {
+  chunk?: string;
+  message?: string;
+  chat_id?: string;
+  [key: string]: unknown;
+}
+
+export type ChatSSEEvent = { event: string; data: ChatSSEEventData; label?: string };
 
 export const newMessageHandlerNoStream = async (
   chatId: string | null,
@@ -80,7 +88,7 @@ export const newMessageHandler = async (
       for (const streamItem of streamMessages) {
         try {
           const [event, data] = streamItem.split("\n");
-          let actualEvent = event.slice(6).trim();
+          const actualEvent = event.slice(6).trim();
           const parsedData = JSON.parse(data.slice(5).trim());
           if(onEvent){  
               onEvent({
@@ -94,7 +102,7 @@ export const newMessageHandler = async (
 
           
         } catch (error) {
-          console.error("Error parsing SSE event:", error);
+          logger.error("Error parsing SSE event:", error);
         }
       }
     }
@@ -104,12 +112,44 @@ export const newMessageHandler = async (
   }
 };
 
-export const getAllMyChats = async (token: string) => {
+export type PaginatedChatsResponse = {
+  error: boolean;
+  chats: { id: string; title: string; updated_at: string }[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+};
+
+export type PaginatedMessagesResponse = {
+  error: boolean;
+  id: string;
+  user_id: string;
+  title: string;
+  updated_at: string | null;
+  messages: {
+    id: string;
+    chat_id: string;
+    human: string;
+    bot: string;
+    created_at: string | null;
+  }[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+};
+
+export const getAllMyChats = async (
+  token: string,
+  limit: number = 20,
+  offset: number = 0
+): Promise<PaginatedChatsResponse> => {
   const headers = new Headers();
   headers.append("Authorization", `Bearer ${token}`);
   headers.append("Content-Type", "application/json");
 
-  const response = await fetch(`${BE_URL}/chats/`, {
+  const response = await fetch(`${BE_URL}/chats/?limit=${limit}&offset=${offset}`, {
     method: "GET",
     headers,
   });
@@ -120,24 +160,32 @@ export const getAllMyChats = async (token: string) => {
 
   const data = await response.json();
   return data;
-};  
+};
 
-export const getChatMessagesById = async (token: string, chatId: string) => {
+export const getChatMessagesById = async (
+  token: string,
+  chatId: string,
+  limit: number = 50,
+  offset: number = 0
+): Promise<PaginatedMessagesResponse> => {
   const headers = new Headers();
   headers.append("Authorization", `Bearer ${token}`);
   headers.append("Content-Type", "application/json");
 
-  const response = await fetch(`${BE_URL}/chats/messages/${chatId}`, {
-    method: "GET",
-    headers,
-  });
+  const response = await fetch(
+    `${BE_URL}/chats/messages/${chatId}?limit=${limit}&offset=${offset}`,
+    {
+      method: "GET",
+      headers,
+    }
+  );
 
   if (!response.ok) {
     throw new Error("Failed to fetch messages");
   }
 
   const data = await response.json();
-  return data.messages;
+  return data;
 };
 
 export const archiveChatById = async (token: string, chatId: string) => {

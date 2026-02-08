@@ -6,28 +6,52 @@ import Toggle from "../../components/ui/Toggle";
 import { Button } from "../../components/ui/Button";
 import { ConfigurableTable } from "../../components/ui/Table";
 import InfoHint from "../../components/ui/InfoHint";
-import { fetchSettings, updateSettings } from "../../handlers/settingsHandlers";
-import type { DenyWordRecord, Model, Settings } from "../../types/Settings";
+import LlmProviderControl from "../../components/LlmProviderControl";
+import { fetchAiMlSettings, updateAiMlSettings } from "../../handlers/settingsHandlers";
+import {
+  fetchLlmProviders,
+  createLlmProvider,
+  updateLlmProvider,
+  deleteLlmProvider,
+  testLlmProviderConnection,
+  fetchAvailableModels,
+  discoverProviderModels,
+  discoverModelsFromConfig,
+} from "../../handlers/llmProviderHandlers";
+import type { DenyWordRecord, Model, AiMlSettings } from "../../types/Settings";
+import type {
+  LlmProvider,
+  LlmProviderCreate,
+  LlmProviderUpdate,
+  AvailableModel,
+} from "../../types/LlmProvider";
 import { toast } from "react-hot-toast";
-
-const modelOptions = [
-  { value: "gpt-oss:20b", label: "GPT-OSS: 20B" },
-  { value: "gemma3:1b", label: "Gemma3: 1B" },
-  { value: "gemma3:4b", label: "Gemma3: 4B" },
-  { value: "gemini-2.0-flash", label: "Gemini: 2.0 Flash" },
-  { value: "gemini-2.5-flash", label: "Gemini: 2.5 Flash" },
-  { value: "gemini-2.0-flash-lite-001", label: "Gemini: 2.0 Flash Lite" },
-  { value: "gemini-2.5-pro", label: "Gemini: 2.5 Pro" },
-];
+import { logger } from "../../utils/logger";
+import { SkeletonAiMlSettings } from "../../components/ui/Skeleton";
+import { usePermissions } from "../../hooks/usePermissions";
+import { PERMISSIONS } from "../../types/Permission";
 
 const AiMlConfigPage = () => {
+  const { hasPermission } = usePermissions();
+  const canEditAiMl = hasPermission(PERMISSIONS.AIML_EDIT);
+  const canCreateProvider = hasPermission(PERMISSIONS.LLM_PROVIDER_CREATE);
+  const canEditProvider = hasPermission(PERMISSIONS.LLM_PROVIDER_EDIT);
+  const canDeleteProvider = hasPermission(PERMISSIONS.LLM_PROVIDER_DELETE);
+  const canTestProvider = hasPermission(PERMISSIONS.LLM_PROVIDER_TEST);
+
   const [model, setModel] = useState<Model>("gemma3:4b");
   const [temperature, setTemperature] = useState("0.2");
-  const [langfuseEnabled, setLangfuseEnabled] = useState(true);
+  const [langfuseEnabled, setLangfuseEnabled] = useState<boolean | undefined>(undefined);
 
   const [denyWordsArray, setDenyWordsArray] = useState<DenyWordRecord[]>([]);
   const [denyWords, setDenyWords] = useState("");
   const [showDenyWordsTable, setShowDenyWordsTable] = useState(false);
+
+  // LLM Providers state
+  const [providers, setProviders] = useState<LlmProvider[]>([]);
+  const [availableModels, setAvailableModels] = useState<AvailableModel[]>([]);
+  const [newProviderOpen, setNewProviderOpen] = useState(false);
+  const [loadingProviders, setLoadingProviders] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [savingModel, setSavingModel] = useState(false);
@@ -50,12 +74,35 @@ const AiMlConfigPage = () => {
     return wordsArray.map((item) => item.word).join(",");
   }, []);
 
+  // Load providers and available models
+  const loadProviders = useCallback(async () => {
+    try {
+      setLoadingProviders(true);
+      const [providersResponse, modelsResponse] = await Promise.all([
+        fetchLlmProviders(),
+        fetchAvailableModels(),
+      ]);
+
+      if (providersResponse?.providers) {
+        setProviders(providersResponse.providers);
+      }
+      if (modelsResponse?.models) {
+        setAvailableModels(modelsResponse.models);
+      }
+    } catch (err) {
+      logger.error("Error fetching LLM providers", err);
+    } finally {
+      setLoadingProviders(false);
+    }
+  }, []);
+
   useEffect(() => {
     const loadSettings = async () => {
       try {
         setLoading(true);
-        const settings = await fetchSettings();
-        if (settings) {
+        const response = await fetchAiMlSettings();
+        if (response?.settings) {
+          const settings = response.settings;
           const denyWordsFromBackend = settings.deny_words || "";
           setDenyWordsArray(stringToWordsArray(denyWordsFromBackend));
           setModel(settings.model);
@@ -63,14 +110,135 @@ const AiMlConfigPage = () => {
           setLangfuseEnabled(settings.langfuse_enabled ?? true);
         }
       } catch (err) {
-        console.error("Error fetching AI/ML settings", err);
+        logger.error("Error fetching AI/ML settings", err);
         setError("Unable to load AI/ML settings");
       } finally {
         setLoading(false);
       }
     };
     loadSettings();
-  }, [stringToWordsArray]);
+    loadProviders();
+  }, [stringToWordsArray, loadProviders]);
+
+  // Generate model options from available models (from providers) plus fallback static options
+  const modelOptions = useMemo(() => {
+    if (availableModels.length > 0) {
+      return availableModels.map((m) => ({
+        value: m.model_id,
+        label: m.display_name,
+      }));
+    }
+    // Fallback to static options if no providers configured
+    return [
+      { value: "gpt-oss:20b", label: "GPT-OSS: 20B (Default)" },
+      { value: "gemma3:1b", label: "Gemma3: 1B" },
+      { value: "gemma3:4b", label: "Gemma3: 4B" },
+    ];
+  }, [availableModels]);
+
+  // Provider handlers
+  const handleSaveProvider = async (
+    payload: LlmProviderCreate | (LlmProviderUpdate & { id: string })
+  ) => {
+    try {
+      if ("id" in payload && payload.id) {
+        // Update existing provider
+        const { id, ...updateData } = payload;
+        const result = await updateLlmProvider(id, updateData);
+        if (result) {
+          toast.success("Provider updated successfully");
+          await loadProviders();
+        } else {
+          toast.error("Failed to update provider");
+        }
+      } else {
+        // Create new provider
+        const result = await createLlmProvider(payload as LlmProviderCreate);
+        if (result) {
+          toast.success("Provider created successfully");
+          setNewProviderOpen(false);
+          await loadProviders();
+        } else {
+          toast.error("Failed to create provider");
+        }
+      }
+    } catch (err) {
+      logger.error("Error saving provider", err);
+      toast.error("Failed to save provider");
+    }
+  };
+
+  const handleDeleteProvider = async (id?: string) => {
+    if (!id) return;
+    try {
+      const success = await deleteLlmProvider(id);
+      if (success) {
+        toast.success("Provider deleted successfully");
+        await loadProviders();
+      } else {
+        toast.error("Failed to delete provider");
+      }
+    } catch (err) {
+      logger.error("Error deleting provider", err);
+      toast.error("Failed to delete provider");
+    }
+  };
+
+  const handleTestProvider = async (id: string) => {
+    try {
+      const result = await testLlmProviderConnection(id);
+      if (result) {
+        if (result.success) {
+          toast.success(`Connection successful (${result.response_time_ms?.toFixed(0)}ms)`);
+        } else {
+          toast.error(`Connection failed: ${result.message}`);
+        }
+        // Refresh providers to update health status
+        await loadProviders();
+      }
+      return result;
+    } catch (err) {
+      logger.error("Error testing provider", err);
+      toast.error("Failed to test connection");
+      return null;
+    }
+  };
+
+  const handleDiscoverModels = async (id: string) => {
+    try {
+      const result = await discoverProviderModels(id);
+      if (result) {
+        if (result.success) {
+          toast.success(`Discovered ${result.models.length} models`);
+        } else if (result.models.length === 0) {
+          toast.error(result.message || "No models found");
+        }
+      }
+      return result;
+    } catch (err) {
+      logger.error("Error discovering models", err);
+      toast.error("Failed to discover models");
+      return null;
+    }
+  };
+
+  const handleDiscoverModelsFromConfig = async (config: LlmProviderCreate) => {
+    try {
+      const result = await discoverModelsFromConfig(config);
+      if (result) {
+        if (result.success) {
+          toast.success(`Discovered ${result.models.length} models`);
+        } else if (result.models.length === 0) {
+          toast.error(result.message || "No models found");
+        }
+      }
+      return result;
+    } catch (err) {
+      logger.error("Error discovering models from config", err);
+      toast.error("Failed to discover models");
+      return null;
+    }
+  };
 
   const handleAddDenyWords = () => {
     if (!denyWords.trim()) return;
@@ -104,20 +272,14 @@ const AiMlConfigPage = () => {
     try {
       setSavingModel(true);
       setError(null);
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("User not authenticated");
-        toast.error("User not authenticated");
-        return;
-      }
-      const modelPayload: Partial<Settings> = {
+      const modelPayload: Partial<AiMlSettings> = {
         model,
         temperature,
       };
-      await updateSettings(modelPayload, token);
+      await updateAiMlSettings(modelPayload);
       toast.success("Model configuration saved");
     } catch (err) {
-      console.error("Error saving model settings", err);
+      logger.error("Error saving model settings", err);
       setError("Failed to save model configuration");
       toast.error("Failed to save model configuration");
     } finally {
@@ -129,20 +291,14 @@ const AiMlConfigPage = () => {
     try {
       setSavingSafety(true);
       setError(null);
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("User not authenticated");
-        toast.error("User not authenticated");
-        return;
-      }
-      const safetyPayload: Partial<Settings> = {
+      const safetyPayload: Partial<AiMlSettings> = {
         deny_words: wordsArrayToString(denyWordsArray),
-        langfuse_enabled: langfuseEnabled,
+        langfuse_enabled: langfuseEnabled ?? true,
       };
-      await updateSettings(safetyPayload, token);
+      await updateAiMlSettings(safetyPayload);
       toast.success("Safety settings saved");
     } catch (err) {
-      console.error("Error saving safety settings", err);
+      logger.error("Error saving safety settings", err);
       setError("Failed to save safety settings");
       toast.error("Failed to save safety settings");
     } finally {
@@ -152,12 +308,23 @@ const AiMlConfigPage = () => {
 
   const denyWordsCount = useMemo(() => denyWordsArray.length, [denyWordsArray]);
 
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        <SettingsHeader
+          title="AI / ML Configuration"
+          description="Configure model selection, generation controls, safety filters, and observability."
+        />
+        <SkeletonAiMlSettings />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <SettingsHeader
         title="AI / ML Configuration"
         description="Configure model selection, generation controls, safety filters, and observability."
-        status={loading ? <span className="text-sm text-gray-500">Loading…</span> : null}
       />
 
       {error ? (
@@ -166,22 +333,88 @@ const AiMlConfigPage = () => {
         </div>
       ) : null}
 
+      {/* LLM Providers Section */}
+      <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">LLM Providers</h3>
+            <p className="text-xs text-gray-600">
+              Configure API keys and endpoints for AI model providers.
+            </p>
+          </div>
+          {canCreateProvider && (
+            <Button
+              variant="primary"
+              onClick={() => setNewProviderOpen(true)}
+              disabled={newProviderOpen}
+            >
+              Add Provider
+            </Button>
+          )}
+        </div>
+
+        {loadingProviders ? (
+          <div className="text-sm text-gray-500">Loading providers...</div>
+        ) : (
+          <div className="space-y-4">
+            {/* New Provider Form */}
+            {newProviderOpen && canCreateProvider && (
+              <div className="border-2 border-dashed border-blue-300 rounded-lg p-2">
+                <LlmProviderControl
+                  isNew={true}
+                  onSave={handleSaveProvider}
+                  onDelete={() => setNewProviderOpen(false)}
+                  onDiscoverModelsFromConfig={handleDiscoverModelsFromConfig}
+                  canEdit={true}
+                  canDelete={true}
+                  canTest={canTestProvider}
+                />
+              </div>
+            )}
+
+            {/* Existing Providers */}
+            {providers.length === 0 && !newProviderOpen ? (
+              <div className="text-sm text-gray-500 text-center py-4">
+                No providers configured.{canCreateProvider ? " Click \"Add Provider\" to get started." : ""}
+              </div>
+            ) : (
+              providers.map((provider) => (
+                <LlmProviderControl
+                  key={provider.id}
+                  provider={provider}
+                  onSave={canEditProvider ? handleSaveProvider : undefined}
+                  onDelete={canDeleteProvider ? handleDeleteProvider : undefined}
+                  onTest={canTestProvider ? handleTestProvider : undefined}
+                  onDiscoverModels={canEditProvider ? handleDiscoverModels : undefined}
+                  onDiscoverModelsFromConfig={canEditProvider ? handleDiscoverModelsFromConfig : undefined}
+                  canEdit={canEditProvider}
+                  canDelete={canDeleteProvider}
+                  canTest={canTestProvider}
+                />
+              ))
+            )}
+          </div>
+        )}
+      </section>
+
       <section className="border border-gray-200 rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-gray-900">Model & Generation</h3>
             <p className="text-xs text-gray-600">Select model and configure generation parameters.</p>
           </div>
-          <Button variant="primary" onClick={handleSaveModel} disabled={savingModel}>
-            {savingModel ? "Saving…" : "Save"}
-          </Button>
+          {canEditAiMl && (
+            <Button variant="primary" onClick={handleSaveModel} disabled={savingModel}>
+              {savingModel ? "Saving…" : "Save"}
+            </Button>
+          )}
         </div>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <div className="space-y-3">
             <div className="flex flex-row items-center text-sm md:text-medium text-black min-w-fit">
               <span>Select Model</span>
               <InfoHint
-                text="Gemma models are local; Gemini are cloud-based and may incur costs."
+                text="Models are populated from active providers. Add providers above to enable more models."
                 position="right"
                 gap={0.3}
               />
@@ -191,7 +424,13 @@ const AiMlConfigPage = () => {
               value={model}
               onChange={(val) => setModel(val as Model)}
               placeholder="Select model"
+              disabled={!canEditAiMl}
             />
+            {availableModels.length === 0 && (
+              <p className="text-xs text-amber-600">
+                No providers configured. Using default models.
+              </p>
+            )}
           </div>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4">
             <div className="flex flex-row items-center text-sm md:text-medium text-gray-900 min-w-fit">
@@ -211,6 +450,7 @@ const AiMlConfigPage = () => {
               step={0.1}
               min={0}
               max={1}
+              disabled={!canEditAiMl}
             />
           </div>
         </div>
@@ -222,9 +462,11 @@ const AiMlConfigPage = () => {
             <h3 className="text-sm font-semibold text-gray-900">Safety & Observability</h3>
             <p className="text-xs text-gray-600"> Configure safety filters and tracing options.</p>
           </div>
-          <Button variant="primary" onClick={handleSaveSafety} disabled={savingSafety}>
-            {savingSafety ? "Saving…" : "Save"}
-          </Button>
+          {canEditAiMl && (
+            <Button variant="primary" onClick={handleSaveSafety} disabled={savingSafety}>
+              {savingSafety ? "Saving…" : "Save"}
+            </Button>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -255,11 +497,13 @@ const AiMlConfigPage = () => {
               placeholder="Add words to deny"
               variant="primary"
               className="w-full rounded-[5px] border-gray-400 border-b-1"
+              disabled={!canEditAiMl}
             />
             <Button
               variant="secondary"
               className="font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer w-full sm:w-auto"
               onClick={handleAddDenyWords}
+              disabled={!canEditAiMl}
             >
               Add word
             </Button>
@@ -287,11 +531,11 @@ const AiMlConfigPage = () => {
                         className: "text-xs md:text-sm text-gray-900 py-3",
                         searchable: true,
                       },
-                      {
+                      ...(canEditAiMl ? [{
                         header: "Action",
                         headerClassName:
                           "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200 w-20",
-                        render: (denyWord) => (
+                        render: (denyWord: DenyWordRecord) => (
                           <div className="flex flex-row gap-1 sm:gap-2">
                             <Button
                               variant="default"
@@ -303,7 +547,7 @@ const AiMlConfigPage = () => {
                           </div>
                         ),
                         searchable: false,
-                      },
+                      }] : []),
                     ]}
                     headerRowClassName="bg-gray-50 sticky top-0 z-10"
                     rowClassName="bg-white border-t border-gray-200 hover:bg-gray-50"
@@ -319,7 +563,11 @@ const AiMlConfigPage = () => {
             <span>Enable Langfuse Tracing</span>
             <InfoHint text="Toggle Langfuse tracing for observability." position="top" gap={2} />
           </div>
-          <Toggle id="langfuse-toggle" enabled={langfuseEnabled} onChange={setLangfuseEnabled} />
+          {langfuseEnabled !== undefined ? (
+            <Toggle id="langfuse-toggle" enabled={langfuseEnabled} onChange={setLangfuseEnabled} disabled={!canEditAiMl} />
+          ) : (
+            <div className="w-11 h-6 bg-gray-200 rounded-full animate-pulse" />
+          )}
         </div>
       </section>
     </div>

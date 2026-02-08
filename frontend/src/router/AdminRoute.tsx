@@ -1,10 +1,12 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuthContext } from "../hooks/useAuthContext";
+import { usePermissions } from "../hooks/usePermissions";
 
 const AdminRoute = () => {
-  const { user, loading } = useAuthContext();
+  const { user, loading: authLoading } = useAuthContext();
+  const { permissions, loading: permissionsLoading } = usePermissions();
 
-  if (loading) {
+  if (authLoading || permissionsLoading) {
     return (
       <div className="flex text-3xl justify-center items-center h-screen">
         Authenticating...
@@ -16,7 +18,8 @@ const AdminRoute = () => {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.role !== "admin") {
+
+  if (permissions.size === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-screen text-center px-6">
         <p className="text-lg font-semibold text-gray-900">Admin access required</p>

@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback } from "react";
+import toast from "react-hot-toast";
 import { Button } from "./Button";
 import { useFileContext } from "../../hooks/useFileContext";
 import type { UploadedFile } from "../../store/FileProvider";
-import { sup } from "motion/react-client";
+import { logger } from "../../utils/logger";
 
 interface UploadFilesProps {
   maxFiles?: number; // Optional prop to limit number of files (undefined = no limit)
@@ -73,7 +74,7 @@ const UploadFiles = ({
         // FILE LIMIT CHECK: This enforces the maximum number of files allowed
         // The limit is set via the maxFiles prop when using the component
         if (maxFiles && localFiles.length + newFiles.length >= maxFiles) {
-          alert(`Maximum ${maxFiles} files allowed. Cannot add more files.`);
+          toast.error(`Maximum ${maxFiles} files allowed. Cannot add more files.`);
           break; // Stop processing more files once limit is reached
         }
 
@@ -98,24 +99,15 @@ const UploadFiles = ({
               };
               newFiles.push(newFile);
 
-              // Console log the uploaded file details with full content
-              console.log("File uploaded:", {
+              // Log file metadata (not content - security)
+              logger.debug("File uploaded:", {
                 id: newFile.id,
                 name: newFile.name,
                 size: newFile.size,
                 type: newFile.type,
-                uploadedAt: newFile.uploadedAt,
               });
-
-              // Log the complete file content
-              console.log(
-                "Full file content for",
-                newFile.name,
-                ":\n",
-                content
-              );
             } catch (error) {
-              console.error("Error reading file:", error);
+              logger.error("Error reading file:", error);
             }
           }
         }
@@ -156,7 +148,7 @@ const UploadFiles = ({
   const processFiles = async () => {
     setIsProcessing(true);
     try {
-      console.log(
+      logger.debug(
         "Processing files:",
         localFiles.map((file) => ({
           id: file.id,
@@ -167,11 +159,11 @@ const UploadFiles = ({
       );
 
       addFiles(localFiles);
-      console.log(`Successfully processed ${localFiles.length} files and added to global context`);
-      alert(`Successfully processed ${localFiles.length} files!`);
+      logger.info(`Successfully processed ${localFiles.length} files`);
+      toast.success(`Successfully processed ${localFiles.length} files!`);
     } catch (error) {
-      console.error("Error processing files:", error);
-      alert("Error processing files. Please try again.");
+      logger.error("Error processing files:", error);
+      toast.error("Error processing files. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -215,7 +207,7 @@ const UploadFiles = ({
 
         <p className="text-xs text-black">
           Files must be in
-          {supportedFileTypes?.map((type: any, index: number) => (
+          {supportedFileTypes?.map((type: string, index: number) => (
             <span key={type} className="font-medium">
               {type.toUpperCase()}
               {index < supportedFileTypes.length - 1 && ", "}

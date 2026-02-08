@@ -4,7 +4,7 @@ import InfoIcon from '../../assets/infoIcon.svg'
 type InfoHintProps = {
     text: string;
     icon?: string;
-    onClick?: () => any;
+    onClick?: () => void;
     position?: 'top' | 'bottom' | 'left' | 'right';
     gap?: number;
 }

@@ -1,7 +1,17 @@
-from typing import Dict, Any
-import httpx
+import logging
 import urllib.parse
+from typing import Dict, Any
+
+import httpx
+from fastapi import HTTPException
+
 from .base import BaseProvider
+
+logger = logging.getLogger(__name__)
+
+# HTTP request timeout in seconds
+HTTP_TIMEOUT = 30.0
+
 
 class GithubProvider(BaseProvider):
     def __init__(self, config: Dict[str, Any]):
@@ -24,7 +34,7 @@ class GithubProvider(BaseProvider):
         return f"{self.auth_url}?{urllib.parse.urlencode(params)}"
 
     async def exchange_code_for_token(self, code: str) -> Dict[str, Any]:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
             data = {
                 "client_id": self.client_id,
                 "client_secret": self.client_secret,
@@ -34,29 +44,48 @@ class GithubProvider(BaseProvider):
             headers = {"Accept": "application/json"}
             resp = await client.post(self.token_url, data=data, headers=headers)
             resp.raise_for_status()
-            return resp.json()
+            try:
+                return resp.json()
+            except Exception as e:
+                logger.exception("Failed to parse GitHub token response")
+                raise HTTPException(status_code=500, detail="Failed to parse authentication response")
 
     async def fetch_user_profile(self, token: Dict[str, Any]) -> Dict[str, Any]:
         access_token = token["access_token"]
         headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/json"}
-        
-        async with httpx.AsyncClient() as client:
+
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
             # Fetch user info
             resp = await client.get(self.user_url, headers=headers)
             resp.raise_for_status()
-            user_info = resp.json()
-            
+            try:
+                user_info = resp.json()
+            except Exception as e:
+                logger.exception("Failed to parse GitHub user response")
+                raise HTTPException(status_code=500, detail="Failed to parse user profile")
+
             # Fetch emails if not public
             email = user_info.get("email")
             if not email:
                 resp = await client.get(self.emails_url, headers=headers)
                 resp.raise_for_status()
-                emails = resp.json()
+                try:
+                    emails = resp.json()
+                except Exception as e:
+                    logger.exception("Failed to parse GitHub emails response")
+                    raise HTTPException(status_code=500, detail="Failed to parse user emails")
                 # Find primary verified email
                 primary_email = next((e for e in emails if e["primary"] and e["verified"]), None)
                 if primary_email:
                     email = primary_email["email"]
-            
+
+        # Validate email is present
+        if not email:
+            raise HTTPException(
+                status_code=400,
+                detail="GitHub account has no verified email. Please add a public email to your GitHub profile."
+            )
+
         return {
             "provider": "github",
             "provider_user_id": str(user_info["id"]),

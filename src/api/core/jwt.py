@@ -1,14 +1,12 @@
 from datetime import datetime, timedelta, timezone
-import os
-from typing import Optional, List
+from typing import Optional
 from jose import JWTError, jwt
-from dotenv import load_dotenv
 
-load_dotenv()
+from src.api.core.config import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRY_DAYS
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_EXPIRY", "7"))
+SECRET_KEY = JWT_SECRET_KEY
+ALGORITHM = JWT_ALGORITHM
+ACCESS_TOKEN_EXPIRE_DAYS = JWT_EXPIRY_DAYS
 
 import uuid
 

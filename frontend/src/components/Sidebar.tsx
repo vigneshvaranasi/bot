@@ -11,7 +11,12 @@ import { Link, useNavigate } from "react-router-dom";
 import InputBox from "./ui/InputBox";
 import { useEffect, useState, useRef } from "react";
 import { useAuthContext } from "../hooks/useAuthContext";
-import { archiveChatById,renameChatById, getAllMyChats } from "../handlers/chatHandler";
+import { archiveChatById, renameChatById, getAllMyChats } from "../handlers/chatHandler";
+import { SkeletonChatList } from "./ui/Skeleton";
+import { useDelayedLoading } from "../hooks/useDelayedLoading";
+import { usePaginatedChats } from "../hooks/usePaginatedChats";
+
+const CHATS_PAGE_SIZE = 20;
 
 function Sidebar() {
   const {
@@ -23,7 +28,11 @@ function Sidebar() {
     isSidebarLoading,
     setIsSidebarLoading,
     refreshChatsTick,
-    triggerRefreshChats
+    triggerRefreshChats,
+    chatsPagination,
+    setChatsPagination,
+    appendChats,
+    setIsLoadingMoreChats,
   } = useSidebarContext();
   const [searchInput, setSearchInput] = useState("");
   const { user, logout } = useAuthContext();
@@ -33,10 +42,138 @@ function Sidebar() {
   const [editingTitle, setEditingTitle] = useState<string>("");
   const editingInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
+
+  // Refs for infinite scroll
+  const bottomSentinelRef = useRef<HTMLDivElement>(null);
+  const sidebarListRef = useRef<HTMLDivElement>(null);
+  const loadingMoreRef = useRef(false);
+
+  // Delayed loading - only show skeleton after 150ms
+  const showSidebarLoading = useDelayedLoading(isSidebarLoading);
+
+  // Use the paginated chats hook
+  const { loadMoreChats } = usePaginatedChats({
+    currentChats: chats,
+    hasMore: chatsPagination.hasMore,
+    isLoadingMore: chatsPagination.isLoadingMore,
+    setIsLoadingMore: setIsLoadingMoreChats,
+    appendChats,
+  });
+
+  // All hooks must be called unconditionally at the top (React Rules of Hooks)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setActiveMenu(null);
+      }
+    };
+    if (activeMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [activeMenu]);
+
+  // Focus the input when entering edit mode
+  useEffect(() => {
+    if (editingChatId && editingInputRef.current) {
+      // Small timeout to ensure the input is mounted
+      setTimeout(() => editingInputRef.current && editingInputRef.current.focus(), 0);
+    }
+  }, [editingChatId]);
+
+  // Fetch chats when user or refresh tick changes
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchChats = async () => {
+      setIsSidebarLoading(true);
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        const response = await getAllMyChats(token, CHATS_PAGE_SIZE, 0);
+        if (response && Array.isArray(response.chats)) {
+          setChats(
+            response.chats.map((chat: { id: string; title: string; updated_at: string }) => ({
+              chatId: chat.id,
+              chatTitle: chat.title,
+              date: chat.updated_at,
+            }))
+          );
+          // Update pagination state in context
+          setChatsPagination({
+            hasMore: response.has_more,
+            total: response.total,
+            offset: response.chats.length,
+            isLoadingMore: false,
+          });
+        } else {
+          setChats([]);
+          setChatsPagination({
+            hasMore: false,
+            total: 0,
+            offset: 0,
+            isLoadingMore: false,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch chats:", err);
+        setChats([]);
+        setChatsPagination({
+          hasMore: false,
+          total: 0,
+          offset: 0,
+          isLoadingMore: false,
+        });
+      } finally {
+        setIsSidebarLoading(false);
+      }
+    };
+    fetchChats();
+  }, [user, refreshChatsTick, setChats, setIsSidebarLoading, setChatsPagination]);
+
+  // IntersectionObserver for infinite scroll on sidebar chat list
+  useEffect(() => {
+    const sentinel = bottomSentinelRef.current;
+    const container = sidebarListRef.current;
+
+    if (!sentinel || !container || !chatsPagination.hasMore || searchInput) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (
+          entry.isIntersecting &&
+          chatsPagination.hasMore &&
+          !chatsPagination.isLoadingMore &&
+          !loadingMoreRef.current
+        ) {
+          loadingMoreRef.current = true;
+          loadMoreChats().finally(() => {
+            loadingMoreRef.current = false;
+          });
+        }
+      },
+      {
+        root: container,
+        rootMargin: "0px 0px 100px 0px", // Trigger 100px before reaching the bottom
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [chatsPagination.hasMore, chatsPagination.isLoadingMore, loadMoreChats, searchInput]);
+
   const handleLogout = () => {
     logout();
   };
 
+  // Early return AFTER all hooks have been called
   if (!user) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -45,36 +182,14 @@ function Sidebar() {
     );
   }
 
-  useEffect(()=>{
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setActiveMenu(null);
-      }
-    };
-    if(activeMenu){
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    }; 
-  },[menuRef, activeMenu]);
-
-  // focus the input when entering edit mode
-  useEffect(() => {
-    if (editingChatId && editingInputRef.current) {
-      // small timeout to ensure the input is mounted
-      setTimeout(() => editingInputRef.current && editingInputRef.current.focus(), 0);
-    }
-  }, [editingChatId]);
-
-  const onArchiveChat = async(chatId: string) => {
+  const onArchiveChat = async (chatId: string) => {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
         console.error("User token is missing");
         return;
       }
-  await archiveChatById(token, chatId);
+      await archiveChatById(token, chatId);
       triggerRefreshChats();
       // If the chat is currently open, close it after archiving
       if (currentChat?.chatId === chatId) {
@@ -83,16 +198,16 @@ function Sidebar() {
     } catch (error) {
       console.error("Failed to archive chat:", error);
     }
-  }
+  };
 
-  const onRenameChat = async(chatId: string, title: string) => {
+  const onRenameChat = async (chatId: string, title: string) => {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
         console.error("User token is missing");
         return;
       }
-      if(!title || title.trim().length === 0){
+      if (!title || title.trim().length === 0) {
         console.error("Title cannot be empty");
         return;
       }
@@ -101,36 +216,7 @@ function Sidebar() {
     } catch (error) {
       console.error("Failed to rename chat:", error);
     }
-  }
-  // fetch chats
-  useEffect(() => {
-    const fetchChats = async () => {
-      setIsSidebarLoading(true);
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-        const allMyChats = await getAllMyChats(token);
-        // console.log("allMyChats: ", allMyChats);
-        if (allMyChats && Array.isArray(allMyChats.chats)) {
-          setChats(
-            allMyChats.chats.map((chat: any) => ({
-              chatId: chat.id,
-              chatTitle: chat.title,
-              date: chat.updated_at,
-            }))
-          );
-        } else {
-          setChats([]);
-        }
-      } catch (err) {
-        console.error("Failed to fetch chats:", err);
-        setChats([]);
-      } finally {
-        setIsSidebarLoading(false);
-      }
-    };
-    fetchChats();
-  }, [user, refreshChatsTick]);
+  };
 
   const handleLinkClick = () => {
     if (window.innerWidth < 768) {
@@ -142,7 +228,7 @@ function Sidebar() {
     ? chats.filter(
         (chat) =>
           fuzzyMatch(chat.chatTitle, searchInput) ||
-          fuzzyMatch(chat.date, searchInput)
+          (chat.date && fuzzyMatch(chat.date, searchInput))
       )
     : chats;
 
@@ -189,8 +275,10 @@ function Sidebar() {
               New Chat
             </button>
           </Link>
-          <div className="flex-1 overflow-y-auto p-4">
-            {filteredChats.length === 0 && !isSidebarLoading ? (
+          <div ref={sidebarListRef} className="flex-1 overflow-y-auto p-4">
+            {showSidebarLoading && chats.length === 0 ? (
+              <SkeletonChatList count={6} />
+            ) : filteredChats.length === 0 ? (
               <div className="text-gray-400 text-center mt-8">
                 No chats found.
               </div>
@@ -199,7 +287,6 @@ function Sidebar() {
                 {filteredChats.map((chat) => (
                   <div key={chat.chatId} className="relative cursor-pointer">
                     <Link
-                      key={chat.chatId}
                       className={`hover:bg-gray-200 block p-2 rounded-md group ${
                         currentChat?.chatId === chat.chatId && "bg-gray-200"
                       }`}
@@ -297,6 +384,24 @@ function Sidebar() {
                     )}
                   </div>
                 ))}
+
+                {/* Bottom sentinel for infinite scroll - only show when not searching */}
+                {!searchInput && chatsPagination.hasMore && (
+                  <div ref={bottomSentinelRef} className="h-1" data-bottom-sentinel />
+                )}
+
+                {/* Loading indicator for loading more chats */}
+                {!searchInput && chatsPagination.isLoadingMore && (
+                  <div className="flex justify-center py-3">
+                    <div className="flex items-center gap-2 text-gray-500 text-sm">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span>Loading...</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -344,7 +449,6 @@ function Sidebar() {
             <Link
               to={"/"}
               className="p-2 rounded-md hover:bg-gray-200"
-              onClick={() => console.log("New chat clicked")}
               title="New Chat"
             >
               <p className="text-3xl">+</p>

@@ -12,8 +12,16 @@ import {
   type IntegrationPayload,
 } from "../../handlers/integrationHandlers";
 import { type Integration, type IntegrationSyncStatus } from "../../types/Integrations";
+import { SkeletonIntegrations } from "../../components/ui/Skeleton";
+import { usePermissions } from "../../hooks/usePermissions";
+import { PERMISSIONS } from "../../types/Permission";
 
 const IntegrationsPage = () => {
+  const { hasPermission } = usePermissions();
+  const canCreate = hasPermission(PERMISSIONS.INTEGRATION_CREATE);
+  const canEdit = hasPermission(PERMISSIONS.INTEGRATION_EDIT);
+  const canDelete = hasPermission(PERMISSIONS.INTEGRATION_DELETE);
+  const canSync = hasPermission(PERMISSIONS.INTEGRATION_SYNC);
   type IntegrationItem = Omit<Integration, "auth_type"> & {
     auth_type?: Integration["auth_type"];
     isNew?: boolean;
@@ -138,14 +146,23 @@ const IntegrationsPage = () => {
     setIntegrations((prev) => prev.map((item) => (item.id === id ? { ...updated } : item)));
   };
 
+  if (integrationsLoading) {
+    return (
+      <div className="space-y-6">
+        <SettingsHeader
+          title="Integrations"
+          description="Integrate with external platforms to sync data automatically."
+        />
+        <SkeletonIntegrations count={2} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <SettingsHeader
         title="Integrations"
         description="Integrate with external platforms to sync data automatically."
-        status={
-          integrationsLoading ? <span className="text-sm text-gray-500">Loading…</span> : null
-        }
       />
 
       <div className="flex flex-col gap-3">
@@ -160,13 +177,15 @@ const IntegrationsPage = () => {
               gap={0.3}
             />
           </span>
-          <Button
-            variant="primary"
-            className="font-semibold text-xs px-4 py-1 transition-colors duration-200 text-white rounded-md cursor-pointer w-full sm:w-auto"
-            onClick={handleAddIntegration}
-          >
-            Add
-          </Button>
+          {canCreate && (
+            <Button
+              variant="primary"
+              className="font-semibold text-xs px-4 py-1 transition-colors duration-200 text-white rounded-md cursor-pointer w-full sm:w-auto"
+              onClick={handleAddIntegration}
+            >
+              Add
+            </Button>
+          )}
         </div>
         <div className="flex flex-col gap-3">
           {integrationsError ? (
@@ -192,9 +211,10 @@ const IntegrationsPage = () => {
               authType={integration.auth_type}
               config={integration.config}
               isNew={integration.isNew}
-              onSave={handleIntegrationSave}
-              onDelete={handleIntegrationDelete}
-              onSync={handleIntegrationSync}
+              onSave={(integration.isNew ? canCreate : canEdit) ? handleIntegrationSave : undefined}
+              onDelete={(integration.isNew || canDelete) ? handleIntegrationDelete : undefined}
+              onSync={canSync ? handleIntegrationSync : undefined}
+              readOnly={!integration.isNew && !canEdit}
             />
           ))}
         </div>

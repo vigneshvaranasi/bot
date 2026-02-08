@@ -18,7 +18,9 @@ const keyForChat = (chatId: string) => `chat_metrics:${chatId}`;
 export const saveChatMetrics = (chatId: string, metrics: ResponseMetrics) => {
   try {
     sessionStorage.setItem(keyForChat(chatId), JSON.stringify(metrics));
-  } catch {}
+  } catch {
+    // Session storage errors are non-critical
+  }
 };
 
 export const readChatMetrics = (chatId: string): ResponseMetrics | null => {
@@ -34,5 +36,7 @@ export const readChatMetrics = (chatId: string): ResponseMetrics | null => {
 export const removeChatMetrics = (chatId: string) => {
   try {
     sessionStorage.removeItem(keyForChat(chatId));
-  } catch {}
+  } catch {
+    // Session storage errors are non-critical
+  }
 };

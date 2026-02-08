@@ -5,16 +5,72 @@ import InputBox from "../components/ui/InputBox";
 import { Button } from "../components/ui/Button";
 import { useSidebarContext } from "../hooks/useSidebarContext";
 import { Outlet, useNavigate, useParams } from "react-router-dom";
-import {
-  newMessageHandler,
-  // newMessageHandlerNoStream,
-} from "../handlers/chatHandler";
+import { newMessageHandler } from "../handlers/chatHandler";
 import { useAuthContext } from "../hooks/useAuthContext";
 import { saveChatMetrics } from "../utils/metrics";
 import { saveChatToCache } from "../utils/chatCache";
 import { createMessageStreamer } from "../utils/streaming";
+import { logger } from "../utils/logger";
+import type { ChatMessage } from "../types";
+import type { CurrentChatType } from "../store/SidebarContext";
 import micOn from "../assets/chat/micOn.svg";
 import micOff from "../assets/chat/micOff.svg";
+
+// Web Speech API type declarations (vendor-prefixed for browser compatibility)
+interface SpeechRecognitionResult {
+  readonly isFinal: boolean;
+  readonly length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  readonly transcript: string;
+  readonly confidence: number;
+}
+
+interface SpeechRecognitionResultList {
+  readonly length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  readonly resultIndex: number;
+  readonly results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  readonly error: string;
+  readonly message: string;
+}
+
+interface SpeechRecognitionInstance extends EventTarget {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onstart: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
+  onend: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
+  onerror: ((this: SpeechRecognitionInstance, ev: SpeechRecognitionErrorEvent) => void) | null;
+  onresult: ((this: SpeechRecognitionInstance, ev: SpeechRecognitionEvent) => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognitionInstance;
+}
+
+// Get SpeechRecognition constructor (with vendor prefix fallback)
+const getSpeechRecognition = (): SpeechRecognitionConstructor | undefined => {
+  const w = window as Window & {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  };
+  return w.SpeechRecognition || w.webkitSpeechRecognition;
+};
 
 function ChatPage() {
   const { isSidebarOpen, setCurrentChat, currentChat, triggerRefreshChats } =
@@ -23,7 +79,7 @@ function ChatPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Speech recognition states
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [hasSpeechSupport, setHasSpeechSupport] = useState<boolean>(false);
 
@@ -31,92 +87,34 @@ function ChatPage() {
   const { user } = useAuthContext();
   const navigate = useNavigate();
 
-  // check Web Speech API support
+  // Check Web Speech API support
   useEffect(() => {
-    const SR: any =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
+    const SR = getSpeechRecognition();
     setHasSpeechSupport(!!SR);
   }, []);
-
-  // const handlePromptSendNoStream = async (overridePrompt?: string) => {
-  //   const prompt = (overridePrompt ?? chatInput).trim();
-  //   if (!prompt || !user) {
-  //     console.error("Invalid prompt or user");
-  //     return;
-  //   }
-  //   setChatInput("");
-  //   try {
-  //     let currChatId = chatId || "";
-  //     const newMessageId = Date.now().toString();
-  //     setCurrentChat((prevChat: any) => ({
-  //       chatId: currChatId,
-  //       allMessages: [
-  //         ...(prevChat?.allMessages ?? []),
-  //         {
-  //           id: newMessageId,
-  //           userMessage: prompt,
-  //           botMessage: "Thinking...",
-  //           streaming: true,
-  //         },
-  //       ],
-  //     }));
-  //     setIsLoading(true);
-
-  //     const res = await newMessageHandlerNoStream(
-  //       currChatId,
-  //       prompt,
-  //       user?.token
-  //     );
-
-  //     if (currChatId === "") {
-  //       triggerRefreshChats();
-  //       navigate(`/${res.chat_id}`);
-  //       return;
-  //     }
-  //     setCurrentChat((prevChat: any) => {
-  //       const updatedMessages = prevChat?.allMessages?.map((message: any) =>
-  //         message.id === newMessageId
-  //           ? {
-  //               ...message,
-  //               botMessage: res.response,
-  //               streaming: false,
-  //             }
-  //           : message
-  //       );
-  //       return {
-  //         chatId: res.chat_id,
-  //         allMessages: updatedMessages,
-  //       };
-  //     });
-  //   } catch (err) {
-  //     console.error("Error sending prompt:", err);
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
 
   const handlePromptSendStream = async (overridePrompt?: string) => {
     const prompt = (overridePrompt ?? chatInput).trim();
     if (!prompt || !user) {
-      console.error("Invalid prompt or user");
+      logger.error("Invalid prompt or user");
       return;
     }
     setChatInput("");
     const newMessageId = Date.now().toString();
 
     try {
-      let currChatId = chatId || "";
-      console.log("currChatId: ", currChatId);
+      const currChatId = chatId || "";
+      logger.debug("currChatId:", currChatId);
 
-      setCurrentChat((prevChat: any) => ({
+      setCurrentChat((prevChat: CurrentChatType | null) => ({
         chatId: currChatId,
         allMessages: [
           ...(prevChat?.allMessages ?? []),
           {
             id: newMessageId,
             userMessage: prompt,
-            botMessage: "Thinking...",
+            botMessage: "",
+            statusMessage: "Thinking...",
             streaming: true,
           },
         ],
@@ -132,7 +130,7 @@ function ChatPage() {
 
       const token = localStorage.getItem("token");
       if (!token) {
-        console.error("Token missing");
+        logger.error("Token missing");
         return;
       }
 
@@ -152,25 +150,27 @@ function ChatPage() {
         return;
       }
 
-
       try {
-        const toCache = currentChat?.allMessages.map((m:any) => ({
+        const toCache = currentChat?.allMessages.map((m: ChatMessage) => ({
           id: m.id,
           userMessage: m.userMessage,
           botMessage: m.botMessage,
           responseMetrics: m.responseMetrics,
         }));
         await saveChatToCache(res.chat_id, toCache!, 20, user?.email);
-      } catch {}
-    } catch (error: any) {
-      console.error("Error sending prompt:", error);
-      setCurrentChat((prevChat: any) => {
+      } catch {
+        // Cache errors are non-critical
+      }
+    } catch (error: unknown) {
+      logger.error("Error sending prompt:", error);
+      const errorMessage = error instanceof Error ? error.message : "An error occurred.";
+      setCurrentChat((prevChat: CurrentChatType | null) => {
         if (!prevChat) return null;
-        const updatedMessages = prevChat.allMessages.map((msg: any) => {
+        const updatedMessages = prevChat.allMessages.map((msg: ChatMessage) => {
           if (msg.id === newMessageId) {
             return {
               ...msg,
-              botMessage: error.message || "An error occurred.",
+              botMessage: errorMessage,
               streaming: false,
             };
           }
@@ -178,7 +178,7 @@ function ChatPage() {
         });
         return {
           ...prevChat,
-          allMessages: updatedMessages
+          allMessages: updatedMessages,
         };
       });
     } finally {
@@ -186,24 +186,24 @@ function ChatPage() {
     }
   };
 
-  // Speach recognition handler
+  // Speech recognition handler
   const toggleDictation = () => {
     if (!hasSpeechSupport) return;
     if (isRecording) {
       setIsRecording(false);
       try {
         recognitionRef.current?.stop?.();
-      } catch {}
+      } catch {
+        // Ignore stop errors
+      }
       return;
     }
 
-    const SR: any =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
+    const SR = getSpeechRecognition();
     if (!SR) return;
     const recognition = new SR();
     recognitionRef.current = recognition;
-    recognition.lang = (navigator as any).language || "en-US";
+    recognition.lang = navigator.language || "en-US";
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
     recognition.continuous = true;
@@ -214,10 +214,10 @@ function ChatPage() {
     recognition.onstart = () => {
       setIsRecording(true);
     };
-    recognition.onerror = (event: any) => {
-      console.warn("Speech recognition error:", event?.error || event);
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      logger.warn("Speech recognition error:", event.error);
     };
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interim = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const res = event.results[i];
@@ -245,7 +245,7 @@ function ChatPage() {
     try {
       recognition.start();
     } catch (e) {
-      console.warn("Unable to start speech recognition:", e);
+      logger.warn("Unable to start speech recognition:", e);
       setIsRecording(false);
     }
   };

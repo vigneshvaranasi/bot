@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import Fuse from "fuse.js";
 import SettingsNavItem from "../ui/settings/SettingsNavItem";
-import { useAuthContext } from "../../hooks/useAuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
+import { PERMISSIONS } from "../../types/Permission";
 
 export type SettingsNavItemConfig = {
   label: string;
   to: string;
-  adminOnly?: boolean;
+  permissions?: string[]; // Required permissions (any of these)
   searchTexts?: string[];
 };
 
@@ -14,6 +15,7 @@ const NAV_ITEMS: SettingsNavItemConfig[] = [
   {
     label: "My Account",
     to: "/settings/my-account",
+    // No permissions required - always visible to logged-in users
     searchTexts: [
       "My Account",
       "Profile",
@@ -25,11 +27,10 @@ const NAV_ITEMS: SettingsNavItemConfig[] = [
       "Confirm Password",
     ],
   },
-  //   { label: "System Configuration", to: "/settings/system", adminOnly: true },
   {
     label: "AI / ML Configuration",
     to: "/settings/ai-ml",
-    adminOnly: true,
+    permissions: [PERMISSIONS.AIML_VIEW, PERMISSIONS.AIML_EDIT],
     searchTexts: [
       "AI / ML Configuration",
       "Model",
@@ -42,9 +43,24 @@ const NAV_ITEMS: SettingsNavItemConfig[] = [
     ],
   },
   {
+    label: "Feedback Dashboard",
+    to: "/settings/feedback",
+    permissions: [PERMISSIONS.FEEDBACK_VIEW, PERMISSIONS.FEEDBACK_MANAGE],
+    searchTexts: [
+      "Feedback",
+      "Dashboard",
+      "Golden Examples",
+      "Thumbs Up",
+      "Thumbs Down",
+      "User Feedback",
+      "AI Learning",
+      "Review",
+    ],
+  },
+  {
     label: "Integrations",
     to: "/settings/integrations",
-    adminOnly: true,
+    permissions: [PERMISSIONS.INTEGRATION_VIEW],
     searchTexts: [
       "Integrations",
       "External platforms",
@@ -60,7 +76,7 @@ const NAV_ITEMS: SettingsNavItemConfig[] = [
   {
     label: "Authentication & Users",
     to: "/settings/user-management",
-    adminOnly: true,
+    permissions: [PERMISSIONS.USER_VIEW, PERMISSIONS.AUTH_VIEW],
     searchTexts: [
       "User Management",
       "Authentication",
@@ -75,7 +91,43 @@ const NAV_ITEMS: SettingsNavItemConfig[] = [
       "Basic Authentication",
     ],
   },
-  //   { label: "Audit & Logs", to: "/settings/audit", adminOnly: true },
+  {
+    label: "Roles & Permissions",
+    to: "/settings/roles",
+    permissions: [PERMISSIONS.ROLE_VIEW],
+    searchTexts: [
+      "Roles",
+      "Permissions",
+      "RBAC",
+      "Access Control",
+    ],
+  },
+  {
+    label: "Permission Sets",
+    to: "/settings/permission-sets",
+    permissions: [PERMISSIONS.PERMISSION_SET_VIEW],
+    searchTexts: [
+      "Permission Sets",
+      "Permissions",
+      "Groups",
+      "RBAC",
+    ],
+  },
+  {
+    label: "Configuration History",
+    to: "/settings/config-history",
+    permissions: [PERMISSIONS.HISTORY_VIEW],
+    searchTexts: [
+      "Configuration History",
+      "Audit",
+      "Audit Trail",
+      "History",
+      "Rollback",
+      "Version",
+      "Changes",
+      "Logs",
+    ],
+  },
 ];
 
 type SettingsNavProps = {
@@ -83,14 +135,19 @@ type SettingsNavProps = {
 };
 
 const SettingsNav = ({ onNavigate }: SettingsNavProps) => {
-  const { user } = useAuthContext();
-  //   const location = useLocation();
+  const { hasAnyPermission, loading: permissionsLoading } = usePermissions();
   const [query, setQuery] = useState("");
 
   const items = useMemo(() => {
-    const isAdmin = user?.role === "admin";
-    return NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
-  }, [user]);
+    // While loading permissions, only show items with no permission requirements
+    if (permissionsLoading) {
+      return NAV_ITEMS.filter((item) => !item.permissions);
+    }
+    // Filter items based on user's permissions
+    return NAV_ITEMS.filter(
+      (item) => !item.permissions || hasAnyPermission(...item.permissions)
+    );
+  }, [hasAnyPermission, permissionsLoading]);
 
   const fuse = useMemo(() => {
     return new Fuse(items, {

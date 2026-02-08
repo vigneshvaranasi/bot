@@ -1,15 +1,52 @@
+"""Configuration module for the copilot AI agent.
+
+Loads and validates environment variables required for the agent to function.
+"""
+
+import logging
 import os
-from dotenv import load_dotenv
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
+
 dotenv_path = Path(__file__).parents[2] / ".env"
 load_dotenv(dotenv_path)
 
-# API Keys
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+def _get_required_env(name: str) -> str:
+    """Get a required environment variable or raise an error."""
+    value = os.getenv(name)
+    if not value:
+        raise ValueError(f"Required environment variable {name} is not set")
+    return value
+
+
+def _get_optional_env(name: str, default: str = None) -> str:
+    """Get an optional environment variable with a default value."""
+    return os.getenv(name, default)
+
+
+# API Keys - Required for Gemini models
+GEMINI_API_KEY = _get_optional_env("GEMINI_API_KEY")
+
+# LLM Service Configuration
+OLLAMA_API_URL = _get_optional_env("OLLAMA_API_URL", "http://localhost:11434")
 
 # Model Configuration
 EMBEDDING_MODEL_NAME = "models/embedding-001"
 LLM_MODEL_NAME = "gemini-2.5-pro"
+DEFAULT_OLLAMA_MODEL = "gpt-oss:20b"
 
-# DB URL
-VECTOR_DATABASE_URL = os.getenv("VECTOR_DATABASE_URL")
+# Database URLs - Required
+VECTOR_DATABASE_URL = _get_required_env("VECTOR_DATABASE_URL")
+
+# Qdrant Configuration
+QDRANT_URL = _get_optional_env("QDRANT_URL")
+QDRANT_API_KEY = _get_optional_env("QDRANT_API_KEY")
+QDRANT_COLLECTION_NAME = _get_optional_env("QDRANT_COLLECTION_NAME", "past_issues_v2")
+
+# Default settings
+DEFAULT_LLM_TEMPERATURE = 0.33
+DEFAULT_LLM_MAX_RETRIES = 2

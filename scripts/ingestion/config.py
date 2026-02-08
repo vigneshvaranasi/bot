@@ -16,7 +16,7 @@ class EmbeddingConfig:
 
 class QdrantConfig:
     """Configuration for the Qdrant Vector Store."""
-    URL = "http://localhost:6333"
+    URL = os.getenv("QDRANT_URL", "http://qdrant:6333")
     
     COLLECTION_NAME = "past_issues_v2"
 

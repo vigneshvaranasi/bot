@@ -3,7 +3,7 @@ import searchIcon from "../../assets/SearchIcon.svg";
 type TableColumn<T> = {
   header: string;
   accessor?: keyof T;
-  render?: (row: T) => React.ReactNode;
+  render?: (row: T, index: number) => React.ReactNode;
   className?: string;
   headerClassName?: string;
   searchable?: boolean;
@@ -51,9 +51,9 @@ export function ConfigurableTable<T>({
     }
     return queryIndex === queryLower.length;
   };
-const getCellValue = (row: T, col: TableColumn<T>): string => {
+const getCellValue = (row: T, col: TableColumn<T>, rowIndex: number): string => {
     if (col.render) {
-      const rendered = col.render(row);
+      const rendered = col.render(row, rowIndex);
       return typeof rendered === "string" ? rendered : String(rendered);
     } else if (col.accessor) {
       const value = row[col.accessor];
@@ -65,12 +65,12 @@ const getCellValue = (row: T, col: TableColumn<T>): string => {
   const filteredData = useMemo(() => {
     if (Object.keys(appliedFilters).length === 0) return data;
 
-    return data.filter((row) => {
+    return data.filter((row, rowIndex) => {
       return Object.entries(appliedFilters).every(([colIndex, query]) => {
         const column = columns[parseInt(colIndex)];
         if (!column || column.searchable === false) return true;
-        
-        const cellValue = getCellValue(row, column);
+
+        const cellValue = getCellValue(row, column, rowIndex);
         return fuzzyMatch(cellValue, query);
       });
     });
@@ -206,7 +206,7 @@ const getCellValue = (row: T, col: TableColumn<T>): string => {
                   className={`px-4 py-3 ${col.className || "text-gray-700"}`}
                 >
                   {col.render
-                    ? col.render(row)
+                    ? col.render(row, rowIndex)
                     : col.accessor
                     ? (row[col.accessor] as React.ReactNode)
                     : null}

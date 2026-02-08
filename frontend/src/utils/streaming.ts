@@ -1,12 +1,11 @@
 import type { ChatSSEEvent } from "../handlers/chatHandler";
+import type { ChatMessage, StreamMetrics } from "../types";
+import type { CurrentChatType } from "../store/SidebarContext";
 
-export type StreamMetrics = {
-  timeToFirstToken?: number;
-  totalResponseTime: number;
-};
+export type { StreamMetrics };
 
 export function createMessageStreamer(params: {
-  setCurrentChat: (updater: (prev: any) => any) => void;
+  setCurrentChat: (updater: (prev: CurrentChatType | null) => CurrentChatType | null) => void;
   messageId: string;
   onComplete?: (metrics: StreamMetrics) => void;
 }) {
@@ -33,8 +32,9 @@ export function createMessageStreamer(params: {
 
     if (evt.event === "final_answer") {
       let chunk: string = evt.data.chunk ?? "";
-      setCurrentChat((prevChat: any) => {
-        const updated = prevChat?.allMessages?.map((m: any) => {
+      setCurrentChat((prevChat: CurrentChatType | null) => {
+        if (!prevChat) return prevChat;
+        const updated = prevChat.allMessages.map((m: ChatMessage) => {
           if (m.id !== messageId) return m;
           let buffer = m._streamBuffer || "";
           if (!m._finalAnswerStarted) {
@@ -45,6 +45,7 @@ export function createMessageStreamer(params: {
             return {
               ...m,
               botMessage: buffer,
+              statusMessage: undefined,
               streaming: true,
               _finalAnswerStarted: true,
               _streamBuffer: buffer,
@@ -64,33 +65,40 @@ export function createMessageStreamer(params: {
         return { ...prevChat, allMessages: updated };
       });
     } else if (evt.event === "status") {
-      setCurrentChat((prevChat: any) => ({
-        ...prevChat,
-        allMessages: prevChat?.allMessages?.map((m: any) => {
-          if (m.id !== messageId) return m;
-          if (m._finalAnswerStarted || m._finalAnswerDone) return m;
-          return {
-            ...m,
-            botMessage: evt.data?.message || "",
-            streaming: true,
-          };
-        }),
-      }));
+      setCurrentChat((prevChat: CurrentChatType | null) => {
+        if (!prevChat) return prevChat;
+        return {
+          ...prevChat,
+          allMessages: prevChat.allMessages.map((m: ChatMessage) => {
+            if (m.id !== messageId) return m;
+            if (m._finalAnswerStarted || m._finalAnswerDone) return m;
+            return {
+              ...m,
+              botMessage: "",
+              statusMessage: evt.data?.message || "Processing...",
+              streaming: true,
+            };
+          }),
+        };
+      });
     } else if (evt.event === "complete") {
       endAt = performance.now();
       const metrics = computeMetrics();
-      setCurrentChat((prevChat: any) => ({
-        ...prevChat,
-        allMessages: prevChat?.allMessages?.map((m: any) => {
-          if (m.id !== messageId) return m;
-          return {
-            ...m,
-            streaming: false,
-            _finalAnswerDone: true,
-            responseMetrics: metrics,
-          };
-        }),
-      }));
+      setCurrentChat((prevChat: CurrentChatType | null) => {
+        if (!prevChat) return prevChat;
+        return {
+          ...prevChat,
+          allMessages: prevChat.allMessages.map((m: ChatMessage) => {
+            if (m.id !== messageId) return m;
+            return {
+              ...m,
+              streaming: false,
+              _finalAnswerDone: true,
+              responseMetrics: metrics,
+            };
+          }),
+        };
+      });
       onComplete?.(metrics);
     }
   };
