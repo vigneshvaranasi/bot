@@ -128,6 +128,17 @@ const NAV_ITEMS: SettingsNavItemConfig[] = [
       "Logs",
     ],
   },
+  {
+    label: "Knowledge Base",
+    to: "/settings/knowledge-base",
+    permissions: [PERMISSIONS.AIML_VIEW],
+    searchTexts: [
+      "Knowledge Base",
+      "KB",
+      "Documents",
+      "Knowledge",
+    ],
+  },
 ];
 
 type SettingsNavProps = {

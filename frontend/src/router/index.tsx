@@ -17,6 +17,7 @@ import ConfigurationHistoryPage from "../pages/settings/ConfigurationHistory.pag
 import RoleManagementPage from "../pages/settings/RoleManagement.page";
 import PermissionSetsPage from "../pages/settings/PermissionSets.page";
 import FeedbackDashboardPage from "../pages/settings/FeedbackDashboard.page";
+import KnowledgeBasePage from "../pages/settings/KnowledgeBase.page";
 import AdminRoute from "./AdminRoute";
 
 const normalRoutes: RouteObject = {
@@ -64,6 +65,7 @@ const normalRoutes: RouteObject = {
                   path: "config-history",
                   element: <ConfigurationHistoryPage />,
                 },
+                { path: "knowledge-base", element: <KnowledgeBasePage /> },
                 // { path: "system", element: <SystemConfigPage /> },
               ],
             },
