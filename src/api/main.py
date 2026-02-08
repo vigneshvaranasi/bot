@@ -59,6 +59,9 @@ app.include_router(settings.router, prefix="/settings", tags=["Settings"])
 from src.api.routers import integrations
 app.include_router(integrations.router, prefix="/integrations", tags=["Integrations"])
 
+from src.api.routers import knowledge_base
+app.include_router(knowledge_base.router, tags=["Knowledge Base"])
+
 from src.api.routers import llm_providers
 app.include_router(llm_providers.router, prefix="/llm-providers", tags=["LLM Providers"])
 

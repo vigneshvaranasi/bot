@@ -1,6 +1,7 @@
 import type { Integration } from "../types/Integrations";
 import http from "../utils/http";
 import { logger } from "../utils/logger";
+import { BE_URL } from "../config/config";
 
 export type IntegrationPayload = {
   service_name: string;
@@ -53,17 +54,89 @@ export const updateIntegration = async (
   }
 };
 
+export type SyncProgressEvent = {
+  batch: number;
+  totalBatches: number;
+  totalIncidents?: number;
+  incidents?: string[];
+  message: string;
+};
+
+export type SyncCompleteEvent = {
+  success: boolean;
+  integration?: Integration;
+  stats?: { added: number; total: number; last_synced: string };
+};
+
+export type SyncCallbacks = {
+  onProgress?: (event: SyncProgressEvent) => void;
+  onComplete?: (event: SyncCompleteEvent) => void;
+  onError?: (message: string) => void;
+};
+
 export const syncIntegration = async (
-  integrationId: string
+  integrationId: string,
+  callbacks?: SyncCallbacks
 ): Promise<Integration | null> => {
+  const token = localStorage.getItem("token");
   try {
-    const { data } = await http.post(`/integrations/sync/${integrationId}`);
-    if (data?.success && data.integration) {
-      return data.integration as Integration;
+    const response = await fetch(`${BE_URL}/integrations/sync/${integrationId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!response.ok || !response.body) {
+      callbacks?.onError?.(`Sync failed: ${response.statusText}`);
+      return null;
     }
-    return null;
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let finalIntegration: Integration | null = null;
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // Parse SSE events from buffer
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || ""; // keep incomplete line in buffer
+
+      let eventType = "";
+      for (const line of lines) {
+        if (line.startsWith("event: ")) {
+          eventType = line.slice(7).trim();
+        } else if (line.startsWith("data: ")) {
+          const jsonStr = line.slice(6);
+          try {
+            const data = JSON.parse(jsonStr);
+            if (eventType === "progress") {
+              callbacks?.onProgress?.(data as SyncProgressEvent);
+            } else if (eventType === "complete") {
+              const completeData = data as SyncCompleteEvent;
+              callbacks?.onComplete?.(completeData);
+              finalIntegration = completeData.integration || null;
+            } else if (eventType === "error") {
+              callbacks?.onError?.(data.message || "Unknown sync error");
+            }
+          } catch {
+            // skip malformed JSON
+          }
+          eventType = "";
+        }
+      }
+    }
+
+    return finalIntegration;
   } catch (error) {
     logger.error("Error syncing integration:", error);
+    callbacks?.onError?.(error instanceof Error ? error.message : "Sync failed");
     return null;
   }
 };

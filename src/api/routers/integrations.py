@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -19,6 +20,7 @@ from src.api.schemas.integration_schema import (
     IntegrationListResponse,
 )
 from src.automation.snow import run_servicenow_ingestion
+from src.api.routers.knowledge_base import ingest_incidents_to_qdrant
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -46,10 +48,10 @@ def mask_integration_response(integration) -> dict:
         "auth_type": integration.auth_type,
         "config": mask_sensitive_config(integration.config),
         "is_active": integration.is_active,
-        "last_synced_at": integration.last_synced_at,
+        "last_synced_at": integration.last_synced_at.isoformat() if integration.last_synced_at else None,
         "last_sync_status": integration.last_sync_status,
         "last_sync_error": integration.last_sync_error,
-        "updated_at": integration.updated_at,
+        "updated_at": integration.updated_at.isoformat() if integration.updated_at else None,
         "user_id": str(integration.user_id) if integration.user_id else None,
     }
 
@@ -183,84 +185,150 @@ async def update_integration(
         }
     
 
-# POST Sync Integration by ID
+def _sse_event(event: str, data: dict) -> str:
+    """Format a Server-Sent Event string."""
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+# POST Sync Integration by ID  (SSE stream)
 @router.post("/sync/{integration_id}")
 async def sync_integration(
     integration_id: str,
     session: AsyncSession = Depends(get_session),
     current_user=Depends(require_permission("integration.sync")),
 ):
-    try:
-        result = await session.execute(
-            select(Integration).where(Integration.id == integration_id)
+    """Sync a ServiceNow integration.
+
+    Returns an SSE stream with progress events:
+      event: progress   – { batch, totalBatches, incidents }
+      event: complete   – { success, integration, stats }
+      event: error      – { success: false, message }
+    """
+
+    # ── Validate integration ──────────────────────────────────────
+    result = await session.execute(
+        select(Integration).where(Integration.id == integration_id)
+    )
+    integration = result.scalars().first()
+    if not integration:
+        return StreamingResponse(
+            iter([_sse_event("error", {"success": False, "message": "Integration not found"})]),
+            media_type="text/event-stream",
         )
-        integration = result.scalars().first()
-        if not integration:
-            return {"success": False, "message": "Integration not found"}
 
-        # Prepare config defaults
-        config = integration.config or {}
-        url = config.get("url")
-        username = config.get("username")
-        password = config.get("password")
-        last_synced = config.get("lastSynced") or config.get("last_synced") or "1970-01-01 00:00:00"
+    config = integration.config or {}
+    url = config.get("url")
+    username = config.get("username")
+    password = config.get("password")
+    last_synced = config.get("lastSynced") or config.get("last_synced") or "1970-01-01 00:00:00"
 
-        if not (url and username and password):
-            return {
-                "success": False,
-                "message": "Missing ServiceNow configuration (url, username, password)",
-            }
+    if not (url and username and password):
+        return StreamingResponse(
+            iter([_sse_event("error", {"success": False, "message": "Missing ServiceNow configuration (url, username, password)"})]),
+            media_type="text/event-stream",
+        )
 
-        # Run ServiceNow ingestion
-        sync_payload = {
-            "url": url,
-            "username": username,
-            "password": password,
-            "lastSynced": last_synced,
-        }
+    async def _stream():
+        import asyncio
+
+        # ── Step 1: Fetch from ServiceNow ──
+        yield _sse_event("progress", {"batch": 0, "totalBatches": 0, "message": "Fetching incidents from ServiceNow..."})
+        await asyncio.sleep(0)  # flush
 
         try:
-            result = run_servicenow_ingestion(sync_payload)
-            integration.last_sync_status = "success"
-            integration.last_sync_error = None
+            snow_result = run_servicenow_ingestion({
+                "url": url,
+                "username": username,
+                "password": password,
+                "lastSynced": last_synced,
+            })
         except Exception as e:
             integration.last_sync_status = "error"
             integration.last_sync_error = str(e)
             await session.commit()
-            return {"success": False, "message": str(e)}
+            yield _sse_event("error", {"success": False, "message": str(e)})
+            return
 
-        # Persist incidents to data folder
+        normalized = snow_result.get("normalized", [])
+
+        # Persist raw JSON
         data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
         os.makedirs(data_dir, exist_ok=True)
         output_path = os.path.join(data_dir, "incidentspulledfromsnow.json")
         with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(result.get("normalized", []), f, ensure_ascii=False, indent=2)
+            json.dump(normalized, f, ensure_ascii=False, indent=2)
 
-        # Update integration state
-        now_utc = datetime.now(timezone.utc)
+        # ── Step 2: Ingest in batches ──
+        if normalized:
+            import math
+            batch_size = 5
+            total_batches = math.ceil(len(normalized) / batch_size)
+
+            yield _sse_event("progress", {
+                "batch": 0,
+                "totalBatches": total_batches,
+                "totalIncidents": len(normalized),
+                "message": f"Ingesting {len(normalized)} incidents in {total_batches} batch(es)...",
+            })
+            await asyncio.sleep(0)
+
+            # Collect batch progress events during ingestion
+            progress_events = []
+
+            async def on_batch_progress(batch_num, total_batches, incident_ids):
+                progress_events.append({
+                    "batch": batch_num,
+                    "totalBatches": total_batches,
+                    "incidents": incident_ids,
+                    "message": f"Batch {batch_num} of {total_batches} processed ({len(incident_ids)} incidents)",
+                })
+
+            try:
+                success = await ingest_incidents_to_qdrant(
+                    normalized,
+                    session=session,
+                    integration_id=str(integration.id),
+                    batch_size=batch_size,
+                    progress_callback=on_batch_progress,
+                )
+
+                # Stream all batch progress events
+                for evt in progress_events:
+                    yield _sse_event("progress", evt)
+                    await asyncio.sleep(0)
+
+                if not success:
+                    yield _sse_event("error", {"success": False, "message": "Failed to ingest incidents to knowledge base"})
+                    return
+            except Exception as e:
+                logger.error(f"Ingestion error: {e}")
+                yield _sse_event("error", {"success": False, "message": f"Ingestion error: {e}"})
+                return
+        else:
+            yield _sse_event("progress", {"batch": 0, "totalBatches": 0, "message": "No new incidents to ingest"})
+            await asyncio.sleep(0)
+
+        # ── Step 3: Update integration state ──
+        now_utc = datetime.utcnow()
         integration.last_synced_at = now_utc
+        integration.last_sync_status = "success"
+        integration.last_sync_error = None
         integration.updated_at = now_utc
-        config["lastSynced"] = result.get("last_synced")
+        config["lastSynced"] = snow_result.get("last_synced")
         integration.config = config
 
         session.add(integration)
         await session.commit()
         await session.refresh(integration)
 
-        return {
+        yield _sse_event("complete", {
             "success": True,
             "integration": mask_integration_response(integration),
             "stats": {
-                "added": result.get("added"),
-                "total": result.get("total"),
-                "last_synced": result.get("last_synced"),
+                "added": snow_result.get("added"),
+                "total": snow_result.get("total"),
+                "last_synced": snow_result.get("last_synced"),
             },
-        }
-    except Exception as e:
-        await session.rollback()
-        return {
-            "success": False,
-            "message": f"Error occurred while syncing integration of ID {integration_id}: {e}",
-        }
-    
+        })
 
+    return StreamingResponse(_stream(), media_type="text/event-stream")

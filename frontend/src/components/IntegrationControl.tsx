@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 import { Button } from "./ui/Button";
 import Dropdown from "./ui/Dropdown";
 import InputBox from "./ui/InputBox";
@@ -24,7 +25,14 @@ type IntegrationControlProps = {
     payload: IntegrationPayload & { id?: string; isNew?: boolean }
   ) => Promise<void> | void;
   onDelete?: (id?: string, isNew?: boolean) => Promise<void> | void;
-  onSync?: (id?: string) => Promise<void> | void;
+  onSync?: (
+    id: string,
+    callbacks: {
+      onProgress: (msg: string) => void;
+      onDone: () => void;
+      onError: (msg: string) => void;
+    }
+  ) => Promise<void> | void;
 };
 
 const authOptions = [
@@ -59,6 +67,7 @@ export default function IntegrationControl({
   const [isNameEditable, setIsNameEditable] = useState(isNew);
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<string | null>(null);
 
   // Delete confirmation modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -138,12 +147,27 @@ export default function IntegrationControl({
   const handleSync = async () => {
     if (!onSync || isNew || !id) return;
     setIsSyncing(true);
+    setSyncProgress("Connecting to ServiceNow...");
+    setError(null);
     try {
-      await onSync(id);
+      await onSync(id, {
+        onProgress: (msg: string) => setSyncProgress(msg),
+        onDone: () => {
+          setSyncProgress(null);
+          setIsSyncing(false);
+          toast.success("Sync completed successfully");
+        },
+        onError: (msg: string) => {
+          setSyncProgress(null);
+          setIsSyncing(false);
+          setError(msg);
+          toast.error(msg);
+        },
+      });
     } catch (err) {
       console.error("Failed to sync integration", err);
       setError("Failed to sync integration");
-    } finally {
+      setSyncProgress(null);
       setIsSyncing(false);
     }
   };
@@ -262,6 +286,17 @@ export default function IntegrationControl({
           </Button>
         )}
       </div>
+
+      {/* Sync Progress */}
+      {syncProgress && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
+          <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          <span>{syncProgress}</span>
+        </div>
+      )}
 
       {/* Config */}
       {isConfigOpen && (

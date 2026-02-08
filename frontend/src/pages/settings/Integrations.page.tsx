@@ -134,16 +134,39 @@ const IntegrationsPage = () => {
     setIntegrations((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleIntegrationSync = async (id?: string) => {
+  const handleIntegrationSync = async (
+    id: string,
+    callbacks: {
+      onProgress: (msg: string) => void;
+      onDone: () => void;
+      onError: (msg: string) => void;
+    }
+  ) => {
     if (!id) return;
 
-    const updated = await syncIntegration(id);
-    if (!updated) {
-      setIntegrationsError("Failed to sync integration");
-      return;
-    }
+    const updated = await syncIntegration(id, {
+      onProgress: (evt) => {
+        callbacks.onProgress(evt.message);
+      },
+      onComplete: (evt) => {
+        if (evt.success && evt.integration) {
+          setIntegrations((prev) =>
+            prev.map((item) =>
+              item.id === id ? { ...evt.integration! } : item
+            )
+          );
+        }
+        callbacks.onDone();
+      },
+      onError: (msg) => {
+        callbacks.onError(msg);
+      },
+    });
 
-    setIntegrations((prev) => prev.map((item) => (item.id === id ? { ...updated } : item)));
+    if (!updated) {
+      // If we got null and no error callback fired, it means we consumed all events
+      // The onComplete/onError callbacks already handled the state
+    }
   };
 
   if (integrationsLoading) {
