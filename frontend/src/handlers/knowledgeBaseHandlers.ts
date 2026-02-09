@@ -1,4 +1,3 @@
-// Knowledge Base API handlers
 import http from "../utils/http";
 import { logger } from "../utils/logger";
 

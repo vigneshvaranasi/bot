@@ -48,10 +48,10 @@ def mask_integration_response(integration) -> dict:
         "auth_type": integration.auth_type,
         "config": mask_sensitive_config(integration.config),
         "is_active": integration.is_active,
-        "last_synced_at": integration.last_synced_at.isoformat() if integration.last_synced_at else None,
+        "last_synced_at": integration.last_synced_at.isoformat() + "Z" if integration.last_synced_at else None,
         "last_sync_status": integration.last_sync_status,
         "last_sync_error": integration.last_sync_error,
-        "updated_at": integration.updated_at.isoformat() if integration.updated_at else None,
+        "updated_at": integration.updated_at.isoformat() + "Z" if integration.updated_at else None,
         "user_id": str(integration.user_id) if integration.user_id else None,
     }
 
@@ -204,8 +204,6 @@ async def sync_integration(
       event: complete   – { success, integration, stats }
       event: error      – { success: false, message }
     """
-
-    # ── Validate integration ──────────────────────────────────────
     result = await session.execute(
         select(Integration).where(Integration.id == integration_id)
     )
@@ -231,9 +229,8 @@ async def sync_integration(
     async def _stream():
         import asyncio
 
-        # ── Step 1: Fetch from ServiceNow ──
         yield _sse_event("progress", {"batch": 0, "totalBatches": 0, "message": "Fetching incidents from ServiceNow..."})
-        await asyncio.sleep(0)  # flush
+        await asyncio.sleep(0)
 
         try:
             snow_result = run_servicenow_ingestion({
@@ -251,14 +248,12 @@ async def sync_integration(
 
         normalized = snow_result.get("normalized", [])
 
-        # Persist raw JSON
         data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
         os.makedirs(data_dir, exist_ok=True)
         output_path = os.path.join(data_dir, "incidentspulledfromsnow.json")
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(normalized, f, ensure_ascii=False, indent=2)
 
-        # ── Step 2: Ingest in batches ──
         if normalized:
             import math
             batch_size = 5
@@ -272,35 +267,57 @@ async def sync_integration(
             })
             await asyncio.sleep(0)
 
-            # Collect batch progress events during ingestion
-            progress_events = []
+            # Use an asyncio.Queue so progress events stream in real-time
+            progress_queue: asyncio.Queue = asyncio.Queue()
 
             async def on_batch_progress(batch_num, total_batches, incident_ids):
-                progress_events.append({
+                await progress_queue.put({
                     "batch": batch_num,
                     "totalBatches": total_batches,
                     "incidents": incident_ids,
+                    "totalIncidents": len(normalized),
                     "message": f"Batch {batch_num} of {total_batches} processed ({len(incident_ids)} incidents)",
                 })
 
+            _SENTINEL = object()
+
+            async def _run_ingestion():
+                try:
+                    success = await ingest_incidents_to_qdrant(
+                        normalized,
+                        session=session,
+                        integration_id=str(integration.id),
+                        batch_size=batch_size,
+                        progress_callback=on_batch_progress,
+                    )
+                    await progress_queue.put(("done", success))
+                except Exception as exc:
+                    await progress_queue.put(("error", exc))
+
+            ingestion_task = asyncio.create_task(_run_ingestion())
+
             try:
-                success = await ingest_incidents_to_qdrant(
-                    normalized,
-                    session=session,
-                    integration_id=str(integration.id),
-                    batch_size=batch_size,
-                    progress_callback=on_batch_progress,
-                )
+                ingestion_success = None
+                while True:
+                    item = await progress_queue.get()
+                    if isinstance(item, tuple):
+                        kind, payload = item
+                        if kind == "done":
+                            ingestion_success = payload
+                            break
+                        elif kind == "error":
+                            logger.error(f"Ingestion error: {payload}")
+                            yield _sse_event("error", {"success": False, "message": f"Ingestion error: {payload}"})
+                            return
+                    else:
+                        yield _sse_event("progress", item)
+                        await asyncio.sleep(0)
 
-                # Stream all batch progress events
-                for evt in progress_events:
-                    yield _sse_event("progress", evt)
-                    await asyncio.sleep(0)
-
-                if not success:
+                if not ingestion_success:
                     yield _sse_event("error", {"success": False, "message": "Failed to ingest incidents to knowledge base"})
                     return
             except Exception as e:
+                ingestion_task.cancel()
                 logger.error(f"Ingestion error: {e}")
                 yield _sse_event("error", {"success": False, "message": f"Ingestion error: {e}"})
                 return
@@ -308,7 +325,6 @@ async def sync_integration(
             yield _sse_event("progress", {"batch": 0, "totalBatches": 0, "message": "No new incidents to ingest"})
             await asyncio.sleep(0)
 
-        # ── Step 3: Update integration state ──
         now_utc = datetime.utcnow()
         integration.last_synced_at = now_utc
         integration.last_sync_status = "success"

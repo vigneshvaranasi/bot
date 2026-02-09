@@ -28,7 +28,7 @@ type IntegrationControlProps = {
   onSync?: (
     id: string,
     callbacks: {
-      onProgress: (msg: string) => void;
+      onProgress: (msg: string, batch?: number, total?: number, incidents?: number) => void;
       onDone: () => void;
       onError: (msg: string) => void;
     }
@@ -68,6 +68,9 @@ export default function IntegrationControl({
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
+  const [currentBatch, setCurrentBatch] = useState(0);
+  const [totalBatches, setTotalBatches] = useState(0);
+  const [totalIncidents, setTotalIncidents] = useState(0);
 
   // Delete confirmation modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -148,17 +151,31 @@ export default function IntegrationControl({
     if (!onSync || isNew || !id) return;
     setIsSyncing(true);
     setSyncProgress("Connecting to ServiceNow...");
+    setCurrentBatch(0);
+    setTotalBatches(0);
+    setTotalIncidents(0);
     setError(null);
     try {
       await onSync(id, {
-        onProgress: (msg: string) => setSyncProgress(msg),
+        onProgress: (msg: string, batch?: number, total?: number, incidents?: number) => {
+          setSyncProgress(msg);
+          if (batch !== undefined) setCurrentBatch(batch);
+          if (total !== undefined) setTotalBatches(total);
+          if (incidents !== undefined) setTotalIncidents(incidents);
+        },
         onDone: () => {
           setSyncProgress(null);
+          setCurrentBatch(0);
+          setTotalBatches(0);
+          setTotalIncidents(0);
           setIsSyncing(false);
           toast.success("Sync completed successfully");
         },
         onError: (msg: string) => {
           setSyncProgress(null);
+          setCurrentBatch(0);
+          setTotalBatches(0);
+          setTotalIncidents(0);
           setIsSyncing(false);
           setError(msg);
           toast.error(msg);
@@ -168,6 +185,9 @@ export default function IntegrationControl({
       console.error("Failed to sync integration", err);
       setError("Failed to sync integration");
       setSyncProgress(null);
+      setCurrentBatch(0);
+      setTotalBatches(0);
+      setTotalIncidents(0);
       setIsSyncing(false);
     }
   };
@@ -289,12 +309,34 @@ export default function IntegrationControl({
 
       {/* Sync Progress */}
       {syncProgress && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-700">
-          <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <span>{syncProgress}</span>
+        <div className="flex flex-col gap-2 px-4 py-3 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="flex items-center gap-2 text-sm text-blue-700">
+            <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <span className="font-medium">{syncProgress}</span>
+          </div>
+          
+          {totalBatches > 0 && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-blue-600">
+                <span>Batch {currentBatch} of {totalBatches}</span>
+                <span>{Math.round((currentBatch / totalBatches) * 100)}%</span>
+              </div>
+              <div className="w-full bg-blue-200 rounded-full h-2 overflow-hidden">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${Math.min((currentBatch / totalBatches) * 100, 100)}%` }}
+                />
+              </div>
+              {totalIncidents > 0 && (
+                <div className="text-xs text-blue-600 mt-1">
+                  Processing {totalIncidents} incidents...
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

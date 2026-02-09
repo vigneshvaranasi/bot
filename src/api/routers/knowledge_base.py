@@ -291,7 +291,7 @@ async def get_incident_logs(
                     "incident_id": log.incident_id,
                     "title": log.title,
                     "source": log.source,
-                    "created_at": log.created_at.isoformat() if log.created_at else None
+                    "created_at": log.created_at.isoformat() + "Z" if log.created_at else None
                 }
                 for log in logs
             ]
@@ -413,9 +413,11 @@ async def ingest_incidents_to_qdrant(
                 batch_docs.extend(docs)
                 batch_incidents_raw.append(incident_dict)
 
-            # Ingest batch into Qdrant
+            # Ingest batch into Qdrant (run in executor to avoid blocking the event loop)
             if batch_docs:
-                vector_store.add_documents(batch_docs)
+                import asyncio
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(None, vector_store.add_documents, batch_docs)
                 total_chunks += len(batch_docs)
 
             # Log each incident in this batch

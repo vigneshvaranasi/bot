@@ -137,7 +137,7 @@ const IntegrationsPage = () => {
   const handleIntegrationSync = async (
     id: string,
     callbacks: {
-      onProgress: (msg: string) => void;
+      onProgress: (msg: string, batch?: number, total?: number, incidents?: number) => void;
       onDone: () => void;
       onError: (msg: string) => void;
     }
@@ -146,7 +146,12 @@ const IntegrationsPage = () => {
 
     const updated = await syncIntegration(id, {
       onProgress: (evt) => {
-        callbacks.onProgress(evt.message);
+        callbacks.onProgress(
+          evt.message, 
+          evt.batch, 
+          evt.totalBatches, 
+          evt.totalIncidents
+        );
       },
       onComplete: (evt) => {
         if (evt.success && evt.integration) {
