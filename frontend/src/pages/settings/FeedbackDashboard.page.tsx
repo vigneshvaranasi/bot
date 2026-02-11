@@ -8,6 +8,7 @@ import Modal, { ConfirmModal } from "../../components/ui/Modal";
 import { Pagination, DEFAULT_PAGE_SIZE_OPTIONS } from "../../components/ui/Pagination";
 import { useDelayedLoading } from "../../hooks/useDelayedLoading";
 import Toggle from "../../components/ui/Toggle";
+import InfoHint from "../../components/ui/InfoHint";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { usePermissions } from "../../hooks/usePermissions";
@@ -447,7 +448,10 @@ const FeedbackDashboard: React.FC = () => {
             </div>
             <div className="p-3 rounded-lg bg-violet-50 border border-violet-200">
               <p className="text-2xl font-semibold text-violet-700">{stats.golden_examples_count}</p>
-              <p className="text-xs text-violet-600 mt-1">Golden Examples</p>
+              <div className="flex items-center gap-1">
+                <p className="text-xs text-violet-600 mt-1">Golden Examples</p>
+                <InfoHint text="Curated question-answer pairs that teach the AI how to respond better. Built from reviewed user feedback." />
+              </div>
             </div>
           </div>
         </section>
@@ -459,7 +463,10 @@ const FeedbackDashboard: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-white">
               <div>
-                <p className="text-sm font-medium text-gray-900">Auto-approve Positive Feedback</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-sm font-medium text-gray-900">Auto-approve Positive Feedback</p>
+                  <InfoHint text="Positive feedback (thumbs up) will skip manual review and automatically become a golden example using the AI's original response." />
+                </div>
                 <p className="text-xs text-gray-500">Automatically add to golden examples</p>
               </div>
               <Toggle
@@ -470,7 +477,10 @@ const FeedbackDashboard: React.FC = () => {
             </div>
             <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-white">
               <div>
-                <p className="text-sm font-medium text-gray-900">Auto-approve Negative Feedback</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-sm font-medium text-gray-900">Auto-approve Negative Feedback</p>
+                  <InfoHint text="Negative feedback (thumbs down) will be auto-approved using the AI's original response — which was flagged as poor. Manual review is strongly recommended instead." />
+                </div>
                 <p className="text-xs text-amber-600">Not recommended</p>
               </div>
               <Toggle

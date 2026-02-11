@@ -1,15 +1,29 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
-import os
+import asyncio
 import json
+import logging
+import os
 import re
-from typing import List, Optional, Dict
-from pydantic import BaseModel
 from datetime import datetime
-from src.api.db.session import get_session
+from typing import Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from sqlalchemy import select, desc
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.api.auth.dependencies import require_permission
 from src.api.db.models.incident_log import IncidentLog
+from src.api.db.session import get_session
+from src.api.schemas.knowledge_base_schemas import (
+    FieldMappingRequest,
+    FileUploadRequest,
+    IngestionConfirmRequest,
+    RollbackVersionRequest,
+)
+from src.api.services.incident_ingestion_service import IncidentIngestionService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/knowledge-base", tags=["knowledge-base"])
 
@@ -125,6 +139,7 @@ class IncidentResponse(BaseModel):
 # GET list of incidents from knowledge base
 @router.get("/incidents")
 async def list_incidents(
+    session: AsyncSession = Depends(get_session),
     current_user=Depends(require_permission("integration.view")),
 ):
     """List all ServiceNow incidents from Qdrant vector database."""
@@ -132,7 +147,8 @@ async def list_incidents(
         # Try to read from Qdrant first (shows all historical incidents)
         try:
             client = get_qdrant_client()
-            collection_name = "past_issues_v2"
+            svc = IncidentIngestionService(session)
+            collection_name = await svc.get_active_collection_name()
             
             if client.collection_exists(collection_name):
                 # Get all ServiceNow incidents from Qdrant
@@ -202,35 +218,37 @@ async def list_incidents(
 @router.delete("/incidents/{incident_id}")
 async def delete_incident(
     incident_id: str,
+    session: AsyncSession = Depends(get_session),
     current_user=Depends(require_permission("integration.delete")),
 ):
     """Delete an incident from the knowledge base."""
     try:
         data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
         output_path = os.path.join(data_dir, "incidentspulledfromsnow.json")
-        
+
         if not os.path.exists(output_path):
             return {"success": False, "message": "No incidents found"}
-        
+
         # Load current incidents
         with open(output_path, "r", encoding="utf-8") as f:
             incidents = json.load(f)
-        
+
         # Find and remove the incident
         original_count = len(incidents)
         incidents = [inc for inc in incidents if inc.get("incident_id") != incident_id]
-        
+
         if len(incidents) == original_count:
             return {"success": False, "message": "Incident not found"}
-        
+
         # Save updated incidents
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(incidents, f, ensure_ascii=False, indent=2)
-        
+
         # Delete from Qdrant (best-effort, requires qdrant_client)
         try:
             client = get_qdrant_client()
-            collection_name = "past_issues_v2"
+            svc = IncidentIngestionService(session)
+            collection_name = await svc.get_active_collection_name()
             
             if client.collection_exists(collection_name):
                 scroll_result = client.scroll(
@@ -450,3 +468,267 @@ async def ingest_incidents_to_qdrant(
         import traceback
         traceback.print_exc()
         return False
+
+
+# ── Upload & Validation Endpoints ────────────────────────────────
+
+def _sse_event(event: str, data: dict) -> str:
+    """Format a Server-Sent Event string."""
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+@router.post("/upload")
+async def upload_incident_files(
+    body: FileUploadRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(require_permission("kb.upload")),
+):
+    """Accept file content, create upload session, return preview."""
+    try:
+        svc = IncidentIngestionService(session)
+        files_data = [
+            {"filename": f.filename, "size": f.size, "content": f.content}
+            for f in body.files
+        ]
+        upload_session = await svc.create_upload_session(
+            files_data, current_user["user_id"], source="upload"
+        )
+        return {
+            "success": True,
+            "session_id": str(upload_session.id),
+            "status": upload_session.status,
+            "incident_count": upload_session.incident_count,
+            "file_metadata": upload_session.file_metadata,
+            "preview": (upload_session.raw_data or [])[:10],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/validate/{session_id}")
+async def validate_upload_session(
+    session_id: str,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(require_permission("kb.validate")),
+):
+    """Run schema validation on upload session."""
+    try:
+        svc = IncidentIngestionService(session)
+        report = await svc.validate_session(session_id)
+        return {"success": True, **report.model_dump()}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/validate/{session_id}/map-fields")
+async def apply_field_mapping(
+    session_id: str,
+    body: FieldMappingRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(require_permission("kb.validate")),
+):
+    """Apply field mapping and re-validate."""
+    try:
+        svc = IncidentIngestionService(session)
+        report = await svc.apply_field_mapping(session_id, body.mapping)
+        return {"success": True, **report.model_dump()}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Ingestion (SSE) ─────────────────────────────────────────────
+
+@router.post("/ingest")
+async def ingest_confirmed_session(
+    body: IngestionConfirmRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(require_permission("kb.ingest")),
+):
+    """Confirm & ingest. Returns SSE stream with progress events."""
+    async def _stream():
+        yield _sse_event("progress", {"batch": 0, "totalBatches": 0, "message": "Starting ingestion..."})
+        await asyncio.sleep(0)
+
+        progress_queue: asyncio.Queue = asyncio.Queue()
+
+        async def on_batch_progress(batch_num, total_batches, incident_ids):
+            await progress_queue.put({
+                "batch": batch_num,
+                "totalBatches": total_batches,
+                "incidents": incident_ids,
+                "message": f"Batch {batch_num} of {total_batches} processed",
+            })
+
+        _SENTINEL = object()
+
+        async def _run_ingestion():
+            try:
+                svc = IncidentIngestionService(session)
+                version = await svc.confirm_and_ingest(
+                    body.session_id,
+                    current_user["user_id"],
+                    notes=body.notes,
+                    progress_callback=on_batch_progress,
+                )
+                await progress_queue.put(("done", version))
+            except Exception as exc:
+                await progress_queue.put(("error", exc))
+
+        ingestion_task = asyncio.create_task(_run_ingestion())
+
+        try:
+            while True:
+                item = await progress_queue.get()
+                if isinstance(item, tuple):
+                    kind, payload = item
+                    if kind == "done":
+                        yield _sse_event("complete", {
+                            "success": True,
+                            "version_id": str(payload.id),
+                            "version_number": payload.version_number,
+                            "collection_name": payload.collection_name,
+                            "incident_count": payload.incident_count,
+                        })
+                        return
+                    elif kind == "error":
+                        yield _sse_event("error", {"success": False, "message": str(payload)})
+                        return
+                else:
+                    yield _sse_event("progress", item)
+                    await asyncio.sleep(0)
+        except Exception as e:
+            ingestion_task.cancel()
+            yield _sse_event("error", {"success": False, "message": str(e)})
+
+    return StreamingResponse(_stream(), media_type="text/event-stream")
+
+
+# ── Version Management ───────────────────────────────────────────
+
+@router.get("/versions")
+async def list_versions(
+    limit: int = 20,
+    offset: int = 0,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(require_permission("kb.view")),
+):
+    """List all dataset versions (paginated)."""
+    try:
+        svc = IncidentIngestionService(session)
+        result = await svc.get_versions(limit, offset)
+        return {"success": True, **result.model_dump()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/versions/active")
+async def get_active_version(
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(require_permission("kb.view")),
+):
+    """Get the currently active dataset version."""
+    try:
+        svc = IncidentIngestionService(session)
+        active = await svc.get_active_version()
+        if not active:
+            return {"success": True, "version": None}
+        return {
+            "success": True,
+            "version": {
+                "id": str(active.id),
+                "version_number": active.version_number,
+                "collection_name": active.collection_name,
+                "status": active.status,
+                "is_active": active.is_active,
+                "incident_count": active.incident_count,
+                "source": active.source,
+                "activated_at": active.activated_at.isoformat() + "Z" if active.activated_at else None,
+                "created_at": active.created_at.isoformat() + "Z" if active.created_at else None,
+            },
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/versions/{version_id}")
+async def get_version_detail(
+    version_id: str,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(require_permission("kb.view")),
+):
+    """Get a single version's details."""
+    try:
+        svc = IncidentIngestionService(session)
+        version = await svc.get_version_by_id(version_id)
+        if not version:
+            raise HTTPException(status_code=404, detail="Version not found")
+        return {
+            "success": True,
+            "version": {
+                "id": str(version.id),
+                "version_number": version.version_number,
+                "collection_name": version.collection_name,
+                "status": version.status,
+                "is_active": version.is_active,
+                "incident_count": version.incident_count,
+                "file_metadata": version.file_metadata,
+                "source": version.source,
+                "snapshot_name": version.snapshot_name,
+                "notes": version.notes,
+                "activated_at": version.activated_at.isoformat() + "Z" if version.activated_at else None,
+                "created_at": version.created_at.isoformat() + "Z" if version.created_at else None,
+                "updated_at": version.updated_at.isoformat() + "Z" if version.updated_at else None,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/versions/{version_id}/rollback")
+async def rollback_version(
+    version_id: str,
+    body: Optional[RollbackVersionRequest] = None,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(require_permission("kb.rollback")),
+):
+    """Rollback to a prior version (activates it)."""
+    try:
+        notes = body.notes if body else None
+        svc = IncidentIngestionService(session)
+        version = await svc.rollback_to_version(version_id, current_user["user_id"], notes)
+        return {
+            "success": True,
+            "message": f"Rolled back to version {version.version_number}",
+            "version_id": str(version.id),
+        }
+    except ValueError as e:
+        logger.warning(f"Rollback to version {version_id} failed (ValueError): {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Rollback to version {version_id} failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/versions/{version_id}")
+async def delete_version(
+    version_id: str,
+    session: AsyncSession = Depends(get_session),
+    current_user=Depends(require_permission("kb.version_manage")),
+):
+    """Delete an inactive version and its Qdrant collection."""
+    try:
+        svc = IncidentIngestionService(session)
+        await svc.delete_version(version_id)
+        return {"success": True, "message": "Version deleted"}
+    except ValueError as e:
+        logger.warning(f"Delete version {version_id} failed (ValueError): {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Delete version {version_id} failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

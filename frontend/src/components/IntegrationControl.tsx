@@ -347,7 +347,7 @@ export default function IntegrationControl({
           <Dropdown
             options={authOptions}
             value={authType}
-            onChange={readOnly ? undefined : handleAuthChange}
+            onChange={readOnly ? () => {} : handleAuthChange}
             disabled={readOnly}
           />
 
@@ -372,7 +372,7 @@ export default function IntegrationControl({
                       placeholder={field.label}
                       type={field.type === "url" ? "text" : field.type}
                       variant="primary"
-                      onChange={readOnly ? undefined : (value) =>
+                      onChange={readOnly ? () => {} : (value) =>
                         setConfig({
                           ...config,
                           [field.key]: value,

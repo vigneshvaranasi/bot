@@ -194,12 +194,9 @@ const AuditPage = () => {
                     headerClassName: "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200 w-24",
                     render: (item, index) => (
                       <Button
-                        variant="secondary"
-                        className={`text-xs px-2 py-1 ${
-                          index === 0
-                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                            : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                        }`}
+                        variant={index === 0 ? "secondary" : "ghost"}
+                        size="sm"
+                        className={index === 0 ? "opacity-50 cursor-not-allowed" : ""}
                         onClick={() => openRollbackModal(item.id)}
                         disabled={index === 0 || rollingBack === item.id}
                       >

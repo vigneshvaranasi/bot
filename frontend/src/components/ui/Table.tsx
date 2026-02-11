@@ -24,7 +24,7 @@ interface TableProps<T> {
 export function ConfigurableTable<T>({
   columns,
   data,            
-  tableClassName = "min-w-full border-2 border-gray-300 rounded-lg overflow-hidden border-separate", 
+  tableClassName = "min-w-full border-1 border-gray-300 rounded-lg overflow-hidden border-separate", 
   headerRowClassName = "bg-white",
   rowClassName = "bg-white border-t border-gray-400",
   keyExtractor,

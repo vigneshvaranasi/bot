@@ -17,6 +17,7 @@ import type { Settings } from "../../types/Settings";
 import { logger } from "../../utils/logger";
 import { SkeletonUserManagement, SkeletonToggle } from "../../components/ui/Skeleton";
 import { ConfirmModal } from "../../components/ui/Modal";
+import InfoHint from "../../components/ui/InfoHint";
 import { Pagination, DEFAULT_PAGE_SIZE_OPTIONS } from "../../components/ui/Pagination";
 import { useDelayedLoading } from "../../hooks/useDelayedLoading";
 import { usePermissions } from "../../hooks/usePermissions";
@@ -364,7 +365,8 @@ const UserManagement: React.FC = () => {
           {canEditUser && (
             <Button
               variant="secondary"
-              className="bg-gray-400 text-white hover:bg-gray-500 text-xs md:text-sm px-2 py-1 w-full sm:w-auto"
+              size="sm"
+              className="w-full sm:w-auto"
               onClick={() => handleEditUser(user)}
             >
               EDIT
@@ -372,8 +374,9 @@ const UserManagement: React.FC = () => {
           )}
           {canDeleteUser && (
             <Button
-              variant="secondary"
-              className="bg-red-500 text-white hover:bg-red-600 text-xs md:text-sm px-2 py-1 w-full sm:w-auto"
+              variant="danger"
+              size="sm"
+              className="w-full sm:w-auto"
               onClick={() => openDeleteModal(user)}
             >
               DELETE
@@ -411,7 +414,10 @@ const UserManagement: React.FC = () => {
       <section className="border border-gray-200 rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Authentication Methods</h3>
+            <div className="flex items-center gap-1">
+              <h3 className="text-sm font-semibold text-gray-900">Authentication Methods</h3>
+              <InfoHint text="Toggling a provider off prevents all users from creating new login sessions with that method. Existing sessions aren't affected." />
+            </div>
             <p className="text-xs text-gray-600">Toggle available login providers for the org.</p>
           </div>
           {canEditAuth && (

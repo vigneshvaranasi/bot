@@ -126,13 +126,54 @@ def _get_qdrant_client() -> QdrantClient:
     return _qdrant_client
 
 
+def _get_active_collection_name() -> str:
+    """Resolve the active dataset collection name from the DB.
+
+    Falls back to the config default (``past_issues_v2``) when no active
+    version exists or the DB is unreachable.
+    """
+    try:
+        import sqlalchemy as sa
+        from src.api.db.base import Base  # noqa: F401 – ensures metadata is loaded
+        from sqlalchemy import create_engine, text
+        import os
+
+        db_url = os.getenv("DATABASE_URL", "")
+        if not db_url:
+            return config.QDRANT_COLLECTION_NAME
+
+        # Use a sync engine for this quick lookup (copilot runs sync code)
+        sync_url = db_url.replace("postgresql+asyncpg", "postgresql").replace("postgresql+aiopg", "postgresql")
+        engine = create_engine(sync_url)
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT collection_name FROM incident_dataset_versions WHERE is_active = true LIMIT 1")
+            ).fetchone()
+            if row:
+                return row[0]
+    except Exception:
+        pass
+    return config.QDRANT_COLLECTION_NAME
+
+
+def invalidate_vector_store_cache():
+    """Reset the cached vector store and retriever globals.
+
+    Called by the service layer after version activation so the copilot
+    picks up the new collection on the next query.
+    """
+    global _vector_store, _retriever
+    _vector_store = None
+    _retriever = None
+
+
 def _get_vector_store() -> QdrantVectorStore:
     """Get or create the vector store."""
     global _vector_store
     if _vector_store is None:
         _vector_store = QdrantVectorStore(
             client=_get_qdrant_client(),
-            collection_name=config.QDRANT_COLLECTION_NAME,
+            collection_name=_get_active_collection_name(),
             embedding=_get_embeddings(),
         )
     return _vector_store

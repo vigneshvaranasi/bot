@@ -199,11 +199,7 @@ const IntegrationsPage = () => {
             <span className="text-sm md:text-medium text-black flex-1">
               Manage integrations with external data sources
             </span>
-            <InfoHint
-              text="Integrations with platforms like ServiceNow or Jira allow continuous data synchronization."
-              position="top"
-              gap={0.3}
-            />
+            <InfoHint text="Connect external platforms like ServiceNow or Jira to automatically sync incident data into the knowledge base." />
           </span>
           {canCreate && (
             <Button

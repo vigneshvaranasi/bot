@@ -177,6 +177,7 @@ export const PERMISSION_CATEGORIES = {
   role: "Role Management",
   permission_set: "Permission Sets",
   feedback: "Feedback & Golden Examples",
+  knowledge_base: "Knowledge Base",
   history: "History/Audit",
   chat: "Chat",
   system: "System",
@@ -233,6 +234,14 @@ export const PERMISSIONS = {
   GOLDEN_EXAMPLE_CREATE: "golden_example.create",
   GOLDEN_EXAMPLE_EDIT: "golden_example.edit",
   GOLDEN_EXAMPLE_DELETE: "golden_example.delete",
+
+  // Knowledge Base
+  KB_VIEW: "kb.view",
+  KB_UPLOAD: "kb.upload",
+  KB_VALIDATE: "kb.validate",
+  KB_INGEST: "kb.ingest",
+  KB_VERSION_MANAGE: "kb.version_manage",
+  KB_ROLLBACK: "kb.rollback",
 
   // History
   HISTORY_VIEW: "history.view",

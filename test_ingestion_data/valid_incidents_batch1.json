@@ -1,0 +1,41 @@
+[
+  {
+    "incident_id": "INC-2026-02-10-001",
+    "title": "Kafka Consumer Lag Spike on Payment Events Topic",
+    "description": "impactedApplication: Real-Time Payment Notification Service\nrootCause: A misconfigured consumer group rebalance interval caused repeated partition reassignment, preventing consumers from committing offsets. The rebalance was triggered by a rolling deployment that exceeded the session timeout.\nmitigation: Increased session.timeout.ms from 10s to 45s, set a static group.instance.id per pod to enable cooperative sticky assignment, and redeployed the consumer fleet with zero-downtime rolling strategy.\naccountableParty: Platform Engineering\nsourceSystem: Kafka Cluster (payments-events-prod)\nrepeatIncident: False\nexecutiveSummary: Between 03:15 and 04:50 UTC, the real-time payment notification service experienced a sustained consumer lag of over 2 million messages on the payments-events topic. Customers did not receive push notifications or email confirmations for completed transactions during this window.",
+    "action_taken": "Detection & Triage: Kafka consumer lag alerts fired at 03:22 UTC via Prometheus/Grafana. On-call SRE confirmed the lag was isolated to consumer group 'payment-notify-prod'. Investigation revealed that the rolling deployment triggered a full group rebalance every 10 seconds due to the default session timeout. The rebalance cascade prevented any consumer from holding a partition long enough to process and commit. Immediate mitigation involved halting the deployment and manually assigning partitions. Long-term fix included tuning consumer group configs, enabling cooperative-sticky partition assignor, and adding deployment pre-checks that validate consumer group health before proceeding with the next pod.",
+    "opened_at": "2026-02-10T03:15:00Z",
+    "updated_at": "2026-02-10T06:30:00Z",
+    "impacted_application": "Real-Time Payment Notification Service",
+    "root_cause": "Misconfigured consumer group rebalance interval during rolling deployment",
+    "accountable_party": "Platform Engineering",
+    "source_system": "Kafka Cluster",
+    "repeat_incident": "False"
+  },
+  {
+    "incident_id": "INC-2026-02-10-002",
+    "title": "PostgreSQL Connection Pool Exhaustion on Ledger Service",
+    "description": "impactedApplication: Core Ledger Posting Service\nrootCause: A long-running analytical query from the reporting service held connections without releasing them, starving the ledger service of available pooled connections.\nmitigation: Killed the runaway query, increased PgBouncer max_client_conn from 200 to 500, set statement_timeout to 30s for the reporting role, and isolated the reporting workload to a read replica.\naccountableParty: Database Administration\nsourceSystem: PostgreSQL (ledger-prod-primary)\nrepeatIncident: True\nexecutiveSummary: The core ledger posting service returned HTTP 503 errors for approximately 12 minutes starting at 11:42 UTC. All debit/credit posting operations failed, causing a backlog of 34,000 unprocessed journal entries across retail and corporate banking channels.",
+    "action_taken": "Detection & Triage: Application health checks reported degraded status at 11:42 UTC. PgBouncer metrics showed 0 available connections in the pool. Database administrators identified a reporting query scanning 180M rows without proper indexing that had been running for 47 minutes. The query was terminated, and connections recovered within 90 seconds. All queued journal entries were reprocessed successfully by 12:15 UTC. Post-incident actions included enforcing query timeouts per database role, migrating analytical workloads to dedicated read replicas, and adding PgBouncer pool saturation alerts with auto-scaling triggers.",
+    "opened_at": "2026-02-10T11:42:00Z",
+    "updated_at": "2026-02-10T14:00:00Z",
+    "impacted_application": "Core Ledger Posting Service",
+    "root_cause": "Uncontrolled analytical query exhausted connection pool",
+    "accountable_party": "Database Administration",
+    "source_system": "PostgreSQL",
+    "repeat_incident": "True"
+  },
+  {
+    "incident_id": "INC-2026-02-10-003",
+    "title": "mTLS Certificate Rotation Failure on API Gateway",
+    "description": "impactedApplication: External Partner API Gateway\nrootCause: The automated cert-manager renewal job silently failed due to an expired ACME issuer credential. The gateway continued serving with the old certificate until it expired, breaking mTLS handshakes with partner systems.\nmitigation: Manually issued new certificates via cert-manager CLI, updated the ACME issuer credentials, and deployed a certificate expiry canary that alerts 14 days before expiration.\naccountableParty: Security Engineering\nsourceSystem: Kubernetes Ingress / cert-manager\nrepeatIncident: False\nexecutiveSummary: At 00:01 UTC, all inbound API requests from 7 external banking partners began failing with TLS handshake errors. The mTLS certificate on the API gateway had expired exactly at midnight, and the automated renewal pipeline had silently failed 3 days prior.",
+    "action_taken": "Detection & Triage: Partner integration teams reported connectivity failures at 00:08 UTC. Investigation confirmed the gateway's server certificate had expired. cert-manager logs showed the renewal attempt had failed 3 days earlier with an ACME authorization error that was not surfaced to alerting. A new certificate was manually issued and deployed within 22 minutes, restoring all partner connectivity by 00:23 UTC. Post-incident remediation included adding certificate expiry monitoring with 30/14/7/1 day alert thresholds, testing ACME issuer health in a daily synthetic job, and integrating cert-manager events into the central alerting pipeline.",
+    "opened_at": "2026-02-10T00:01:00Z",
+    "updated_at": "2026-02-10T02:00:00Z",
+    "impacted_application": "External Partner API Gateway",
+    "root_cause": "Expired ACME issuer credential caused silent cert renewal failure",
+    "accountable_party": "Security Engineering",
+    "source_system": "Kubernetes Ingress",
+    "repeat_incident": "False"
+  }
+]

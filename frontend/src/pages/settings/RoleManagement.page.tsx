@@ -354,7 +354,7 @@ const RoleManagement = () => {
                 {canEdit && canViewPermissionSets && (
                   <Button
                     variant="secondary"
-                    className="bg-gray-400 text-white hover:bg-gray-500 text-xs px-2 py-1"
+                    size="sm"
                     onClick={() => handleOpenEditModal(role)}
                   >
                     Edit
@@ -362,8 +362,8 @@ const RoleManagement = () => {
                 )}
                 {canDelete && (
                   <Button
-                    variant="secondary"
-                    className="bg-red-500 text-white hover:bg-red-600 text-xs px-2 py-1"
+                    variant="danger"
+                    size="sm"
                     onClick={() => openDeleteModal(role)}
                   >
                     Delete

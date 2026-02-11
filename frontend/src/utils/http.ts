@@ -37,35 +37,35 @@ const handleResponse = async (response: Response) => {
 };
 
 const http = {
-  get: async (url: string) => {
+  get: async <T = any>(url: string): Promise<{ data: T }> => {
     const response = await fetch(`${BE_URL}${url}`, {
       method: 'GET',
       headers: getHeaders(),
     });
-    return handleResponse(response);
+    return handleResponse(response) as Promise<{ data: T }>;
   },
-  post: async (url: string, body?: unknown) => {
+  post: async <T = any>(url: string, body?: unknown): Promise<{ data: T }> => {
     const response = await fetch(`${BE_URL}${url}`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(body),
     });
-    return handleResponse(response);
+    return handleResponse(response) as Promise<{ data: T }>;
   },
-  put: async (url: string, body?: unknown) => {
+  put: async <T = any>(url: string, body?: unknown): Promise<{ data: T }> => {
     const response = await fetch(`${BE_URL}${url}`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(body),
     });
-    return handleResponse(response);
+    return handleResponse(response) as Promise<{ data: T }>;
   },
-  delete: async (url: string) => {
+  delete: async (url: string): Promise<{ data: any }> => {
     const response = await fetch(`${BE_URL}${url}`, {
       method: 'DELETE',
       headers: getHeaders(),
     });
-    return handleResponse(response);
+    return handleResponse(response) as Promise<{ data: any }>;
   },
 };
 

@@ -173,7 +173,7 @@ const UploadFiles = ({
   const outerWrap = compact ? "min-h-0 p-0 bg-transparent" : "min-h-screen bg-gray-50 p-6";
   const widthWrap = compact ? "" : "max-w-4xl mx-auto";
 
-  const cardClasses = "bg-white rounded-lg shadow-lg border-2 border-gray-300 p-5";
+  const cardClasses = "bg-white";
 
   const Card = (
     <div className={cardClasses}>
@@ -186,8 +186,9 @@ const UploadFiles = ({
       {/* Upload Area */}
       <div
         className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
-          isDragOver ? "border-gray-400 bg-gray-50" : "border-gray-300 bg-gray-50"
+          isDragOver ? "border-blue-400 bg-blue-50" : "border-gray-300 bg-gray-50"
         }`}
+        onDragEnter={handleDragOver}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}

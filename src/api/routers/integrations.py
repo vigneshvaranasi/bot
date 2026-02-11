@@ -21,6 +21,7 @@ from src.api.schemas.integration_schema import (
 )
 from src.automation.snow import run_servicenow_ingestion
 from src.api.routers.knowledge_base import ingest_incidents_to_qdrant
+from src.api.services.incident_ingestion_service import IncidentIngestionService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -279,18 +280,31 @@ async def sync_integration(
                     "message": f"Batch {batch_num} of {total_batches} processed ({len(incident_ids)} incidents)",
                 })
 
-            _SENTINEL = object()
-
             async def _run_ingestion():
                 try:
-                    success = await ingest_incidents_to_qdrant(
-                        normalized,
-                        session=session,
-                        integration_id=str(integration.id),
-                        batch_size=batch_size,
+                    # Create versioned dataset via ingestion service
+                    svc = IncidentIngestionService(session)
+                    user_id = current_user["user_id"] if current_user else None
+
+                    # Create upload session for ServiceNow source
+                    upload_session = await svc.create_upload_session(
+                        files_data=[{
+                            "filename": "servicenow_sync.json",
+                            "size": len(json.dumps(normalized)),
+                            "content": json.dumps(normalized),
+                        }],
+                        user_id=user_id,
+                        source="servicenow",
+                    )
+
+                    # Confirm and ingest (creates versioned collection)
+                    version = await svc.confirm_and_ingest(
+                        str(upload_session.id),
+                        user_id,
+                        notes=f"ServiceNow sync - {len(normalized)} incidents",
                         progress_callback=on_batch_progress,
                     )
-                    await progress_queue.put(("done", success))
+                    await progress_queue.put(("done", version))
                 except Exception as exc:
                     await progress_queue.put(("error", exc))
 

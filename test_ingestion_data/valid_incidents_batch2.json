@@ -1,0 +1,41 @@
+[
+  {
+    "incident_id": "INC-2026-02-10-004",
+    "title": "Redis Sentinel Failover Storm in Session Cache",
+    "description": "impactedApplication: Customer Session Management Service\nrootCause: Network micro-partitions between Sentinel nodes caused split-brain promotion, resulting in two masters serving writes simultaneously. Session tokens written to the demoted master were lost on reconciliation.\nmitigation: Reconfigured Sentinel quorum from 2 to 3, enabled min-replicas-to-write=1 to prevent writes on isolated masters, and deployed Redis Cluster mode to replace Sentinel topology.\naccountableParty: Platform Engineering\nsourceSystem: Redis Sentinel (session-cache-prod)\nrepeatIncident: False\nexecutiveSummary: Between 16:30 and 17:15 UTC, approximately 28,000 active customer sessions were invalidated, forcing users to re-authenticate. The Redis Sentinel cluster experienced a failover storm where the master was promoted and demoted 14 times in 45 minutes.",
+    "action_taken": "Detection & Triage: Session error rate alerts fired at 16:33 UTC showing a 40x spike in 401 Unauthorized responses. Redis Sentinel logs revealed rapid master failover cycling. Engineers stabilized the cluster by manually pinning the master and disabling automatic failover. All affected sessions required re-authentication. Post-incident, the team migrated from Sentinel to Redis Cluster mode with consistent hashing, eliminating the single-master bottleneck. Network monitoring was enhanced to detect micro-partitions between cache nodes.",
+    "opened_at": "2026-02-10T16:30:00Z",
+    "updated_at": "2026-02-10T19:45:00Z",
+    "impacted_application": "Customer Session Management Service",
+    "root_cause": "Network micro-partitions caused Redis Sentinel split-brain",
+    "accountable_party": "Platform Engineering",
+    "source_system": "Redis Sentinel",
+    "repeat_incident": "False"
+  },
+  {
+    "incident_id": "INC-2026-02-10-005",
+    "title": "Kubernetes HPA Misconfiguration Causes Pod Thrashing",
+    "description": "impactedApplication: Fraud Detection Scoring Engine\nrootCause: The Horizontal Pod Autoscaler was configured with a target CPU utilization of 20%, causing aggressive scale-up on every minor load fluctuation. Combined with a 10-second stabilization window, pods were created and terminated in rapid cycles.\nmitigation: Adjusted HPA target CPU to 65%, set stabilization window to 300s for scale-down, and added behavior policies limiting scale-down to 1 pod per 60 seconds.\naccountableParty: DevOps / SRE\nsourceSystem: Kubernetes (fraud-scoring namespace)\nrepeatIncident: False\nexecutiveSummary: The fraud detection scoring engine experienced intermittent latency spikes and request failures between 08:00 and 10:30 UTC. Pod count oscillated between 3 and 47 replicas every 2-3 minutes, causing connection pool churn and downstream circuit breaker activations.",
+    "action_taken": "Detection & Triage: Latency alerts and circuit breaker open events triggered at 08:12 UTC. Kubernetes events showed continuous pod creation and termination. Prometheus metrics confirmed CPU-based HPA was scaling aggressively due to the 20% target threshold. Engineers immediately set a manual replica count of 12 to stabilize. After analysis, HPA parameters were corrected with realistic CPU targets and stabilization windows. The team also added custom metrics (request latency p99) as a secondary scaling signal to complement CPU utilization.",
+    "opened_at": "2026-02-10T08:00:00Z",
+    "updated_at": "2026-02-10T12:00:00Z",
+    "impacted_application": "Fraud Detection Scoring Engine",
+    "root_cause": "HPA target CPU set to 20% with insufficient stabilization window",
+    "accountable_party": "DevOps / SRE",
+    "source_system": "Kubernetes",
+    "repeat_incident": "False"
+  },
+  {
+    "incident_id": "INC-2026-02-10-006",
+    "title": "S3 Bucket Policy Change Blocks Settlement File Uploads",
+    "description": "impactedApplication: End-of-Day Settlement File Processor\nrootCause: An infrastructure-as-code PR merged a restrictive S3 bucket policy that removed the settlement service's IAM role from the allowed principals list. The change passed CI but was not validated against production service accounts.\nmitigation: Reverted the bucket policy via emergency Terraform apply, restored the IAM role trust, and added policy validation tests that enumerate all active service principals before allowing bucket policy changes.\naccountableParty: Cloud Infrastructure Team\nsourceSystem: AWS S3 / IAM\nrepeatIncident: False\nexecutiveSummary: The nightly settlement file upload to the clearinghouse S3 bucket failed with AccessDenied errors starting at 22:00 UTC. 3 settlement batches totaling $847M in interbank transfers were delayed by 4 hours until the policy was corrected.",
+    "action_taken": "Detection & Triage: Settlement job failure alerts triggered at 22:03 UTC with S3 PutObject AccessDenied errors. CloudTrail logs showed a bucket policy update at 21:45 UTC from the infrastructure pipeline. The change had removed the settlement service role from the Resource policy. Engineers reverted the policy within 35 minutes. All delayed settlement files were uploaded and confirmed by the clearinghouse by 02:15 UTC. Post-incident, the team added mandatory principal enumeration checks in the Terraform CI pipeline and introduced canary uploads that run after every bucket policy modification.",
+    "opened_at": "2026-02-10T22:00:00Z",
+    "updated_at": "2026-02-11T03:00:00Z",
+    "impacted_application": "End-of-Day Settlement File Processor",
+    "root_cause": "IaC PR removed settlement service IAM role from S3 bucket policy",
+    "accountable_party": "Cloud Infrastructure Team",
+    "source_system": "AWS S3 / IAM",
+    "repeat_incident": "False"
+  }
+]

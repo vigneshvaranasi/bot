@@ -1,0 +1,50 @@
+[
+  {
+    "inc_number": "INC-2026-02-10-007",
+    "subject": "DNS Resolution Failure for Internal Service Mesh",
+    "details": "impactedApplication: Cross-service communication layer (Istio service mesh)\nrootCause: CoreDNS pods were OOMKilled due to a memory limit set too low for the cluster size. With 1,200+ services registered, the DNS cache exceeded the 128Mi limit during peak resolution periods.\nmitigation: Increased CoreDNS memory limit to 512Mi, enabled autopath plugin to reduce query fan-out, and deployed NodeLocal DNSCache as a DaemonSet to offload resolution from CoreDNS pods.\naccountableParty: Platform Engineering\nsourceSystem: Kubernetes CoreDNS / Istio\nrepeatIncident: False\nexecutiveSummary: Internal service-to-service calls across the Kubernetes mesh failed intermittently for 25 minutes starting at 13:10 UTC. Approximately 15% of all inter-service HTTP requests returned DNS resolution errors, causing cascading failures across payment processing, fraud scoring, and notification pipelines.",
+    "resolution": "Detection & Triage: Istio proxy error rates spiked at 13:12 UTC with upstream_reset_before_response_started errors. SRE correlated the errors with CoreDNS pod restarts visible in kube-system namespace events. kubectl top showed CoreDNS pods hitting their 128Mi memory limit before being OOMKilled. Engineers immediately scaled CoreDNS to 5 replicas and raised memory limits. After stabilization, NodeLocal DNSCache was deployed as a DaemonSet to serve cached responses locally on each node, reducing CoreDNS load by 70%. A load test was run to validate the new configuration handles 2x peak traffic.",
+    "created_date": "2026-02-10T13:10:00Z",
+    "last_modified": "2026-02-10T16:00:00Z",
+    "affected_system": "Kubernetes CoreDNS / Istio Service Mesh",
+    "cause": "CoreDNS OOMKilled due to insufficient memory limits for cluster size",
+    "responsible_team": "Platform Engineering",
+    "is_recurring": "No"
+  },
+  {
+    "inc_number": "INC-2026-02-10-008",
+    "subject": "Elasticsearch Index Rollover Failure Blocks Audit Logs",
+    "details": "impactedApplication: Centralized Audit Logging Platform\nrootCause: The ILM (Index Lifecycle Management) rollover action failed because the hot-tier data nodes had reached 95% disk watermark, triggering read-only mode on all hot indices. New audit log documents were rejected with cluster_block_exception.\nmitigation: Freed disk space by force-merging old indices and deleting expired snapshots. Adjusted ILM rollover conditions to trigger at 30GB instead of 50GB. Added disk usage alerts at 80% and 90% thresholds with auto-remediation via curator.\naccountableParty: Observability Team\nsourceSystem: Elasticsearch (audit-logs-prod cluster)\nrepeatIncident: True\nexecutiveSummary: The centralized audit logging platform stopped ingesting new log entries at 05:30 UTC. All application audit trails, access logs, and compliance event records were buffered in Kafka for 3 hours until Elasticsearch ingestion was restored. No audit data was lost due to Kafka retention, but real-time compliance dashboards showed gaps.",
+    "resolution": "Detection & Triage: Elasticsearch cluster health turned RED at 05:30 UTC. Kibana dashboards stopped updating, and Logstash reported bulk index rejection errors. Investigation showed hot-tier nodes at 96% disk utilization. The ILM rollover that should have moved the index to warm tier had failed silently because there was no warm-tier capacity remaining either. Engineers deleted expired snapshots to reclaim 800GB, force-merged old indices, and manually triggered ILM rollover. The full ingestion backlog was cleared from Kafka by 08:45 UTC. Post-incident, automated disk monitoring with proactive index cleanup was implemented.",
+    "created_date": "2026-02-10T05:30:00Z",
+    "last_modified": "2026-02-10T10:00:00Z",
+    "affected_system": "Elasticsearch Audit Logs Cluster",
+    "cause": "Hot-tier disk watermark exceeded, triggering read-only mode",
+    "responsible_team": "Observability Team",
+    "is_recurring": "Yes"
+  },
+  {
+    "inc_number": "INC-2026-02-10-009",
+    "subject": "gRPC Deadline Exceeded on Inter-DC Replication Service",
+    "details": "impactedApplication: Cross-Datacenter Transaction Replication Service\nrootCause: A BGP route flap between the primary and disaster recovery datacenters increased round-trip latency from 4ms to 180ms. The gRPC client deadline was set to 100ms, causing all replication RPCs to fail.\nmitigation: Increased gRPC deadline to 500ms for cross-DC calls, implemented adaptive timeout based on rolling p99 latency, and worked with network team to stabilize BGP peering with BFD (Bidirectional Forwarding Detection).\naccountableParty: Network Engineering\nsourceSystem: gRPC Replication Service / BGP\nrepeatIncident: False\nexecutiveSummary: Cross-datacenter transaction replication fell behind by 4.2 million records over a 90-minute period starting at 19:00 UTC. The DR site's transaction ledger was stale, temporarily compromising the RPO (Recovery Point Objective) guarantee from 30 seconds to 90 minutes.",
+    "resolution": "Detection & Triage: Replication lag alerts fired at 19:05 UTC when the DR lag counter exceeded the 30-second threshold. gRPC client logs showed 100% DeadlineExceeded errors for cross-DC calls. Network monitoring confirmed BGP route oscillation between the two datacenters. The network team stabilized the route within 40 minutes by pinning the preferred path and enabling BFD for sub-second failure detection. After route stabilization, the replication service caught up on the backlog within 25 minutes. The gRPC client was updated with adaptive deadlines that adjust based on real-time latency measurements.",
+    "created_date": "2026-02-10T19:00:00Z",
+    "last_modified": "2026-02-10T22:30:00Z",
+    "affected_system": "Cross-DC gRPC Replication / BGP",
+    "cause": "BGP route flap increased latency beyond gRPC deadline threshold",
+    "responsible_team": "Network Engineering",
+    "is_recurring": "No"
+  },
+  {
+    "inc_number": "INC-2026-02-10-010",
+    "subject": "Terraform State Lock Contention Blocks Infrastructure Deploys",
+    "details": "impactedApplication: Infrastructure CI/CD Pipeline\nrootCause: A failed Terraform apply left a stale DynamoDB state lock that was never released. All subsequent infrastructure changes across 12 teams were blocked because they shared a single state file for the networking layer.\nmitigation: Force-unlocked the stale DynamoDB lock, split the monolithic Terraform state into per-team workspaces, and added a CI pipeline step that detects stale locks older than 30 minutes and auto-releases them with notification.\naccountableParty: DevOps / Cloud Infrastructure\nsourceSystem: Terraform / DynamoDB / GitLab CI\nrepeatIncident: True\nexecutiveSummary: All infrastructure deployments were blocked for 6 hours starting at 07:00 UTC. 12 engineering teams were unable to make any cloud infrastructure changes, delaying 3 production hotfixes and a scheduled capacity scale-up for month-end processing.",
+    "resolution": "Detection & Triage: Engineers reported terraform plan failures at 07:15 UTC with 'Error acquiring the state lock' messages. Investigation found a stale lock from a CI job that had been terminated mid-apply at 01:30 UTC the previous night. The lock was force-released using terraform force-unlock. To prevent recurrence, the team implemented automatic stale lock detection in the CI pipeline, broke the monolithic state file into isolated workspaces per team, and added Slack notifications whenever a lock is held for more than 15 minutes.",
+    "created_date": "2026-02-10T07:00:00Z",
+    "last_modified": "2026-02-10T14:00:00Z",
+    "affected_system": "Terraform / DynamoDB State Backend",
+    "cause": "Stale DynamoDB state lock from terminated CI job",
+    "responsible_team": "DevOps / Cloud Infrastructure",
+    "is_recurring": "Yes"
+  }
+]

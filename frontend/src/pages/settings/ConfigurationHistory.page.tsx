@@ -13,6 +13,7 @@ import { Pagination, DEFAULT_PAGE_SIZE_OPTIONS } from "../../components/ui/Pagin
 import { useDelayedLoading } from "../../hooks/useDelayedLoading";
 import { usePermissions } from "../../hooks/usePermissions";
 import { PERMISSIONS } from "../../types/Permission";
+import InfoHint from "../../components/ui/InfoHint";
 
 const DEFAULT_PAGE_SIZE = 15;
 
@@ -52,7 +53,7 @@ const ChangeBadges = ({ changes }: { changes: ChangeDescription[] }) => {
   const authChanges = changes.filter((c) => c.segment === "auth");
 
   return (
-    <div className="flex flex-col justify-start items-start flex-wrap gap-1">
+    <div className="flex flex-row flex-wrap items-center gap-1">
       {aimlChanges.map((change) => (
         <span
           key={change.field}
@@ -225,6 +226,10 @@ const ConfigurationHistoryPage = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-600">Segment</span>
+              <InfoHint text="Filter by area of change. 'AI/ML' shows model, temperature, and deny list changes. 'Auth' shows login provider changes." />
+            </div>
             <Dropdown
               options={SEGMENT_OPTIONS}
               value={segmentFilter}
@@ -305,7 +310,7 @@ const ConfigurationHistoryPage = () => {
                     {
                       header: "Changes",
                       headerClassName:
-                        "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200 min-w-[100px]",
+                        "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200 min-w-[150px]",
                       className: "text-xs md:text-sm py-3",
                       render: (item) => (
                         <div>
@@ -327,7 +332,19 @@ const ConfigurationHistoryPage = () => {
                         // Disable rollback only for the very first item on page 1 (current version)
                         const isCurrentVersion = currentPage === 1 && index === 0;
                         return (
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col items-start gap-2">
+                            
+                            {canRollback && (
+                              <Button
+                                variant={isCurrentVersion ? "secondary" : "ghost"}
+                                size="sm"
+                                className={isCurrentVersion ? "opacity-50 cursor-not-allowed" : ""}
+                                onClick={() => openRollbackModal(item.id)}
+                                disabled={isCurrentVersion || rollingBack === item.id}
+                              >
+                                {rollingBack === item.id ? "..." : "Rollback"}
+                              </Button>
+                            )}
                             <button
                               className="text-xs text-gray-500 hover:text-gray-700 underline"
                               onClick={() => {
@@ -337,20 +354,6 @@ const ConfigurationHistoryPage = () => {
                             >
                               Details
                             </button>
-                            {canRollback && (
-                              <Button
-                                variant="secondary"
-                                className={`text-xs px-2 py-1 ${
-                                  isCurrentVersion
-                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                    : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                                }`}
-                                onClick={() => openRollbackModal(item.id)}
-                                disabled={isCurrentVersion || rollingBack === item.id}
-                              >
-                                {rollingBack === item.id ? "..." : "Rollback"}
-                              </Button>
-                            )}
                           </div>
                         );
                       },

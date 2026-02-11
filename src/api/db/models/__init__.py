@@ -16,3 +16,5 @@ from .rbac_audit_log import RbacAuditLog
 from .message_feedback import MessageFeedback
 from .golden_example import GoldenExample
 from .incident_log import IncidentLog
+from .incident_upload_session import IncidentUploadSession
+from .incident_dataset_version import IncidentDatasetVersion

@@ -413,11 +413,7 @@ const AiMlConfigPage = () => {
           <div className="space-y-3">
             <div className="flex flex-row items-center text-sm md:text-medium text-black min-w-fit">
               <span>Select Model</span>
-              <InfoHint
-                text="Models are populated from active providers. Add providers above to enable more models."
-                position="right"
-                gap={0.3}
-              />
+              <InfoHint text="Available models come from the providers you've configured above. To see more options, add another provider." />
             </div>
             <Dropdown
               options={modelOptions}
@@ -435,11 +431,7 @@ const AiMlConfigPage = () => {
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4">
             <div className="flex flex-row items-center text-sm md:text-medium text-gray-900 min-w-fit">
               <label>Temperature</label>
-              <InfoHint
-                text="Higher values increase randomness; lower values increase determinism."
-                position="right"
-                gap={0.3}
-              />
+              <InfoHint text="Controls how creative the AI responses are. Lower values (closer to 0) give more focused, consistent answers. Higher values (closer to 1) give more varied responses." />
             </div>
             <InputBox
               value={temperature}
@@ -474,11 +466,7 @@ const AiMlConfigPage = () => {
             <span className="flex flex-row justify-between text-sm md:text-medium text-black w-full">
               <div className="flex flex-row items-center gap-1">
                 <span>Deny List Words</span>
-                <InfoHint
-                  text="Words added here will be filtered from prompts and responses."
-                  position="right"
-                  gap={0.3}
-                />
+                <InfoHint text="Any word on this list will be automatically blocked from both user prompts and AI responses." />
               </div>
               <span className="text-xs text-gray-600 font-normal">
                 <button
@@ -539,7 +527,8 @@ const AiMlConfigPage = () => {
                           <div className="flex flex-row gap-1 sm:gap-2">
                             <Button
                               variant="default"
-                              className="hover:text-red-500 text-xs px-2 md:px-3 py-1"
+                              size="sm"
+                              className="hover:text-red-500"
                               onClick={() => handleRemoveDenyWord(denyWord.id)}
                             >
                               ✕
@@ -561,7 +550,7 @@ const AiMlConfigPage = () => {
         <div className="mt-2 flex items-center gap-3">
           <div className="flex flex-row items-center text-sm md:text-medium text-gray-900 min-w-fit">
             <span>Enable Langfuse Tracing</span>
-            <InfoHint text="Toggle Langfuse tracing for observability." position="top" gap={2} />
+            <InfoHint text="When enabled, all AI interactions are logged to Langfuse for monitoring response quality and debugging." />
           </div>
           {langfuseEnabled !== undefined ? (
             <Toggle id="langfuse-toggle" enabled={langfuseEnabled} onChange={setLangfuseEnabled} disabled={!canEditAiMl} />
