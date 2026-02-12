@@ -386,21 +386,21 @@ export default function LlmProviderControl({
   };
 
   return (
-    <div className="flex flex-col border border-gray-300 rounded-md p-4 gap-4">
+    <div className="flex flex-col border border-gray-200 rounded-lg px-3 py-2.5 gap-2">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {isNameEditable && canEdit ? (
             <input
               ref={nameInputRef}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+              className="border border-gray-300 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
               placeholder="Enter provider name"
             />
           ) : (
             <h3
-              className={`text-lg font-semibold ${canEdit ? "cursor-text" : ""}`}
+              className={`text-sm font-semibold text-gray-900 ${canEdit ? "cursor-text" : ""}`}
               onClick={() => {
                 if (canEdit) {
                   setIsNameEditable(true);
@@ -414,43 +414,43 @@ export default function LlmProviderControl({
 
           {providerType && (
             <span
-              className={`text-xs px-2 py-1 rounded-full ${PROVIDER_COLORS[providerType]}`}
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PROVIDER_COLORS[providerType]}`}
             >
               {PROVIDER_LABELS[providerType]}
             </span>
           )}
 
           {isDefault && (
-            <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-800 font-medium">
               Default
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1 text-sm">
+        <div className="flex items-center gap-2 shrink-0">
+          <label className="flex items-center gap-1 text-xs text-gray-600">
             <input
               type="checkbox"
               checked={isActive}
               onChange={() => setIsActive((prev) => !prev)}
+              className="w-3.5 h-3.5"
             />
             Active
           </label>
 
-          <Button
-            variant="default"
-            className="underline"
+          <button
+            className="text-xs text-accent hover:underline cursor-pointer"
             onClick={() => setIsConfigOpen((prev) => !prev)}
           >
             {isConfigOpen ? "Close" : "Configure"}
-          </Button>
+          </button>
         </div>
       </div>
 
       {/* Status */}
-      <div className="text-sm text-gray-700 flex flex-row justify-between gap-1">
-        <div className="flex flex-col">
-          <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
             <span>Health:</span>
             {provider?.last_health_check_status === "success" && (
               <span className="text-green-600 font-medium">✔ Healthy</span>
@@ -459,39 +459,35 @@ export default function LlmProviderControl({
               <span className="text-red-600 font-medium">✖ Unhealthy</span>
             )}
             {!provider?.last_health_check_status && (
-              <span className="text-gray-500">Not tested</span>
+              <span className="text-gray-400">Not tested</span>
             )}
           </div>
 
           {provider?.last_health_check_at && (
-            <div className="text-xs text-gray-500">
-              Last checked: {formatLastCheck()}
-            </div>
+            <span className="text-gray-400">
+              {formatLastCheck()}
+            </span>
           )}
 
           {provider?.last_health_check_error && (
-            <div className="text-xs text-red-500">
-              Error: {provider.last_health_check_error}
-            </div>
+            <span className="text-red-500">
+              {provider.last_health_check_error}
+            </span>
           )}
 
           {testResult && (
-            <div
-              className={`text-xs mt-1 ${
-                testResult.success ? "text-green-600" : "text-red-500"
-              }`}
-            >
+            <span className={testResult.success ? "text-green-600" : "text-red-500"}>
               {testResult.success
-                ? `✔ Connection successful (${testResult.response_time_ms?.toFixed(0)}ms)`
+                ? `✔ OK (${testResult.response_time_ms?.toFixed(0)}ms)`
                 : `✖ ${testResult.message}`}
-            </div>
+            </span>
           )}
         </div>
 
         {!isNew && provider?.id && canTest && onTest && (
           <Button
-            variant="secondary"
-            className="w-fit font-normal"
+            variant="ghost"
+            size="sm"
             onClick={handleTest}
             disabled={isTesting || isDiscovering}
           >
@@ -502,147 +498,136 @@ export default function LlmProviderControl({
 
       {/* Config */}
       {isConfigOpen && (
-        <div className="flex flex-col gap-3 border-t border-gray-200 pt-4">
-          {/* Provider Type */}
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">Provider Type</label>
-            <Dropdown
-              options={providerTypeOptions}
-              value={providerType}
-              onChange={handleProviderTypeChange}
-              disabled={!isNew && !!provider}
-            />
+        <div className="flex flex-col gap-2.5 border-t border-gray-100 pt-3">
+          {/* Form fields in 2-col grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5">
+            {/* Provider Type */}
+            <div className="flex flex-col gap-0.5">
+              <label className="text-xs font-medium text-gray-700">Provider Type</label>
+              <Dropdown
+                options={providerTypeOptions}
+                value={providerType}
+                onChange={handleProviderTypeChange}
+                disabled={!isNew && !!provider}
+              />
+            </div>
+
+            {fieldConfig && (
+              <>
+                {fieldConfig.showBaseUrl && (
+                  <div className="flex flex-col gap-0.5 sm:col-span-2">
+                    <label className="text-xs font-medium text-gray-700">
+                      Base URL
+                      {fieldConfig.baseUrlRequired && <span className="text-red-500"> *</span>}
+                    </label>
+                    <InputBox
+                      value={baseUrl}
+                      placeholder={fieldConfig.baseUrlPlaceholder}
+                      type="text"
+                      variant="primary"
+                      onChange={setBaseUrl}
+                    />
+                  </div>
+                )}
+
+                {fieldConfig.showApiKey && (
+                  <div className="flex flex-col gap-0.5">
+                    <label className="text-xs font-medium text-gray-700">
+                      API Key
+                      {fieldConfig.apiKeyRequired && !provider?.has_api_key && (
+                        <span className="text-red-500"> *</span>
+                      )}
+                      {provider?.has_api_key && (
+                        <span className="text-gray-400 ml-1">(keep existing)</span>
+                      )}
+                    </label>
+                    <InputBox
+                      value={apiKey}
+                      placeholder={
+                        provider?.has_api_key
+                          ? "••••••••••••••••"
+                          : fieldConfig.apiKeyPlaceholder
+                      }
+                      type="password"
+                      variant="primary"
+                      onChange={setApiKey}
+                    />
+                  </div>
+                )}
+
+                {fieldConfig.showOrganizationId && (
+                  <div className="flex flex-col gap-0.5">
+                    <label className="text-xs font-medium text-gray-700">
+                      Organization ID <span className="text-gray-400">(optional)</span>
+                    </label>
+                    <InputBox
+                      value={organizationId}
+                      placeholder="org-..."
+                      type="text"
+                      variant="primary"
+                      onChange={setOrganizationId}
+                    />
+                  </div>
+                )}
+
+                {fieldConfig.showAuthType && (
+                  <div className="flex flex-col gap-0.5">
+                    <label className="text-xs font-medium text-gray-700">Auth Type</label>
+                    <Dropdown
+                      options={AUTH_TYPE_OPTIONS}
+                      value={authType}
+                      onChange={(v) => setAuthType(v || "none")}
+                    />
+                  </div>
+                )}
+
+                {fieldConfig.showAuthType && authType === "api_key_header" && (
+                  <div className="flex flex-col gap-0.5">
+                    <label className="text-xs font-medium text-gray-700">Header Name</label>
+                    <InputBox
+                      value={authHeaderName}
+                      placeholder="X-API-Key"
+                      type="text"
+                      variant="primary"
+                      onChange={setAuthHeaderName}
+                    />
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
-          {fieldConfig && (
-            <>
-              {/* Base URL */}
-              {fieldConfig.showBaseUrl && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium">
-                    Base URL
-                    {fieldConfig.baseUrlRequired && (
-                      <span className="text-red-500"> *</span>
-                    )}
-                  </label>
-                  <InputBox
-                    value={baseUrl}
-                    placeholder={fieldConfig.baseUrlPlaceholder}
-                    type="text"
-                    variant="primary"
-                    onChange={setBaseUrl}
-                  />
-                </div>
-              )}
-
-              {/* API Key */}
-              {fieldConfig.showApiKey && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium">
-                    API Key
-                    {fieldConfig.apiKeyRequired && !provider?.has_api_key && (
-                      <span className="text-red-500"> *</span>
-                    )}
-                    {provider?.has_api_key && (
-                      <span className="text-gray-500 ml-2">
-                        (leave empty to keep existing)
-                      </span>
-                    )}
-                  </label>
-                  <InputBox
-                    value={apiKey}
-                    placeholder={
-                      provider?.has_api_key
-                        ? "••••••••••••••••"
-                        : fieldConfig.apiKeyPlaceholder
-                    }
-                    type="password"
-                    variant="primary"
-                    onChange={setApiKey}
-                  />
-                </div>
-              )}
-
-              {/* OpenAI Organization ID */}
-              {fieldConfig.showOrganizationId && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium">
-                    Organization ID (optional)
-                  </label>
-                  <InputBox
-                    value={organizationId}
-                    placeholder="org-..."
-                    type="text"
-                    variant="primary"
-                    onChange={setOrganizationId}
-                  />
-                </div>
-              )}
-
-              {/* Custom Provider Auth Type */}
-              {fieldConfig.showAuthType && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium">Authentication Type</label>
-                  <Dropdown
-                    options={AUTH_TYPE_OPTIONS}
-                    value={authType}
-                    onChange={(v) => setAuthType(v || "none")}
-                  />
-                </div>
-              )}
-
-              {/* Custom header name for api_key_header auth */}
-              {fieldConfig.showAuthType && authType === "api_key_header" && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium">Header Name</label>
-                  <InputBox
-                    value={authHeaderName}
-                    placeholder="X-API-Key"
-                    type="text"
-                    variant="primary"
-                    onChange={setAuthHeaderName}
-                  />
-                </div>
-              )}
-
-              {/* Discover Models Button */}
-              {canDiscoverModels() && (
-                <div className="flex flex-col gap-2">
-                  <Button
-                    variant="secondary"
-                    className="w-fit"
-                    onClick={handleDiscoverModels}
-                    disabled={isDiscovering}
-                  >
-                    {isDiscovering ? "Discovering Models..." : "Discover Models"}
-                  </Button>
-                  <p className="text-xs text-gray-500">
-                    Click to fetch available models from the provider API.
-                  </p>
-                </div>
-              )}
-            </>
+          {/* Discover Models */}
+          {fieldConfig && canDiscoverModels() && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleDiscoverModels}
+                disabled={isDiscovering}
+              >
+                {isDiscovering ? "Discovering..." : "Discover Models"}
+              </Button>
+              <span className="text-xs text-gray-400">Fetch available models from the provider API</span>
+            </div>
           )}
 
-          {/* Discovered Models Section */}
+          {/* Discovered Models */}
           {discoveredModels.length > 0 && (
-            <div className="flex flex-col gap-2 p-3 bg-blue-50 rounded-lg">
+            <div className="flex flex-col gap-1.5 p-2 bg-blue-50 rounded-md">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-blue-800">
-                  Discovered Models ({discoveredModels.length})
-                </label>
+                <span className="text-xs font-medium text-blue-800">
+                  Discovered ({discoveredModels.length})
+                </span>
                 <button
                   type="button"
                   onClick={handleSelectAllDiscovered}
-                  className="text-xs text-blue-600 hover:text-blue-800 underline"
+                  className="text-[10px] text-blue-600 hover:text-blue-800 underline"
                 >
                   Select All
                 </button>
               </div>
-              <p className="text-xs text-blue-600">
-                Click on models to select/deselect them for this provider.
-              </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1">
                 {discoveredModels.map((model) => {
                   const isSelected = selectedModels.includes(model);
                   return (
@@ -650,7 +635,7 @@ export default function LlmProviderControl({
                       key={model}
                       type="button"
                       onClick={() => handleToggleDiscoveredModel(model)}
-                      className={`px-2 py-1 rounded text-xs transition-colors ${
+                      className={`px-1.5 py-0.5 rounded text-[11px] transition-colors ${
                         isSelected
                           ? "bg-blue-600 text-white"
                           : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-100"
@@ -666,32 +651,30 @@ export default function LlmProviderControl({
           )}
 
           {discoveryError && (
-            <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+            <div className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
               {discoveryError}. You can manually add models below.
             </div>
           )}
 
           {/* Selected Models */}
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-gray-700">
               Selected Models
-              <span className="text-xs text-gray-500 ml-2">
-                ({selectedModels.length} selected)
-              </span>
+              <span className="text-gray-400 ml-1">({selectedModels.length})</span>
             </label>
 
             {selectedModels.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1">
                 {selectedModels.map((model) => (
                   <span
                     key={model}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded text-sm"
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded text-[11px]"
                   >
                     {model}
                     <button
                       type="button"
                       onClick={() => handleRemoveModel(model)}
-                      className="text-green-600 hover:text-red-500"
+                      className="text-green-500 hover:text-red-500"
                     >
                       ×
                     </button>
@@ -699,15 +682,14 @@ export default function LlmProviderControl({
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-400">
                 {canDiscoverModels()
-                  ? "Click 'Discover Models' above to find available models from the provider."
-                  : "Enter your credentials above to discover available models."}
+                  ? "Click 'Discover Models' to find available models."
+                  : "Enter credentials to discover available models."}
               </p>
             )}
 
-            {/* Manual model input */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <InputBox
                 value={newModel}
                 placeholder="Add model ID manually"
@@ -721,42 +703,42 @@ export default function LlmProviderControl({
                   }
                 }}
               />
-              <Button variant="secondary" onClick={handleAddModel}>
+              <Button variant="ghost" size="sm" onClick={handleAddModel}>
                 Add
               </Button>
             </div>
           </div>
 
           {/* Default toggle */}
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-1.5 text-xs text-gray-700">
             <input
               type="checkbox"
               checked={isDefault}
               onChange={() => setIsDefault((prev) => !prev)}
+              className="w-3.5 h-3.5"
             />
             Set as default provider
           </label>
 
-          {/* Error display */}
           {error && <span className="text-xs text-red-500">{error}</span>}
 
           {/* Action buttons */}
-          <div className="flex flex-row gap-2 mt-2">
+          <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
             {canEdit && onSave && (
               <Button
                 variant="secondary"
-                className="w-fit"
+                size="sm"
                 onClick={handleSave}
                 disabled={isSaving}
               >
-                {isSaving ? "Saving..." : "Save Configuration"}
+                {isSaving ? "Saving..." : "Save"}
               </Button>
             )}
 
             {((isNew && canEdit) || (!isNew && canDelete)) && onDelete && (isNew || provider?.id) && (
               <Button
-                variant="secondary"
-                className={`w-fit ${isNew ? "bg-gray-500 hover:bg-gray-700" : "bg-red-500 hover:bg-red-800 border-red-300"}`}
+                variant={isNew ? "ghost" : "danger"}
+                size="sm"
                 onClick={openDeleteModal}
                 disabled={isDeleting}
               >

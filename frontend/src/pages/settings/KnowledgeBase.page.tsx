@@ -186,7 +186,9 @@ const KnowledgeBasePage = () => {
       (msg) => {
         setIngError(true);
         setIngMsg(msg);
-        toast.error(`Ingestion error: ${msg}`);
+        // Show a concise toast — full detail is visible in the progress panel
+        const short = msg.length > 120 ? msg.slice(0, 120) + "..." : msg;
+        toast.error(short);
       }
     );
     abortRef.current = ctrl;

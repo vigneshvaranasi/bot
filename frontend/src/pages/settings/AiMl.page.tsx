@@ -345,6 +345,7 @@ const AiMlConfigPage = () => {
           {canCreateProvider && (
             <Button
               variant="primary"
+              size="sm"
               onClick={() => setNewProviderOpen(true)}
               disabled={newProviderOpen}
             >
@@ -404,7 +405,7 @@ const AiMlConfigPage = () => {
             <p className="text-xs text-gray-600">Select model and configure generation parameters.</p>
           </div>
           {canEditAiMl && (
-            <Button variant="primary" onClick={handleSaveModel} disabled={savingModel}>
+            <Button variant="primary" size="sm" onClick={handleSaveModel} disabled={savingModel}>
               {savingModel ? "Saving…" : "Save"}
             </Button>
           )}
@@ -428,8 +429,8 @@ const AiMlConfigPage = () => {
               </p>
             )}
           </div>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4">
-            <div className="flex flex-row items-center text-sm md:text-medium text-gray-900 min-w-fit">
+          <div className="shrink-0 space-y-1">
+            <div className="flex items-center text-xs font-medium text-gray-700">
               <label>Temperature</label>
               <InfoHint text="Controls how creative the AI responses are. Lower values (closer to 0) give more focused, consistent answers. Higher values (closer to 1) give more varied responses." />
             </div>
@@ -438,7 +439,7 @@ const AiMlConfigPage = () => {
               onChange={(val) => setTemperature(val)}
               variant="primary"
               type="number"
-              className="outline-none border-b-1 border-gray-400 rounded-[8px] px-0 py-0 text-medium text-gray-900 w-20"
+              className="outline-none rounded-md px-2 py-1.5 text-sm text-gray-900 w-24"
               step={0.1}
               min={0}
               max={1}
@@ -455,7 +456,7 @@ const AiMlConfigPage = () => {
             <p className="text-xs text-gray-600"> Configure safety filters and tracing options.</p>
           </div>
           {canEditAiMl && (
-            <Button variant="primary" onClick={handleSaveSafety} disabled={savingSafety}>
+            <Button variant="primary" size="sm" onClick={handleSaveSafety} disabled={savingSafety}>
               {savingSafety ? "Saving…" : "Save"}
             </Button>
           )}
@@ -489,9 +490,10 @@ const AiMlConfigPage = () => {
             />
             <Button
               variant="secondary"
-              className="font-semibold text-xs px-4 py-1 transition-colors duration-200 bg-gray-500 hover:bg-gray-600 text-white rounded-md cursor-pointer w-full sm:w-auto"
+              size="sm"
               onClick={handleAddDenyWords}
               disabled={!canEditAiMl}
+              className="w-full sm:w-auto"
             >
               Add word
             </Button>

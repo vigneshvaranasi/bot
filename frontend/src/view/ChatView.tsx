@@ -386,7 +386,8 @@ const ChatView = () => {
   }
 
   return (
-    <div ref={containerRef} className="flex-1 space-y-4 px-3 relative" style={{ WebkitOverflowScrolling: "touch" }}>
+    <div ref={containerRef} className="flex-1 px-3 relative" style={{ WebkitOverflowScrolling: "touch" }}>
+      <div className=" mx-auto space-y-5">
         {/* Top sentinel for loading older messages */}
         {hasOlderMessages && currentChat?.allMessages?.length ? (
           <div ref={topSentinelRef} className="h-1" data-top-sentinel />
@@ -424,7 +425,7 @@ const ChatView = () => {
             {/* chat Actions */}
             {
               !message.streaming &&
-              <div className="flex items-center gap-0.5 ml-2">
+              <div className="flex items-center gap-1 ml-2 mt-1 pb-1">
                 <ChatAction
                   type="thumbsUp"
                   active={message.feedback === 'positive' || (activeFeedback.messageId === message.id && activeFeedback.feedbackType === 'positive')}
@@ -470,6 +471,7 @@ const ChatView = () => {
         )
       }
 
+      </div>
       </div>
   );
 };

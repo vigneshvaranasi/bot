@@ -364,7 +364,7 @@ const UserManagement: React.FC = () => {
         <div className="flex flex-row gap-1 sm:gap-2">
           {canEditUser && (
             <Button
-              variant="secondary"
+              variant="ghost"
               size="sm"
               className="w-full sm:w-auto"
               onClick={() => handleEditUser(user)}
@@ -421,7 +421,7 @@ const UserManagement: React.FC = () => {
             <p className="text-xs text-gray-600">Toggle available login providers for the org.</p>
           </div>
           {canEditAuth && (
-            <Button variant="primary" onClick={handleSaveAuth} disabled={authSaving}>
+            <Button variant="primary" size="sm" onClick={handleSaveAuth} disabled={authSaving}>
               {authSaving ? "Saving…" : "Save"}
             </Button>
           )}

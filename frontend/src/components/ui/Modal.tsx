@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { Button } from "./Button";
 
 type ModalProps = {
@@ -68,8 +69,6 @@ export default function Modal({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (closeOnOverlayClick && e.target === e.currentTarget) {
       onClose();
@@ -77,62 +76,74 @@ export default function Modal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="modal-title"
-    >
-      {/* Overlay */}
-      <div
-        className="fixed inset-0 bg-black/50 transition-opacity"
-        onClick={handleOverlayClick}
-      />
+    <AnimatePresence>
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+        >
+          {/* Overlay */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 bg-black/50"
+            onClick={handleOverlayClick}
+          />
 
-      {/* Modal */}
-      <div
-        ref={modalRef}
-        tabIndex={-1}
-        className={`relative bg-white rounded-lg shadow-xl w-full mx-4 ${sizeClasses[size]} max-h-[90vh] flex flex-col`}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-          <h2 id="modal-title" className="text-lg font-semibold text-gray-900">
-            {title}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-md hover:bg-gray-100"
-            aria-label="Close modal"
+          {/* Modal */}
+          <motion.div
+            ref={modalRef}
+            tabIndex={-1}
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.97 }}
+            transition={{ duration: 0.15 }}
+            className={`relative bg-white rounded-lg shadow-xl w-full mx-4 ${sizeClasses[size]} max-h-[90vh] flex flex-col`}
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <h2 id="modal-title" className="text-lg font-semibold text-gray-900">
+                {title}
+              </h2>
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-md hover:bg-gray-100"
+                aria-label="Close modal"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto px-4 py-4">{children}</div>
+
+            {/* Footer */}
+            {footer && (
+              <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+                {footer}
+              </div>
+            )}
+          </motion.div>
         </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-4 py-4">{children}</div>
-
-        {/* Footer */}
-        {footer && (
-          <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
-            {footer}
-          </div>
-        )}
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }
 

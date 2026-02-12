@@ -128,7 +128,7 @@ export function InlineFeedback({
         className={`
           w-full py-2 text-sm font-medium rounded-lg transition-all cursor-pointer
           ${canSubmit && !isLoading
-            ? 'bg-gray-900 text-white hover:bg-gray-800'
+            ? 'bg-gray-800 text-white hover:bg-gray-600'
             : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           }
         `}

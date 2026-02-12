@@ -114,7 +114,7 @@ const AuditPage = () => {
               {total > 0 ? `${total} version(s) recorded` : "No settings history available"}
             </p>
           </div>
-          <Button variant="secondary" onClick={loadHistory} disabled={loading}>
+          <Button variant="secondary" size="sm" onClick={loadHistory} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh"}
           </Button>
         </div>
@@ -196,6 +196,7 @@ const AuditPage = () => {
                       <Button
                         variant={index === 0 ? "secondary" : "ghost"}
                         size="sm"
+                        rounded="lg"
                         className={index === 0 ? "opacity-50 cursor-not-allowed" : ""}
                         onClick={() => openRollbackModal(item.id)}
                         disabled={index === 0 || rollingBack === item.id}

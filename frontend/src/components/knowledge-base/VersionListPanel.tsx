@@ -156,6 +156,7 @@ const VersionListPanel = () => {
                 <Button
                   variant="ghost"
                   size="sm"
+                  rounded="lg"
                   onClick={() => setRollbackTarget(item)}
                 >
                   Rollback
@@ -182,7 +183,7 @@ const VersionListPanel = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs text-gray-500">{total} version(s)</p>
-        <Button variant="secondary" onClick={loadVersions} className="text-xs px-3 py-1">
+        <Button variant="secondary" size="sm" onClick={loadVersions}>
           Refresh
         </Button>
       </div>

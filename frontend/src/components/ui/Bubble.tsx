@@ -11,8 +11,8 @@ type BubbleProps = {
 
 const Bubble = ({ variant = "bot", content, streaming = false, statusMessage }: BubbleProps) => {
   const variantClasses = {
-    bot: "border-none bg-transparent",
-    user: "order border-gray-300 bg-bubblegray max-w-3/4",
+    bot: "border-none bg-transparent max-w-[95%] min-w-0",
+    user: "border border-0.5 border-gray-200 bg-bubblegray max-w-[75%] px-4 py-2.5 rounded-3xl rounded-br-none",
   };
   const defaultClass = "border border-gray-300 text-gray-900";
   const [renderedContent, setRenderedContent] = useState("");
@@ -75,10 +75,10 @@ const Bubble = ({ variant = "bot", content, streaming = false, statusMessage }: 
     <div
       className={`flex ${
         variant === "user" ? "justify-end" : "justify-start"
-      } mb-2`}
+      } ${variant === "user" ? "mb-3" : "mb-1"}`}
     >
       <div
-        className={`p-2 rounded-lg ${
+        className={`${
           variantClasses[variant] || defaultClass
         }`}
       >

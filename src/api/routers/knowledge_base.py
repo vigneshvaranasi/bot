@@ -477,6 +477,40 @@ def _sse_event(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
+def _sanitize_error_for_user(exc: Exception) -> str:
+    """Convert internal exceptions to user-friendly messages.
+
+    Prevents raw SQL, tracebacks, and internal details from leaking
+    into the UI while still being helpful for debugging.
+    """
+    msg = str(exc)
+
+    # ValueError messages are already user-crafted
+    if isinstance(exc, ValueError):
+        return msg
+
+    # Database integrity errors (NOT NULL, unique constraint, etc.)
+    if "NotNullViolationError" in msg or "not-null constraint" in msg.lower():
+        return (
+            "Some records are missing required fields (e.g. incident_id, title, or description). "
+            "Please map your file fields to the required schema and try again."
+        )
+    if "UniqueViolationError" in msg or "unique constraint" in msg.lower():
+        return "Duplicate records detected. Please remove duplicates and try again."
+    if "IntegrityError" in msg:
+        return "A data integrity issue prevented ingestion. Please check your data and try again."
+
+    # Connection / infra errors
+    if "ConnectionRefusedError" in msg or "connection refused" in msg.lower():
+        return "Could not connect to the vector database. Please try again later."
+    if "timeout" in msg.lower():
+        return "The operation timed out. Please try again."
+
+    # Generic fallback — log the real error, return a safe message
+    logger.error(f"Unhandled ingestion error: {msg}")
+    return "An unexpected error occurred during ingestion. Please try again or contact support."
+
+
 @router.post("/upload")
 async def upload_incident_files(
     body: FileUploadRequest,
@@ -502,7 +536,7 @@ async def upload_incident_files(
             "preview": (upload_session.raw_data or [])[:10],
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=_sanitize_error_for_user(e))
 
 
 @router.post("/validate/{session_id}")
@@ -519,7 +553,7 @@ async def validate_upload_session(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error_for_user(e))
 
 
 @router.post("/validate/{session_id}/map-fields")
@@ -537,7 +571,7 @@ async def apply_field_mapping(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error_for_user(e))
 
 
 # ── Ingestion (SSE) ─────────────────────────────────────────────
@@ -595,14 +629,20 @@ async def ingest_confirmed_session(
                         })
                         return
                     elif kind == "error":
-                        yield _sse_event("error", {"success": False, "message": str(payload)})
+                        yield _sse_event("error", {
+                            "success": False,
+                            "message": _sanitize_error_for_user(payload),
+                        })
                         return
                 else:
                     yield _sse_event("progress", item)
                     await asyncio.sleep(0)
         except Exception as e:
             ingestion_task.cancel()
-            yield _sse_event("error", {"success": False, "message": str(e)})
+            yield _sse_event("error", {
+                "success": False,
+                "message": _sanitize_error_for_user(e),
+            })
 
     return StreamingResponse(_stream(), media_type="text/event-stream")
 
@@ -622,7 +662,7 @@ async def list_versions(
         result = await svc.get_versions(limit, offset)
         return {"success": True, **result.model_dump()}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error_for_user(e))
 
 
 @router.get("/versions/active")
@@ -651,7 +691,7 @@ async def get_active_version(
             },
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error_for_user(e))
 
 
 @router.get("/versions/{version_id}")
@@ -687,7 +727,7 @@ async def get_version_detail(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error_for_user(e))
 
 
 @router.post("/versions/{version_id}/rollback")
@@ -712,7 +752,7 @@ async def rollback_version(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Rollback to version {version_id} failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error_for_user(e))
 
 
 @router.delete("/versions/{version_id}")
@@ -731,4 +771,4 @@ async def delete_version(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Delete version {version_id} failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error_for_user(e))

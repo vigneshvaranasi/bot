@@ -12,7 +12,7 @@ export type SettingsNavItemProps = {
 const baseClasses =
   "flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors";
 
-const activeClasses = "bg-gray-200 text-gray-900 font-semibold";
+const activeClasses = "bg-accent-subtle text-accent font-semibold";
 const inactiveClasses = "text-gray-700 hover:bg-gray-100";
 const disabledClasses = "text-gray-400 cursor-not-allowed";
 

@@ -1,9 +1,7 @@
-import gearIcon from "../assets/Settings.svg";
 import { fuzzyMatch } from "../utils/search";
 import { useSidebarContext } from "../hooks/useSidebarContext";
 import sidebarImg from "../assets/sidebar.svg";
 import searchIcon from "../assets/SearchIcon.svg";
-import logoutImg from "../assets/logout.svg";
 import threeDotsIcon from "../assets/ThreeDots.svg";
 import archiveIcon from "../assets/ArchiveIcon.svg";
 import editPencilIcon from "../assets/EditPencilIcon.svg";
@@ -234,7 +232,7 @@ function Sidebar() {
 
   return (
     <div
-      className={`left-0 top-0 z-[1000] h-screen bg-gray-50 flex flex-col transition-all duration-300 overflow-hidden ${
+      className={`left-0 top-0 z-[1000] h-screen  flex flex-col transition-all duration-300 overflow-hidden ${
         isSidebarOpen ? "w-full md:w-72" : "w-0 md:w-12"
       }`}
     >
@@ -250,7 +248,7 @@ function Sidebar() {
                 }}
                 value={searchInput}
                 icon={searchIcon}
-                backgroundColor="f9fafb"
+                backgroundColor="surface-secondary"
               />
             </div>
             <button
@@ -268,12 +266,13 @@ function Sidebar() {
           <Link
             onClick={() => handleLinkClick()}
             to={"/"}
-            className="mx-3 mt-2 flex items-center p-1.5 gap-2 rounded-lg hover:bg-gray-200"
+            className="mx-3 mt-2 flex items-center p-1.5 py-2 gap-2 rounded-md border border-border-default hover:bg-surface-tertiary transition-colors"
           >
-            <p className="pb-1 text-2xl">+</p>
-            <button className="font-medium " onClick={() => handleLinkClick()}>
-              New Chat
-            </button>
+            <svg className="w-5 h-5 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span className="font-medium">New Chat</span>
           </Link>
           <div ref={sidebarListRef} className="flex-1 overflow-y-auto p-4">
             {showSidebarLoading && chats.length === 0 ? (
@@ -287,8 +286,10 @@ function Sidebar() {
                 {filteredChats.map((chat) => (
                   <div key={chat.chatId} className="relative cursor-pointer">
                     <Link
-                      className={`hover:bg-gray-200 block p-2 rounded-md group ${
-                        currentChat?.chatId === chat.chatId && "bg-gray-200"
+                      className={`block p-2 rounded-md group transition-colors ${
+                        currentChat?.chatId === chat.chatId
+                          ? "bg-surface-primary border border-border-default shadow-sm"
+                          : "hover:bg-surface-tertiary"
                       }`}
                       to={`/${chat.chatId}`}
                       onClick={() => {
@@ -340,16 +341,20 @@ function Sidebar() {
                             e.stopPropagation();
                             setActiveMenu(activeMenu === chat.chatId ? null : chat.chatId);
                           }}
-                          className="p-1 rounded-md hover:bg-gray-300 invisible group-hover:visible "
+                          className={`p-1 rounded-md hover:bg-gray-300 transition-opacity ${
+                            currentChat?.chatId === chat.chatId
+                              ? "opacity-70"
+                              : "opacity-0 group-hover:opacity-100"
+                          }`}
                         >
                           <img src={threeDotsIcon} alt="" className="w-5 max-w-5" />
                         </button>
                       </div>
                     </Link>
                     {activeMenu === chat.chatId && (
-                      <div ref={menuRef} className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                      <div ref={menuRef} className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-dropdown py-1 min-w-[140px] z-10">
                         <button
-                          className="flex items-center gap-2 px-2 py-1 hover:bg-gray-100 w-full text-left"
+                          className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 w-full text-left"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -367,7 +372,7 @@ function Sidebar() {
                           Rename
                         </button>
                         <button
-                          className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 w-full text-left"
+                          className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 w-full text-left"
                           onClick={() => {
                             onArchiveChat(chat.chatId);
                             setActiveMenu(null);
@@ -405,34 +410,30 @@ function Sidebar() {
               </div>
             )}
           </div>
-          <div className="flex bg-[#eaedef] mb-6 m-4 p-2 rounded-lg items-center justify-between ">
+          <div className="flex bg-surface-tertiary border border-border-subtle mb-6 m-4 p-2 rounded-lg items-center justify-between ">
             <div className="flex items-center gap-2">
-              <img
-                src="https://t3.ftcdn.net/jpg/08/05/28/22/360_F_805282248_LHUxw7t2pnQ7x8lFEsS2IZgK8IGFXePS.jpg"
-                className="w-8 rounded-full"
-                alt=""
+              <div
+                className="w-8 h-8 rounded-full bg-gray-600 text-text-inverse flex items-center justify-center text-xs font-semibold select-none"
                 title={user?.email || "Guest"}
-              />
+              >
+                {(user?.email || "GU").slice(0, 2).toUpperCase()}
+              </div>
               <p>{user?.email.split("@")[0] || "Guest"}</p>
             </div>
             <div className="flex items-center gap-2">
-              <Link to="/settings" className="hover:bg-gray-300 p-1 rounded">
-                <img
-                  src={gearIcon}
-                  className="w-5 rounded-full cursor-pointer hover:opacity-80"
-                  alt="Settings"
-                  title="Settings"
-                />
+              <Link to="/settings" className="hover:bg-gray-300 p-1.5 rounded cursor-pointer" title="Settings">
+                <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+                </svg>
               </Link>
-              <div className="hover:bg-gray-300 p-1 rounded">
-              <img
-                src={logoutImg}
-                onClick={handleLogout}
-                className="w-4 cursor-pointer "
-                alt=""
-                title="Logout"
-              />
-              </div>
+              <button onClick={handleLogout} className="hover:bg-gray-300 p-1.5 rounded cursor-pointer" title="Logout">
+                <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
@@ -448,10 +449,13 @@ function Sidebar() {
             </button>
             <Link
               to={"/"}
-              className="p-2 rounded-md hover:bg-gray-200"
+              className="p-2 rounded-md hover:bg-surface-tertiary transition-colors"
               title="New Chat"
             >
-              <p className="text-3xl">+</p>
+              <svg className="w-6 h-6 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
             </Link>
           </div>
           <div >
@@ -460,7 +464,10 @@ function Sidebar() {
               className="p-2 rounded-md hover:bg-gray-200 block"
               title="Settings"
             >
-              <img src={gearIcon} className="w-5 rounded-full" alt="Settings" />
+              <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+              </svg>
             </Link>
           </div>
         </div>

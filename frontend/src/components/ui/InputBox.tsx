@@ -22,7 +22,7 @@ type InputBoxProps = {
 
 const variantClasses: Record<'primary' | 'multiline', string> = {
   primary: 'border-b border-gray-300',
-  multiline:'border border-gray-200 rounded-xl bg-white shadow-sm focus:ring-1 focus:ring-gray-300 focus:border-gray-300'
+  multiline:'border border-gray-200 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-accent/30 focus:border-accent/50'
 }
 
 const InputBox = ({
@@ -100,9 +100,9 @@ const InputBox = ({
           aria-disabled={disabled}
           className={`w-full px-3 py-2.5 leading-6 placeholder-gray-400 focus:outline-none transition ${
             icon ? 'pl-10' : ''
-          } ${variantClass} resize-none min-h-[44px] ${autoGrow ? (isOverflowing ? 'overflow-y-auto' : 'overflow-y-hidden') : ''} ${isNonEditable ? 'cursor-not-allowed' : ''}`}
+          } ${variantClass} resize-none min-h-[44px] ${autoGrow ? (isOverflowing ? 'overflow-y-auto' : 'overflow-y-hidden') : ''} ${isNonEditable ? 'cursor-not-allowed' : ''} ${backgroundColor === 'surface-secondary' ? 'bg-surface-secondary' : ''}`}
           style={{
-            backgroundColor: `#${backgroundColor}`,
+            ...(backgroundColor !== 'surface-secondary' ? { backgroundColor: `#${backgroundColor}` } : {}),
             maxHeight: autoGrow ? `${maxHeight}px` : undefined
           }}
         />
@@ -120,8 +120,8 @@ const InputBox = ({
           disabled={disabled}
           aria-readonly={readOnly}
           aria-disabled={disabled}
-          className={`w-full px-2 py-2 focus:outline-none transition ${icon ? 'pl-10' : ''} ${variantClass} ${isNonEditable ? 'cursor-not-allowed' : ''}`}
-          style={{ backgroundColor: `#${backgroundColor}` }}
+          className={`w-full px-2 py-2 focus:outline-none transition ${icon ? 'pl-10' : ''} ${variantClass} ${isNonEditable ? 'cursor-not-allowed' : ''} ${backgroundColor === 'surface-secondary' ? 'bg-surface-secondary' : ''}`}
+          style={backgroundColor !== 'surface-secondary' ? { backgroundColor: `#${backgroundColor}` } : undefined}
         />
       )}
     </div>

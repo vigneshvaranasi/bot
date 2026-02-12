@@ -67,7 +67,7 @@ const MyAccountPage = () => {
             {!showPasswordUpdate ? (
               <Button
                 variant="secondary"
-                className="font-semibold text-xs px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md"
+                size="sm"
                 onClick={() => setShowPasswordUpdate(true)}
               >
                 Update password
@@ -103,8 +103,7 @@ const MyAccountPage = () => {
               </div>
               <div className="flex justify-end gap-2">
                 <Button
-                  variant="secondary"
-                  className="bg-gray-300 text-gray-800 hover:bg-gray-400"
+                  variant="default"
                   onClick={() => {
                     setShowPasswordUpdate(false);
                     setNewPassword("");

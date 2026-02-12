@@ -202,8 +202,8 @@ const UploadFiles = ({
 
         <p className="text-base text-black mb-4">Drop files here or</p>
 
-        <Button variant="secondary" onClick={handleBrowseClick} className="mb-4">
-          BROWSE FILES
+        <Button variant="secondary" size="sm" onClick={handleBrowseClick} className="mb-4">
+          Browse Files
         </Button>
 
         <p className="text-xs text-black">

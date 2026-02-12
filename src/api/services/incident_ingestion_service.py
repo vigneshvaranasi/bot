@@ -248,6 +248,30 @@ class IncidentIngestionService:
 
         # Normalize
         normalized = self._normalize_records(records)
+
+        # Filter out records still missing required fields (e.g. user skipped mapping)
+        valid_records = [
+            r for r in normalized
+            if all(
+                r.get(f) and str(r.get(f, "")).strip()
+                for f in REQUIRED_FIELDS
+            )
+        ]
+        skipped = len(normalized) - len(valid_records)
+        if skipped:
+            logger.info(
+                f"Filtered out {skipped} record(s) missing required fields "
+                f"({', '.join(REQUIRED_FIELDS)})"
+            )
+        if not valid_records:
+            upload.status = "failed"
+            await self.session.commit()
+            raise ValueError(
+                "No valid records to ingest. All records are missing required fields "
+                "(incident_id, title, or description). Please map the fields and try again."
+            )
+
+        normalized = valid_records
         upload.normalized_data = normalized
         upload.incident_count = len(normalized)
         await self.session.commit()
@@ -337,7 +361,9 @@ class IncidentIngestionService:
                 version.status = "failed"
                 upload.status = "failed"
                 await self.session.commit()
-                raise RuntimeError("Ingestion to Qdrant failed")
+                raise RuntimeError(
+                    "Ingestion failed. Please check your data and try again."
+                )
 
             # Update total incident count (existing + new)
             version.incident_count = existing_incident_count + len(normalized)
@@ -370,9 +396,14 @@ class IncidentIngestionService:
             return version
 
         except Exception as e:
-            version.status = "failed"
-            upload.status = "failed"
-            await self.session.commit()
+            # Rollback any broken transaction state before updating status
+            try:
+                await self.session.rollback()
+                version.status = "failed"
+                upload.status = "failed"
+                await self.session.commit()
+            except Exception as rollback_err:
+                logger.error(f"Failed to mark version/upload as failed: {rollback_err}")
             raise
 
     async def _copy_collection_points(
@@ -514,6 +545,8 @@ class IncidentIngestionService:
             logger.error(f"Error ingesting to collection {collection_name}: {e}")
             import traceback
             traceback.print_exc()
+            # Rollback so the session is usable for status updates by the caller
+            await self.session.rollback()
             return False
 
     # ── Version Management ───────────────────────────────────────────

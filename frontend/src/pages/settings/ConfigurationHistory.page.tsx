@@ -236,7 +236,7 @@ const ConfigurationHistoryPage = () => {
               onChange={(v) => setSegmentFilter((v as SettingSegment) || "")}
               placeholder="Filter by segment"
             />
-            <Button variant="secondary" onClick={handleRefresh} disabled={loading}>
+            <Button variant="secondary" size="sm" onClick={handleRefresh} disabled={loading}>
               {loading ? "Refreshing..." : "Refresh"}
             </Button>
           </div>
@@ -332,12 +332,12 @@ const ConfigurationHistoryPage = () => {
                         // Disable rollback only for the very first item on page 1 (current version)
                         const isCurrentVersion = currentPage === 1 && index === 0;
                         return (
-                          <div className="flex flex-col items-start gap-2">
-                            
+                          <div className="flex items-center gap-2">
                             {canRollback && (
                               <Button
                                 variant={isCurrentVersion ? "secondary" : "ghost"}
                                 size="sm"
+                                rounded="lg"
                                 className={isCurrentVersion ? "opacity-50 cursor-not-allowed" : ""}
                                 onClick={() => openRollbackModal(item.id)}
                                 disabled={isCurrentVersion || rollingBack === item.id}

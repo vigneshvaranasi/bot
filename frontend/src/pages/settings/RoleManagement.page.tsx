@@ -353,7 +353,7 @@ const RoleManagement = () => {
               <div className="flex gap-2">
                 {canEdit && canViewPermissionSets && (
                   <Button
-                    variant="secondary"
+                    variant="ghost"
                     size="sm"
                     onClick={() => handleOpenEditModal(role)}
                   >
@@ -420,12 +420,12 @@ const RoleManagement = () => {
               {roles.length} role(s) configured
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={loadData} disabled={loading}>
+          <div className="flex gap-2 shrink-0">
+            <Button variant="secondary" size="sm" onClick={loadData} disabled={loading}>
               Refresh
             </Button>
             {canCreate && canViewPermissionSets && (
-              <Button variant="primary" onClick={handleOpenCreateModal}>
+              <Button variant="primary" size="sm" onClick={handleOpenCreateModal}>
                 Add Role
               </Button>
             )}

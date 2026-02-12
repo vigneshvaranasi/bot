@@ -6,6 +6,8 @@ class PromptModel(BaseModel):
     chat_id: str | None
     is_stream: bool = False
     generate_title: bool = True
+    provider_id: str | None = None
+    model_id: str | None = None
     
 class ChatRenameRequest(BaseModel):
     """Schema for renaming a chat."""

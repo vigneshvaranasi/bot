@@ -203,7 +203,7 @@ const getCellValue = (row: T, col: TableColumn<T>, rowIndex: number): string => 
               {columns.map((col, colIndex) => (
                 <td
                   key={colIndex}
-                  className={`px-4 py-3 ${col.className || "text-gray-700"}`}
+                  className={`px-4 py-3 align-middle ${col.className || "text-gray-700"}`}
                 >
                   {col.render
                     ? col.render(row, rowIndex)

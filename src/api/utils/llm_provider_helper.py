@@ -128,6 +128,89 @@ async def get_provider_config_for_chat(
     return config
 
 
+async def get_provider_config_for_model(
+    session: AsyncSession,
+    provider_id: str,
+    model_id: str,
+) -> Dict[str, Any]:
+    """Fetch provider configuration for a specific provider and model override.
+
+    Used when a per-prompt model override is requested. Falls back to
+    the default settings-based config if the provider is not found or inactive.
+
+    Args:
+        session: Async database session.
+        provider_id: The UUID of the provider to use.
+        model_id: The model identifier to use.
+
+    Returns:
+        Provider configuration dictionary.
+    """
+    config: Dict[str, Any] = {
+        "provider_type": None,
+        "model_id": None,
+        "api_key": None,
+        "base_url": None,
+        "provider_config": {},
+        "temperature": 0.33,
+    }
+
+    try:
+        provider_result = await session.execute(
+            select(LlmProvider).where(
+                LlmProvider.id == provider_id,
+                LlmProvider.is_active == True,
+            )
+        )
+        provider = provider_result.scalars().first()
+
+        if not provider:
+            logger.warning(
+                f"Provider {provider_id} not found or inactive, falling back to default"
+            )
+            return await get_provider_config_for_chat(session)
+
+        # Validate model_id is in provider's models list
+        if model_id not in (provider.models or []):
+            logger.warning(
+                f"Model {model_id} not in provider {provider.name}'s models, falling back to default"
+            )
+            return await get_provider_config_for_chat(session)
+
+        config["provider_type"] = provider.provider_type
+        config["model_id"] = model_id
+        config["base_url"] = provider.base_url
+        config["provider_config"] = provider.config or {}
+
+        # Get temperature from settings
+        settings_query = select(Setting).order_by(Setting.updated_at.desc())
+        result = await session.execute(settings_query)
+        settings = result.scalars().first()
+        if settings and settings.temperature is not None:
+            try:
+                config["temperature"] = float(settings.temperature)
+            except (ValueError, TypeError):
+                pass
+
+        if provider.api_key_encrypted:
+            try:
+                config["api_key"] = decrypt_value(provider.api_key_encrypted)
+            except Exception as e:
+                logger.error(f"Failed to decrypt API key for provider {provider.name}: {e}")
+                return await get_provider_config_for_chat(session)
+
+        logger.info(
+            f"Using per-prompt override: {provider.name} ({provider.provider_type}) "
+            f"with model: {model_id}"
+        )
+
+    except Exception as e:
+        logger.error(f"Error fetching provider config for model override: {e}")
+        return await get_provider_config_for_chat(session)
+
+    return config
+
+
 async def get_provider_for_title_generation(
     session: AsyncSession,
 ) -> Dict[str, Any]:

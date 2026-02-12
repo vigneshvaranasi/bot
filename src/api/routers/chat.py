@@ -15,7 +15,7 @@ from src.api.auth.dependencies import get_current_user
 from src.api.db.models import Chat, Message, Setting
 from src.api.db.session import get_session
 from src.api.schemas.chat_schema import ChatListItem, ChatRenameRequest, PromptModel
-from src.api.utils.llm_provider_helper import get_provider_config_for_chat
+from src.api.utils.llm_provider_helper import get_provider_config_for_chat, get_provider_config_for_model
 from src.api.utils.tracing import conditional_observation
 from src.copilot.graph import create_agent_graph, set_llm_from_config, generate_title_from_query
 from src.copilot.guardrails.prompt_guardrails import PromptGuardrail
@@ -231,8 +231,13 @@ async def prompt_stream(
         
         langfuse_enabled = settings.langfuse_enabled if settings else True
 
-        # Fetch and configure LLM provider
-        provider_config = await get_provider_config_for_chat(session, str(user_id))
+        # Fetch and configure LLM provider (per-prompt override or default)
+        if request.provider_id and request.model_id:
+            provider_config = await get_provider_config_for_model(
+                session, request.provider_id, request.model_id
+            )
+        else:
+            provider_config = await get_provider_config_for_chat(session, str(user_id))
         set_llm_from_config(
             provider_type=provider_config.get("provider_type"),
             model_id=provider_config.get("model_id"),
@@ -563,8 +568,13 @@ async def prompt(
         
         logger.debug(f"[CACHE MISS] No cached response found, processing with LangGraph")
 
-        # Fetch and configure LLM provider
-        provider_config = await get_provider_config_for_chat(session, str(user_id))
+        # Fetch and configure LLM provider (per-prompt override or default)
+        if request.provider_id and request.model_id:
+            provider_config = await get_provider_config_for_model(
+                session, request.provider_id, request.model_id
+            )
+        else:
+            provider_config = await get_provider_config_for_chat(session, str(user_id))
         set_llm_from_config(
             provider_type=provider_config.get("provider_type"),
             model_id=provider_config.get("model_id"),

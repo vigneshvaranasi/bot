@@ -13,7 +13,8 @@ export type ChatSSEEvent = { event: string; data: ChatSSEEventData; label?: stri
 export const newMessageHandlerNoStream = async (
   chatId: string | null,
   prompt: string,
-  token: string
+  token: string,
+  modelOverride?: { provider_id: string; model_id: string }
 ) => {
   const headers = new Headers();
   headers.append("Authorization", `Bearer ${token}`);
@@ -23,7 +24,11 @@ export const newMessageHandlerNoStream = async (
     headers,
     body: JSON.stringify({
       "chat_id": chatId,
-      "message": prompt
+      "message": prompt,
+      ...(modelOverride && {
+        provider_id: modelOverride.provider_id,
+        model_id: modelOverride.model_id,
+      }),
     }),
   });
 
@@ -39,7 +44,8 @@ export const newMessageHandler = async (
   chatId: string | null,
   prompt: string,
   token: string,
-  onEvent?: (evt: ChatSSEEvent) => void
+  onEvent?: (evt: ChatSSEEvent) => void,
+  modelOverride?: { provider_id: string; model_id: string }
 ) => {
   const headers = new Headers();
   headers.append("Authorization", `Bearer ${token}`);
@@ -49,7 +55,11 @@ export const newMessageHandler = async (
     headers,
     body: JSON.stringify({
       "chat_id": chatId,
-      "message": prompt
+      "message": prompt,
+      ...(modelOverride && {
+        provider_id: modelOverride.provider_id,
+        model_id: modelOverride.model_id,
+      }),
     }),
   });
 

@@ -137,7 +137,7 @@ export function startIngestion(
   })
     .then(async (response) => {
       if (!response.ok || !response.body) {
-        onError(`HTTP ${response.status}`);
+        onError(`Request failed (HTTP ${response.status}). Please try again.`);
         return;
       }
       const reader = response.body.getReader();
@@ -171,7 +171,8 @@ export function startIngestion(
     })
     .catch((err) => {
       if (err.name !== "AbortError") {
-        onError(String(err));
+        onError("A network error occurred. Please check your connection and try again.");
+        logger.error("Ingestion network error:", err);
       }
     });
 

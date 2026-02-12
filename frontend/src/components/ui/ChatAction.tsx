@@ -98,10 +98,10 @@ export const ChatAction: React.FC<ChatActionButtonProps> = ({
         onClick={handleClick}
         disabled={loading && type === 'retry'}
         aria-label={tooltip}
-        className='flex items-center justify-center p-1
-             text-gray-600 hover:text-black hover:bg-gray-100
+        className='flex items-center justify-center p-1.5
+             text-text-tertiary hover:text-text-primary hover:bg-surface-tertiary
              disabled:opacity-50 disabled:cursor-not-allowed
-             rounded-sm cursor-pointer'
+             rounded-md cursor-pointer transition-colors'
       >
         {type === 'metrics' && responseMetrics?.timeToFirstToken ? (
           <p>{formatDuration(responseMetrics.timeToFirstToken)}</p>
