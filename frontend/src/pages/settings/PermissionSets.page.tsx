@@ -328,9 +328,10 @@ const PermissionSetsPage = () => {
       }
       await loadData();
       handleCloseModal();
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error("Error saving permission set", err);
-      toast.error(id ? "Failed to update permission set" : "Failed to create permission set");
+      const msg = err instanceof Error ? err.message : null;
+      toast.error(msg || (id ? "Failed to update permission set" : "Failed to create permission set"));
     } finally {
       setSaving(false);
     }
@@ -349,9 +350,10 @@ const PermissionSetsPage = () => {
       await deletePermissionSet(setToDelete.id);
       toast.success("Permission set deleted successfully");
       await loadData();
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error("Error deleting permission set", err);
-      toast.error("Failed to delete permission set");
+      const msg = err instanceof Error ? err.message : null;
+      toast.error(msg || "Failed to delete permission set");
     } finally {
       setDeleting(false);
       setDeleteModalOpen(false);

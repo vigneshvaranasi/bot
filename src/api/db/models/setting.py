@@ -14,6 +14,7 @@ class Setting(Base):
     model = Column(String, default="gemini-2.5-flash")
     temperature = Column(String, default="0.2")
     langfuse_enabled = Column(Boolean, default=False)
+    allow_user_model_selection = Column(Boolean, default=False, nullable=False)
     auth_google_enabled = Column(Boolean, default=True)
     auth_github_enabled = Column(Boolean, default=True)
     auth_microsoft_enabled = Column(Boolean, default=True)

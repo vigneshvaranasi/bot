@@ -8,6 +8,7 @@ This router provides endpoints for managing:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from uuid import UUID
@@ -149,13 +150,20 @@ async def create_permission_set(
             detail=f"Permission set with code '{data.code}' already exists",
         )
 
-    ps = await permission_service.create_permission_set(
-        code=data.code,
-        name=data.name,
-        permission_codes=data.permission_codes,
-        description=data.description,
-        session=session,
-    )
+    try:
+        ps = await permission_service.create_permission_set(
+            code=data.code,
+            name=data.name,
+            permission_codes=data.permission_codes,
+            description=data.description,
+            session=session,
+        )
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Permission set with code '{data.code}' already exists",
+        )
 
     # Reload with permissions
     ps = await permission_service.get_permission_set_by_id(ps.id, session)
@@ -321,12 +329,19 @@ async def create_role(
             detail=f"Role with name '{data.name}' already exists",
         )
 
-    role = await permission_service.create_role(
-        name=data.name,
-        permission_set_codes=data.permission_set_codes,
-        description=data.description,
-        session=session,
-    )
+    try:
+        role = await permission_service.create_role(
+            name=data.name,
+            permission_set_codes=data.permission_set_codes,
+            description=data.description,
+            session=session,
+        )
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Role with name '{data.name}' already exists",
+        )
 
     # Reload with permission sets
     role = await permission_service.get_role_by_id(role.id, session)

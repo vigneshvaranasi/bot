@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # Define which fields belong to each segment
 SEGMENT_FIELDS = {
-    SettingSegment.AIML: ["model", "temperature", "deny_words", "langfuse_enabled"],
+    SettingSegment.AIML: ["model", "temperature", "deny_words", "langfuse_enabled", "provider_id", "allow_user_model_selection"],
     SettingSegment.AUTH: ["auth_google_enabled", "auth_github_enabled", "auth_microsoft_enabled", "auth_local_enabled"],
 }
 
@@ -32,6 +32,8 @@ FIELD_LABELS = {
     "temperature": "Temperature",
     "deny_words": "Deny Words",
     "langfuse_enabled": "Langfuse Enabled",
+    "allow_user_model_selection": "User Model Selection",
+    "provider_id": "LLM Provider",
     "auth_google_enabled": "Google Auth",
     "auth_github_enabled": "GitHub Auth",
     "auth_microsoft_enabled": "Microsoft Auth",
@@ -47,6 +49,8 @@ DEFAULT_SETTINGS = {
     "temperature": "0.33",
     "deny_words": "",
     "langfuse_enabled": False,
+    "allow_user_model_selection": False,
+    "provider_id": None,
     "auth_google_enabled": True,
     "auth_github_enabled": True,
     "auth_microsoft_enabled": True,
@@ -191,7 +195,14 @@ class SettingsService:
     def extract_segment_fields(self, setting: Setting, segment: SettingSegment) -> Dict[str, Any]:
         """Extract only the fields belonging to a specific segment."""
         fields = SEGMENT_FIELDS.get(segment, [])
-        return {field: getattr(setting, field) for field in fields}
+        result = {}
+        for field in fields:
+            value = getattr(setting, field)
+            # Convert UUID to string for JSON serialization
+            if hasattr(value, 'hex') and hasattr(value, 'int'):
+                value = str(value)
+            result[field] = value
+        return result
 
     @staticmethod
     def get_default_segment_fields(segment: SettingSegment) -> Dict[str, Any]:
@@ -207,6 +218,8 @@ class SettingsService:
                 temperature=setting.temperature,
                 deny_words=setting.deny_words,
                 langfuse_enabled=setting.langfuse_enabled,
+                provider_id=str(setting.provider_id) if setting.provider_id else None,
+                allow_user_model_selection=setting.allow_user_model_selection,
             )
         elif segment == SettingSegment.AUTH:
             return AuthSettingsResponse(
@@ -309,6 +322,7 @@ class SettingsService:
             temperature=target_setting.temperature,
             deny_words=target_setting.deny_words,
             langfuse_enabled=target_setting.langfuse_enabled,
+            allow_user_model_selection=target_setting.allow_user_model_selection,
             auth_google_enabled=target_setting.auth_google_enabled,
             auth_github_enabled=target_setting.auth_github_enabled,
             auth_microsoft_enabled=target_setting.auth_microsoft_enabled,

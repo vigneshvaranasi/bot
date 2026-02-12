@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import InputBox from "./ui/InputBox";
 import SendIcon from "./icons/SendIcon";
 import { fetchAvailableModels } from "../handlers/llmProviderHandlers";
+import { fetchAiMlSettings } from "../handlers/settingsHandlers";
 import type { AvailableModel } from "../types/LlmProvider";
 import { logger } from "../utils/logger";
 
@@ -80,6 +81,7 @@ export default function PromptBar({ onSend, isLoading }: PromptBarProps) {
   const [models, setModels] = useState<AvailableModel[]>([]);
   const [selectedModel, setSelectedModel] = useState<AvailableModel | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showModelPicker, setShowModelPicker] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Check speech support
@@ -87,16 +89,35 @@ export default function PromptBar({ onSend, isLoading }: PromptBarProps) {
     setHasSpeechSupport(!!getSpeechRecognition());
   }, []);
 
-  // Fetch available models on mount
+  // Fetch available models and saved settings on mount
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const res = await fetchAvailableModels();
-      if (cancelled || !res) return;
-      setModels(res.models);
-      // Pick default: first model from the default provider, or first overall
+      const [modelsRes, settingsRes] = await Promise.all([
+        fetchAvailableModels(),
+        fetchAiMlSettings(),
+      ]);
+      if (cancelled) return;
+      const allModels = modelsRes?.models ?? [];
+      setModels(allModels);
+
+      setShowModelPicker(settingsRes?.settings?.allow_user_model_selection ?? false);
+
+      // Match the admin-configured model + provider from settings
+      const savedModelId = settingsRes?.settings?.model;
+      const savedProviderId = settingsRes?.settings?.provider_id;
+      const savedMatch = savedModelId
+        ? allModels.find((m) =>
+            m.model_id === savedModelId &&
+            (!savedProviderId || m.provider_id === savedProviderId)
+          )
+        : null;
+
       const defaultModel =
-        res.models.find((m) => m.is_default_provider) ?? res.models[0] ?? null;
+        savedMatch ??
+        allModels.find((m) => m.is_default_provider) ??
+        allModels[0] ??
+        null;
       setSelectedModel(defaultModel);
     })();
     return () => { cancelled = true; };
@@ -184,7 +205,7 @@ export default function PromptBar({ onSend, isLoading }: PromptBarProps) {
   return (
     <div className="bg-transparent w-full px-4 py-3">
       {/* Model selector pill */}
-      {models.length > 0 && (
+      {models.length > 0 && showModelPicker && (
         <div className="relative mb-1.5" ref={dropdownRef}>
           <button
             type="button"

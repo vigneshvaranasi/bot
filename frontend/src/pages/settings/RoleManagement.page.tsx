@@ -276,9 +276,10 @@ const RoleManagement = () => {
       }
       await loadData();
       handleCloseModal();
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error("Error saving role", err);
-      toast.error(id ? "Failed to update role" : "Failed to create role");
+      const msg = err instanceof Error ? err.message : null;
+      toast.error(msg || (id ? "Failed to update role" : "Failed to create role"));
     } finally {
       setSaving(false);
     }
@@ -297,9 +298,10 @@ const RoleManagement = () => {
       await deleteRole(roleToDelete.id);
       toast.success("Role deleted successfully");
       await loadData();
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error("Error deleting role", err);
-      toast.error("Failed to delete role");
+      const msg = err instanceof Error ? err.message : null;
+      toast.error(msg || "Failed to delete role");
     } finally {
       setDeleting(false);
       setDeleteModalOpen(false);

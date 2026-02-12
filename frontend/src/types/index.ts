@@ -65,25 +65,13 @@ export interface StreamMetrics {
 // ============================================================================
 
 /**
- * Available LLM model options.
- */
-export type ModelEnum =
-  | "gemma3:1b"
-  | "gemma3:4b"
-  | "gemini-2.0-flash"
-  | "gemini-2.5-flash"
-  | "gemini-2.0-flash-lite-001"
-  | "gemini-2.5-pro"
-  | "gpt-oss:20b";
-
-/**
  * Settings response from API.
  */
 export interface SettingResponse {
   id: string;
   user_id: string;
   deny_words: string;
-  model: ModelEnum;
+  model: string;
   temperature: string;
   langfuse_enabled: boolean;
   auth_google_enabled: boolean;
@@ -98,7 +86,7 @@ export interface SettingResponse {
  */
 export interface SettingUpdate {
   deny_words?: string;
-  model?: ModelEnum;
+  model?: string;
   temperature?: string;
   langfuse_enabled?: boolean;
   auth_google_enabled?: boolean;

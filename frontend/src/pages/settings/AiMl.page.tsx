@@ -40,8 +40,10 @@ const AiMlConfigPage = () => {
   const canTestProvider = hasPermission(PERMISSIONS.LLM_PROVIDER_TEST);
 
   const [model, setModel] = useState<Model>("gemma3:4b");
+  const [providerId, setProviderId] = useState<string | null>(null);
   const [temperature, setTemperature] = useState("0.2");
   const [langfuseEnabled, setLangfuseEnabled] = useState<boolean | undefined>(undefined);
+  const [allowUserModelSelection, setAllowUserModelSelection] = useState<boolean | undefined>(undefined);
 
   const [denyWordsArray, setDenyWordsArray] = useState<DenyWordRecord[]>([]);
   const [denyWords, setDenyWords] = useState("");
@@ -106,8 +108,10 @@ const AiMlConfigPage = () => {
           const denyWordsFromBackend = settings.deny_words || "";
           setDenyWordsArray(stringToWordsArray(denyWordsFromBackend));
           setModel(settings.model);
+          setProviderId(settings.provider_id ?? null);
           setTemperature(settings.temperature);
           setLangfuseEnabled(settings.langfuse_enabled ?? true);
+          setAllowUserModelSelection(settings.allow_user_model_selection ?? false);
         }
       } catch (err) {
         logger.error("Error fetching AI/ML settings", err);
@@ -121,10 +125,11 @@ const AiMlConfigPage = () => {
   }, [stringToWordsArray, loadProviders]);
 
   // Generate model options from available models (from providers) plus fallback static options
+  // Uses composite "provider_id::model_id" values to distinguish same-named models across providers
   const modelOptions = useMemo(() => {
     if (availableModels.length > 0) {
       return availableModels.map((m) => ({
-        value: m.model_id,
+        value: `${m.provider_id}::${m.model_id}`,
         label: m.display_name,
       }));
     }
@@ -135,6 +140,16 @@ const AiMlConfigPage = () => {
       { value: "gemma3:4b", label: "Gemma3: 4B" },
     ];
   }, [availableModels]);
+
+  // The composite value currently selected in the dropdown
+  const selectedCompositeValue = useMemo(() => {
+    if (providerId && availableModels.length > 0) {
+      return `${providerId}::${model}`;
+    }
+    // Fallback: find model by model_id alone (legacy or no provider_id saved)
+    const match = availableModels.find((m) => m.model_id === model);
+    return match ? `${match.provider_id}::${match.model_id}` : model;
+  }, [providerId, model, availableModels]);
 
   // Provider handlers
   const handleSaveProvider = async (
@@ -275,6 +290,8 @@ const AiMlConfigPage = () => {
       const modelPayload: Partial<AiMlSettings> = {
         model,
         temperature,
+        provider_id: providerId,
+        allow_user_model_selection: allowUserModelSelection ?? false,
       };
       await updateAiMlSettings(modelPayload);
       toast.success("Model configuration saved");
@@ -418,8 +435,19 @@ const AiMlConfigPage = () => {
             </div>
             <Dropdown
               options={modelOptions}
-              value={model}
-              onChange={(val) => setModel(val as Model)}
+              value={selectedCompositeValue}
+              onChange={(val) => {
+                const str = val as string;
+                const sep = str.indexOf("::");
+                if (sep !== -1) {
+                  setProviderId(str.slice(0, sep));
+                  setModel(str.slice(sep + 2));
+                } else {
+                  // Fallback static options (no provider)
+                  setProviderId(null);
+                  setModel(str as Model);
+                }
+              }}
               placeholder="Select model"
               disabled={!canEditAiMl}
             />
@@ -446,6 +474,18 @@ const AiMlConfigPage = () => {
               disabled={!canEditAiMl}
             />
           </div>
+        </div>
+
+        <div className="mt-2 flex items-center gap-3">
+          <div className="flex flex-row items-center text-sm md:text-medium text-gray-900 min-w-fit">
+            <span>Let Users Choose Model</span>
+            <InfoHint text="When enabled, users can pick a different model in the chat. When disabled, all chats use the model selected above." />
+          </div>
+          {allowUserModelSelection !== undefined ? (
+            <Toggle id="user-model-selection-toggle" enabled={allowUserModelSelection} onChange={setAllowUserModelSelection} disabled={!canEditAiMl} />
+          ) : (
+            <div className="w-11 h-6 bg-gray-200 rounded-full animate-pulse" />
+          )}
         </div>
       </section>
 

@@ -82,9 +82,9 @@ async def update_aiml_settings(
     # Convert Pydantic model to dict, excluding None values
     update_dict = update_data.model_dump(exclude_none=True)
 
-    # Handle ModelEnum serialization
-    if "model" in update_dict and update_dict["model"] is not None:
-        update_dict["model"] = update_dict["model"].value if hasattr(update_dict["model"], "value") else update_dict["model"]
+    # Convert provider_id string to UUID for DB compatibility
+    if "provider_id" in update_dict and update_dict["provider_id"] is not None:
+        update_dict["provider_id"] = UUID(update_dict["provider_id"])
 
     user_id = UUID(current_user["user_id"])
     new_setting = await service.update_segment(

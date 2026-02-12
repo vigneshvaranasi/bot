@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, DateTime, Boolean, Text, ForeignKey, func
+from sqlalchemy import Column, String, DateTime, Boolean, Text, ForeignKey, Index, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from ...db.base import Base
@@ -8,9 +8,15 @@ from ...db.base import Base
 class Permission(Base):
     """Atomic permission definition."""
     __tablename__ = "permissions"
+    __table_args__ = (
+        Index("uq_permissions_code_active", "code", unique=True,
+              postgresql_where=text("deleted_at IS NULL")),
+        Index("uq_permissions_name_active", "name", unique=True,
+              postgresql_where=text("deleted_at IS NULL")),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
-    code = Column(String(100), unique=True, nullable=False)  # e.g., 'aiml.view'
+    code = Column(String(100), nullable=False)  # e.g., 'aiml.view'
     name = Column(String(200), nullable=False)  # e.g., 'View AI/ML Settings'
     description = Column(Text, nullable=True)
     category = Column(String(50), nullable=False)  # e.g., 'aiml', 'auth', 'integration'
@@ -37,9 +43,13 @@ class Permission(Base):
 class PermissionSet(Base):
     """Groups of permissions."""
     __tablename__ = "permission_sets"
+    __table_args__ = (
+        Index("uq_permission_sets_code_active", "code", unique=True,
+              postgresql_where=text("deleted_at IS NULL")),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
-    code = Column(String(100), unique=True, nullable=False)  # e.g., 'aiml_manager'
+    code = Column(String(100), nullable=False)  # e.g., 'aiml_manager'
     name = Column(String(200), nullable=False)  # e.g., 'AI/ML Manager'
     description = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())

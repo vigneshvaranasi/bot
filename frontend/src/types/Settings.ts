@@ -22,6 +22,7 @@ export type Settings = {
   model: Model;
   temperature: string;
   langfuse_enabled: boolean;
+  allow_user_model_selection: boolean;
   auth_google_enabled: boolean;
   auth_github_enabled: boolean;
   auth_microsoft_enabled: boolean;
@@ -36,6 +37,7 @@ export type AiMlSettings = {
   temperature: string;
   deny_words: string;
   langfuse_enabled: boolean;
+  allow_user_model_selection: boolean;
   provider_id?: string | null;  // LLM provider selection
 }
 
@@ -71,6 +73,7 @@ export type SettingHistoryItem = {
   temperature: string;
   deny_words: string;
   langfuse_enabled: boolean;
+  allow_user_model_selection: boolean;
   auth_google_enabled: boolean;
   auth_github_enabled: boolean;
   auth_microsoft_enabled: boolean;
