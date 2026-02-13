@@ -6,10 +6,11 @@ type BubbleProps = {
   variant?: "bot" | "user";
   content: string;
   streaming?: boolean;
+  stopped?: boolean;
   statusMessage?: string;
 };
 
-const Bubble = ({ variant = "bot", content, streaming = false, statusMessage }: BubbleProps) => {
+const Bubble = ({ variant = "bot", content, streaming = false, stopped = false, statusMessage }: BubbleProps) => {
   const variantClasses = {
     bot: "border-none bg-transparent max-w-[95%] min-w-0",
     user: "border border-0.5 border-gray-200 bg-bubblegray max-w-[75%] px-4 py-2.5 rounded-3xl rounded-br-none",
@@ -86,11 +87,23 @@ const Bubble = ({ variant = "bot", content, streaming = false, statusMessage }: 
           <div className="flex items-center gap-2">
             <span className="shimmer-text text-base">{statusMessage}</span>
           </div>
+        ) : stopped && !content ? (
+          <div className="flex items-center gap-1.5 text-gray-400 text-sm italic">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+            Response stopped
+          </div>
         ) : (
-          <div
-            className="markdown-body"
-            dangerouslySetInnerHTML={{ __html: renderedContent }}
-          />
+          <>
+            <div
+              className="markdown-body"
+              dangerouslySetInnerHTML={{ __html: renderedContent }}
+            />
+            {stopped && content && (
+              <div className="mt-2 pt-2 border-t border-gray-200 text-gray-400 text-xs italic">
+                — Response stopped
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

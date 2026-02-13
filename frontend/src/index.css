@@ -181,7 +181,7 @@ body {
 
 .markdown-body table {
   border-collapse: collapse;
-  width: max-content;
+  width: fit-content;
   min-width: 100%;
   margin: 0.5rem 0;
 }

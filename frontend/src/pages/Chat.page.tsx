@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import PromptBar from "../components/PromptBar";
@@ -22,6 +22,12 @@ function ChatPage() {
   const { chatId } = useParams<{ chatId: string }>();
   const { user } = useAuthContext();
   const navigate = useNavigate();
+  const abortRef = useRef<AbortController | null>(null);
+
+  const handleStop = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  };
 
   const handlePromptSendStream = async (prompt: string, modelOverride?: ModelOverride) => {
     if (!prompt || !user) {
@@ -62,12 +68,16 @@ function ChatPage() {
         return;
       }
 
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       const res = await newMessageHandler(
         currChatId,
         prompt,
         token,
         streamer.onEvent,
-        modelOverride
+        modelOverride,
+        controller.signal
       );
       const metrics = streamer.getMetrics();
       if (currChatId === "") {
@@ -91,26 +101,42 @@ function ChatPage() {
         // Cache errors are non-critical
       }
     } catch (error: unknown) {
-      logger.error("Error sending prompt:", error);
-      const errorMessage = error instanceof Error ? error.message : "An error occurred.";
-      setCurrentChat((prevChat: CurrentChatType | null) => {
-        if (!prevChat) return null;
-        const updatedMessages = prevChat.allMessages.map((msg: ChatMessage) => {
-          if (msg.id === newMessageId) {
-            return {
-              ...msg,
-              botMessage: errorMessage,
-              streaming: false,
-            };
-          }
-          return msg;
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setCurrentChat((prevChat: CurrentChatType | null) => {
+          if (!prevChat) return null;
+          const updatedMessages = prevChat.allMessages.map((msg: ChatMessage) => {
+            if (msg.id === newMessageId) {
+              return {
+                ...msg,
+                streaming: false,
+                stopped: true,
+                statusMessage: undefined,
+              };
+            }
+            return msg;
+          });
+          return { ...prevChat, allMessages: updatedMessages };
         });
-        return {
-          ...prevChat,
-          allMessages: updatedMessages,
-        };
-      });
+      } else {
+        logger.error("Error sending prompt:", error);
+        const errorMessage = error instanceof Error ? error.message : "An error occurred.";
+        setCurrentChat((prevChat: CurrentChatType | null) => {
+          if (!prevChat) return null;
+          const updatedMessages = prevChat.allMessages.map((msg: ChatMessage) => {
+            if (msg.id === newMessageId) {
+              return {
+                ...msg,
+                botMessage: errorMessage,
+                streaming: false,
+              };
+            }
+            return msg;
+          });
+          return { ...prevChat, allMessages: updatedMessages };
+        });
+      }
     } finally {
+      abortRef.current = null;
       setIsLoading(false);
     }
   };
@@ -124,7 +150,12 @@ function ChatPage() {
           <div className="flex-1 min-h-0 overflow-y-auto">
             <Outlet />
           </div>
-          <PromptBar onSend={handlePromptSendStream} isLoading={isLoading} />
+          <PromptBar
+            onSend={handlePromptSendStream}
+            onStop={handleStop}
+            isLoading={isLoading}
+            canStop={isLoading && (currentChat?.allMessages.some((m: ChatMessage) => m.streaming) ?? false)}
+          />
         </div>
       </div>
     </div>

@@ -420,6 +420,7 @@ const ChatView = () => {
               variant="bot"
               content={message.botMessage}
               streaming={message.streaming}
+              stopped={message.stopped}
               statusMessage={message.statusMessage}
             />
             {/* chat Actions */}

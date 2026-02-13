@@ -45,7 +45,8 @@ export const newMessageHandler = async (
   prompt: string,
   token: string,
   onEvent?: (evt: ChatSSEEvent) => void,
-  modelOverride?: { provider_id: string; model_id: string }
+  modelOverride?: { provider_id: string; model_id: string },
+  signal?: AbortSignal
 ) => {
   const headers = new Headers();
   headers.append("Authorization", `Bearer ${token}`);
@@ -61,6 +62,7 @@ export const newMessageHandler = async (
         model_id: modelOverride.model_id,
       }),
     }),
+    signal,
   });
 
   if (!response.ok) {
