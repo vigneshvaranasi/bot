@@ -1,5 +1,8 @@
 FROM node:20-alpine AS build
 
+ARG VITE_BE_URL
+ENV VITE_BE_URL=${VITE_BE_URL}
+
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
