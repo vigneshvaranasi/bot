@@ -1,6 +1,6 @@
 import React from 'react';
 
-type ButtonVariant = 'primary' | 'secondary' | 'default' | 'success' | 'danger' | 'ghost';
+type ButtonVariant = 'primary' | 'secondary' | 'default' | 'success' | 'danger' | 'ghost' | 'blue' | 'link';
 type ButtonSize = 'sm' | 'md' | 'lg';
 type ButtonRounded = 'full' | 'md' | 'none' | 'lg' | 'xl';
 
@@ -42,6 +42,8 @@ export const Button: React.FC<ButtonProps> = ({
     success: 'bg-success hover:bg-green-600 text-white',
     danger: 'bg-danger hover:bg-red-600 text-white',
     ghost: 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300',
+    blue: 'bg-blue-600 hover:bg-blue-700 text-white',
+    link: 'bg-transparent text-blue-600 hover:text-blue-700 underline p-0',
     default: 'bg-transparent text-gray-700',
   };
 

@@ -361,7 +361,7 @@ const AiMlConfigPage = () => {
           </div>
           {canCreateProvider && (
             <Button
-              variant="primary"
+              variant="blue"
               size="sm"
               onClick={() => setNewProviderOpen(true)}
               disabled={newProviderOpen}
@@ -422,7 +422,7 @@ const AiMlConfigPage = () => {
             <p className="text-xs text-gray-600">Select model and configure generation parameters.</p>
           </div>
           {canEditAiMl && (
-            <Button variant="primary" size="sm" onClick={handleSaveModel} disabled={savingModel}>
+            <Button variant="blue" size="sm" onClick={handleSaveModel} disabled={savingModel}>
               {savingModel ? "Saving…" : "Save"}
             </Button>
           )}
@@ -496,7 +496,7 @@ const AiMlConfigPage = () => {
             <p className="text-xs text-gray-600"> Configure safety filters and tracing options.</p>
           </div>
           {canEditAiMl && (
-            <Button variant="primary" size="sm" onClick={handleSaveSafety} disabled={savingSafety}>
+            <Button variant="blue" size="sm" onClick={handleSaveSafety} disabled={savingSafety}>
               {savingSafety ? "Saving…" : "Save"}
             </Button>
           )}

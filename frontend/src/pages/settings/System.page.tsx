@@ -30,7 +30,7 @@ const SystemConfigPage = () => {
               Retention and masking settings. Section-level save required.
             </p>
           </div>
-          <Button variant="primary" onClick={handleSave}>
+          <Button variant="blue" onClick={handleSave}>
             Save
           </Button>
         </div>

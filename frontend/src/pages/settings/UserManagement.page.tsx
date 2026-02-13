@@ -421,7 +421,7 @@ const UserManagement: React.FC = () => {
             <p className="text-xs text-gray-600">Toggle available login providers for the org.</p>
           </div>
           {canEditAuth && (
-            <Button variant="primary" size="sm" onClick={handleSaveAuth} disabled={authSaving}>
+            <Button variant="blue" size="sm" onClick={handleSaveAuth} disabled={authSaving}>
               {authSaving ? "Saving…" : "Save"}
             </Button>
           )}
@@ -728,7 +728,7 @@ const UserManagement: React.FC = () => {
                 Cancel
               </Button>
               <Button
-                variant="primary"
+                variant="blue"
                 onClick={handleSaveUser}
                 disabled={saving || selectedRoleIds.length === 0 || loadingDirectPerms}
               >
