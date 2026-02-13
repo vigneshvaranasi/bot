@@ -20,7 +20,7 @@ const statusColors: Record<string, string> = {
   failed: "bg-red-100 text-red-800",
 };
 
-const VersionListPanel = () => {
+const VersionListPanel = ({ refreshTrigger = 0 }: { refreshTrigger?: number }) => {
   const { hasPermission } = usePermissions();
   const [versions, setVersions] = useState<DatasetVersion[]>([]);
   const [total, setTotal] = useState(0);
@@ -45,7 +45,7 @@ const VersionListPanel = () => {
 
   useEffect(() => {
     loadVersions();
-  }, [page]);
+  }, [page, refreshTrigger]);
 
   const handleRollback = async (reason: string) => {
     if (!rollbackTarget) return;
@@ -196,7 +196,9 @@ const VersionListPanel = () => {
         </div>
       ) : (
         <>
-          <ConfigurableTable data={versions} columns={columns} />
+          <div className="overflow-x-auto">
+            <ConfigurableTable data={versions} columns={columns} />
+          </div>
           {total > pageSize && (
             <div className="flex items-center justify-between pt-2">
               <Button

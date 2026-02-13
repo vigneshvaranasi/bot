@@ -121,7 +121,7 @@ const PermissionSetEditModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
@@ -130,7 +130,7 @@ const PermissionSetEditModal = ({
         </div>
 
         <div className="p-4 overflow-y-auto flex-1 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Name <span className="text-red-500">*</span>

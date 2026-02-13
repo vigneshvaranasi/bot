@@ -225,7 +225,7 @@ const ConfigurationHistoryPage = () => {
               {total > 0 ? `${total} version(s) recorded` : "No configuration history available"}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1">
               <span className="text-xs text-gray-600">Segment</span>
               <InfoHint text="Filter by area of change. 'AI/ML' shows model, temperature, and deny list changes. 'Auth' shows login provider changes." />
@@ -462,7 +462,7 @@ const ConfigurationHistoryPage = () => {
         {selectedItem && (
           <div className="space-y-4">
             {/* Version Info */}
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="font-medium text-gray-700">Version ID:</span>
                 <p className="font-mono text-gray-600 break-all text-xs mt-1">{selectedItem.id}</p>
@@ -489,7 +489,7 @@ const ConfigurationHistoryPage = () => {
             {(selectedItem.source_version_id || selectedItem.target_version_id || selectedItem.change_reason) && (
               <div className="border-t border-gray-200 pt-4">
                 <h4 className="font-medium text-gray-700 text-sm mb-2">Audit Trail</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   {selectedItem.source_version_id && (
                     <div>
                       <span className="text-gray-500">Replaced Version:</span>
@@ -540,7 +540,7 @@ const ConfigurationHistoryPage = () => {
             {/* Configuration Snapshot */}
             <div className="border-t border-gray-200 pt-4">
               <h4 className="font-medium text-gray-700 text-sm mb-2">Configuration Snapshot</h4>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div className="bg-gray-50 p-2 rounded">
                   <span className="text-gray-500 text-xs">Model</span>
                   <p className="text-gray-900">{selectedItem.model}</p>

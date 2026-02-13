@@ -124,7 +124,7 @@ const getCellValue = (row: T, col: TableColumn<T>, rowIndex: number): string => 
       {/* Search Container */}
       {hasSearchableColumns && activeSearchColumn !== null && (
         <div className={searchContainerClassName}>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-gray-700">
               Search in "{columns[activeSearchColumn].header}":
             </span>

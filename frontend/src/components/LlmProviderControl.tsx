@@ -388,8 +388,8 @@ export default function LlmProviderControl({
   return (
     <div className="flex flex-col border border-gray-200 rounded-lg px-3 py-2.5 gap-2">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap justify-between items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {isNameEditable && canEdit ? (
             <input
               ref={nameInputRef}
@@ -448,8 +448,8 @@ export default function LlmProviderControl({
       </div>
 
       {/* Status */}
-      <div className="flex items-center justify-between gap-2 text-xs text-gray-600">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-600">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1">
             <span>Health:</span>
             {provider?.last_health_check_status === "success" && (

@@ -537,7 +537,7 @@ const UserManagement: React.FC = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-gray-200 mb-4">
+            <div className="flex overflow-x-auto border-b border-gray-200 mb-4">
               <button
                 onClick={() => setActiveTab("roles")}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -702,7 +702,7 @@ const UserManagement: React.FC = () => {
                                         <div className="text-xs text-gray-400 truncate">{perm.description}</div>
                                       )}
                                     </div>
-                                    <code className="text-xs text-gray-400 bg-gray-100 px-1 rounded">
+                                    <code className="text-xs text-gray-400 bg-gray-100 px-1 rounded shrink-0 hidden sm:inline">
                                       {perm.code}
                                     </code>
                                   </label>

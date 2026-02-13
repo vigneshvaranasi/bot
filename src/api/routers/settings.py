@@ -177,6 +177,7 @@ async def get_settings_history(
             temperature=item["setting"].temperature,
             deny_words=item["setting"].deny_words,
             langfuse_enabled=item["setting"].langfuse_enabled,
+            allow_user_model_selection=item["setting"].allow_user_model_selection,
             auth_google_enabled=item["setting"].auth_google_enabled,
             auth_github_enabled=item["setting"].auth_github_enabled,
             auth_microsoft_enabled=item["setting"].auth_microsoft_enabled,

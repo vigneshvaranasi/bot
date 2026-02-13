@@ -29,16 +29,6 @@ import FieldMappingPanel from "../../components/knowledge-base/FieldMappingPanel
 import IngestionProgressBar from "../../components/knowledge-base/IngestionProgressBar";
 import VersionListPanel from "../../components/knowledge-base/VersionListPanel";
 
-// ── Tab definitions ─────────────────────────────────────────────
-
-type TabId = "upload" | "versions" | "sync";
-
-const TABS: { id: TabId; label: string; permission?: string }[] = [
-  { id: "upload", label: "Upload & Ingest", permission: PERMISSIONS.KB_UPLOAD },
-  { id: "versions", label: "Versions", permission: PERMISSIONS.KB_VIEW },
-  { id: "sync", label: "Sync History", permission: PERMISSIONS.KB_VIEW },
-];
-
 // ── Upload flow state machine ───────────────────────────────────
 
 type UploadStep = "upload" | "preview" | "validate" | "mapping" | "ingest" | "done";
@@ -48,9 +38,8 @@ type UploadStep = "upload" | "preview" | "validate" | "mapping" | "ingest" | "do
 const KnowledgeBasePage = () => {
   const { hasPermission, loading: permLoading } = usePermissions();
   const { files: contextFiles, clearAllFiles } = useFileContext();
-  const [activeTab, setActiveTab] = useState<TabId>("upload");
 
-  // Sync History tab state (existing)
+  // Sync History state
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [logs, setLogs] = useState<IncidentLog[]>([]);
   const [syncLoading, setSyncLoading] = useState(true);
@@ -67,6 +56,7 @@ const KnowledgeBasePage = () => {
   const [ingMsg, setIngMsg] = useState("");
   const [ingComplete, setIngComplete] = useState(false);
   const [ingError, setIngError] = useState(false);
+  const [versionRefresh, setVersionRefresh] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   // Track whether we've already triggered upload for the current context files
@@ -107,8 +97,8 @@ const KnowledgeBasePage = () => {
   };
 
   useEffect(() => {
-    if (activeTab === "sync") loadSyncData();
-  }, [activeTab]);
+    if (hasPermission(PERMISSIONS.KB_VIEW)) loadSyncData();
+  }, []);
 
   // ── Upload handlers ───────────────────────────────────────────
 
@@ -179,6 +169,7 @@ const KnowledgeBasePage = () => {
       },
       (data) => {
         setIngComplete(true);
+        setVersionRefresh((n) => n + 1);
         const count = (data.incident_count as number) || 0;
         setIngMsg(`Ingestion complete! Version v${data.version_number} activated with ${count} total incidents.`);
         toast.success("Incidents ingested and version activated");
@@ -203,11 +194,8 @@ const KnowledgeBasePage = () => {
     setIngError(false);
   };
 
-  // ── Render helpers ────────────────────────────────────────────
-
-  const visibleTabs = TABS.filter(
-    (t) => !t.permission || hasPermission(t.permission)
-  );
+  const canUpload = hasPermission(PERMISSIONS.KB_UPLOAD);
+  const canView = hasPermission(PERMISSIONS.KB_VIEW);
 
   if (permLoading) {
     return (
@@ -218,7 +206,7 @@ const KnowledgeBasePage = () => {
     );
   }
 
-  // ── Sync history columns (existing) ────────────────────────────
+  // ── Sync history columns  ────────────────────────────
 
   const syncColumns = [
     {
@@ -276,33 +264,21 @@ const KnowledgeBasePage = () => {
         description="Upload incident data, manage dataset versions, and view sync history"
       />
 
-      {/* Tab bar */}
-      <div className="border-b border-gray-200">
-        <nav className="flex -mb-px space-x-6">
-          {visibleTabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+      {/* ── Upload & Ingest Card ──────────────────────────────── */}
+      {canUpload && (
+        <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Upload & Ingest</h3>
+            <p className="text-xs text-gray-600">
+              Upload JSON or CSV files containing incident data.
+            </p>
+          </div>
 
-      {/* ── Upload & Ingest Tab ──────────────────────────────── */}
-      {activeTab === "upload" && (
-        <div className="space-y-4">
           {step === "upload" && (
             <div className="space-y-3">
               <div className="flex items-center gap-1">
-                <p className="text-sm text-gray-600">
-                  Upload JSON or CSV files containing incident data. Required fields: incident_id, title, description.
+                <p className="text-xs text-gray-500">
+                  Required fields: incident_id, title, description.
                 </p>
                 <InfoHint text="Upload a JSON array of objects or a CSV with headers. Each record needs at least: incident_id, title, and description. Optional fields like action_taken and priority are also supported." />
               </div>
@@ -320,14 +296,14 @@ const KnowledgeBasePage = () => {
           )}
 
           {step === "preview" && uploadResult && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-              <h3 className="text-sm font-medium text-gray-900">Upload Preview</h3>
-              <div className="flex gap-4 text-xs text-gray-600">
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-gray-900">Upload Preview</h4>
+              <div className="flex flex-wrap gap-4 text-xs text-gray-600">
                 <span>{uploadResult.incident_count} records parsed</span>
                 <span>{uploadResult.file_metadata.length} file(s)</span>
               </div>
               {uploadResult.file_metadata.map((fm, i) => (
-                <div key={i} className="flex items-center gap-3 py-2 px-3 bg-gray-50 rounded border border-gray-200 text-xs">
+                <div key={i} className="flex flex-wrap items-center gap-3 py-2 px-3 bg-gray-50 rounded border border-gray-200 text-xs">
                   <span className="font-medium">{fm.filename}</span>
                   <span className="text-gray-500">{(fm.size / 1024).toFixed(1)} KB</span>
                   <span className="text-gray-500">{fm.row_count} rows</span>
@@ -345,8 +321,8 @@ const KnowledgeBasePage = () => {
           )}
 
           {step === "validate" && report && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-sm font-medium text-gray-900 mb-4">Validation Report</h3>
+            <div>
+              <h4 className="text-sm font-medium text-gray-900 mb-4">Validation Report</h4>
               <ValidationReportPanel
                 report={report}
                 onMapFields={() => setStep("mapping")}
@@ -356,8 +332,8 @@ const KnowledgeBasePage = () => {
           )}
 
           {step === "mapping" && report && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-sm font-medium text-gray-900 mb-4">Field Mapping</h3>
+            <div>
+              <h4 className="text-sm font-medium text-gray-900 mb-4">Field Mapping</h4>
               <FieldMappingPanel
                 fileFields={report.file_fields || {}}
                 onApply={handleMapFieldsApply}
@@ -368,8 +344,8 @@ const KnowledgeBasePage = () => {
           )}
 
           {step === "ingest" && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-              <h3 className="text-sm font-medium text-gray-900">Ingestion Progress</h3>
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-gray-900">Ingestion Progress</h4>
               <IngestionProgressBar
                 batch={ingBatch}
                 totalBatches={ingTotal}
@@ -386,20 +362,39 @@ const KnowledgeBasePage = () => {
               )}
             </div>
           )}
-        </div>
+        </section>
       )}
 
-      {/* ── Versions Tab ─────────────────────────────────────── */}
-      {activeTab === "versions" && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-sm font-medium text-gray-900 mb-4">Dataset Versions</h3>
-          <VersionListPanel />
-        </div>
+      {/* ── Dataset Versions Card ─────────────────────────────── */}
+      {canView && (
+        <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Dataset Versions</h3>
+            <p className="text-xs text-gray-600">
+              Manage and rollback dataset versions.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <VersionListPanel refreshTrigger={versionRefresh} />
+          </div>
+        </section>
       )}
 
-      {/* ── Sync History Tab (existing content) ──────────────── */}
-      {activeTab === "sync" && (
-        <>
+      {/* ── Sync History Card ─────────────────────────────────── */}
+      {canView && (
+        <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Sync History</h3>
+              <p className="text-xs text-gray-600">
+                Incidents synced from external integrations.
+              </p>
+            </div>
+            <Button onClick={loadSyncData} variant="secondary" size="sm" disabled={syncLoading}>
+              {syncLoading ? "Loading..." : "Refresh"}
+            </Button>
+          </div>
+
           {syncLoading ? (
             <SkeletonAudit />
           ) : (
@@ -407,16 +402,11 @@ const KnowledgeBasePage = () => {
               {/* Incident Logs */}
               {logs.length > 0 && (
                 <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                  <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900">Recent Incidents</h3>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Log of incidents added to the knowledge base
-                      </p>
-                    </div>
-                    <Button onClick={loadSyncData} variant="secondary" className="text-xs px-3 py-1">
-                      Refresh
-                    </Button>
+                  <div className="p-3 border-b border-gray-200">
+                    <h4 className="text-xs font-medium text-gray-900">Recent Incidents</h4>
+                    <p className="text-xs text-gray-500">
+                      Log of incidents added to the knowledge base
+                    </p>
                   </div>
                   <div className="max-h-[300px] overflow-y-auto">
                     <div className="divide-y divide-gray-100">
@@ -424,7 +414,7 @@ const KnowledgeBasePage = () => {
                         <div key={log.id} className="p-3 hover:bg-gray-50 transition-colors">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
                                   {log.incident_id}
                                 </span>
@@ -448,35 +438,22 @@ const KnowledgeBasePage = () => {
               )}
 
               {/* Sync History Table */}
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900">Sync History</h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Incidents are automatically synced to the vector database when integrations are updated
-                    </p>
-                  </div>
-                  <Button onClick={loadSyncData} variant="secondary" className="text-xs px-3 py-1">
-                    Refresh
-                  </Button>
+              {integrations.length === 0 ? (
+                <div className="p-6 text-center text-gray-500 text-sm border border-dashed border-gray-300 rounded-lg bg-gray-50">
+                  No sync history available. Configure a ServiceNow integration in{" "}
+                  <a href="/settings/integrations" className="text-blue-600 hover:underline">
+                    Integrations
+                  </a>{" "}
+                  and click "Sync Now" to populate the knowledge base.
                 </div>
-                {integrations.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <p className="text-sm text-gray-500">
-                      No sync history available. Configure a ServiceNow integration in{" "}
-                      <a href="/settings/integrations" className="text-blue-600 hover:underline">
-                        Integrations
-                      </a>{" "}
-                      and click "Sync Now" to populate the knowledge base.
-                    </p>
-                  </div>
-                ) : (
+              ) : (
+                <div className="overflow-x-auto">
                   <ConfigurableTable data={integrations} columns={syncColumns} />
-                )}
-              </div>
+                </div>
+              )}
             </>
           )}
-        </>
+        </section>
       )}
     </div>
   );

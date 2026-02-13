@@ -219,8 +219,8 @@ export default function IntegrationControl({
   return (
     <div className="flex flex-col border border-gray-300 rounded-md p-4 gap-4">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap justify-between items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {isNameEditable && !readOnly ? (
             <input
               ref={nameInputRef}
@@ -269,7 +269,7 @@ export default function IntegrationControl({
       </div>
 
       {/* Status */}
-      <div className="text-sm text-gray-700 flex flex-row justify-between gap-1">
+      <div className="text-sm text-gray-700 flex flex-wrap justify-between gap-2">
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
             <span>Status:</span>
@@ -392,11 +392,11 @@ export default function IntegrationControl({
               You don't have permission to edit this integration.
             </p>
           )}
-          <div className="flex flex-row gap-2">
+          <div className="flex flex-wrap gap-2">
             {onSave && !readOnly && (
               <Button
                 variant="secondary"
-                className="w-fit mt-2"
+                className="w-full sm:w-fit mt-2"
                 onClick={handleSave}
                 disabled={isSaving}
               >
@@ -406,7 +406,7 @@ export default function IntegrationControl({
             {onDelete && !isSaving && (
               <Button
                 variant="secondary"
-                className={`w-fit mt-2 ${isNew ? "bg-gray-500 hover:bg-gray-700" : "bg-red-500 hover:bg-red-800 border-red-300"}`}
+                className={`w-full sm:w-fit mt-2 ${isNew ? "bg-gray-500 hover:bg-gray-700" : "bg-red-500 hover:bg-red-800 border-red-300"}`}
                 onClick={openDeleteModal}
                 disabled={isDeleting}
               >
