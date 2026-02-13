@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Tuple
 
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -370,10 +370,13 @@ class IncidentIngestionService:
             upload.status = "completed"
 
             # Auto-activate: deactivate previous active version, make this one active
-            current_active = await self.get_active_version()
-            if current_active and str(current_active.id) != str(version.id):
-                current_active.is_active = False
-                current_active.status = "inactive"
+            # Atomically deactivate all active versions
+            await self.session.execute(
+                update(IncidentDatasetVersion)
+                .where(IncidentDatasetVersion.is_active == True)
+                .where(IncidentDatasetVersion.id != version.id)
+                .values(is_active=False, status="inactive", updated_at=datetime.utcnow())
+            )
 
             version.is_active = True
             version.status = "active"
@@ -626,22 +629,22 @@ class IncidentIngestionService:
             f"current_status={target.status}, is_active={target.is_active})"
         )
 
-        # Deactivate current active version (if any)
-        current = await self.get_active_version()
-        if current and str(current.id) != str(target.id):
-            logger.info(f"Deactivating current active version {current.version_number}")
-            current.is_active = False
-            current.status = "inactive"
-            await self.session.flush()
+        # Atomically deactivate all active versions in one query
+        await self.session.execute(
+            update(IncidentDatasetVersion)
+            .where(IncidentDatasetVersion.is_active == True)
+            .where(IncidentDatasetVersion.id != uuid.UUID(version_id))
+            .values(is_active=False, status="inactive", updated_at=datetime.utcnow())
+        )
 
-        # Activate target
+        # Now safely activate target
         target.is_active = True
         target.status = "active"
         target.activated_at = datetime.utcnow()
         if notes:
             target.notes = notes
 
-        # Flush changes (commit handled by get_session teardown)
+        # Single flush with all changes visible
         await self.session.flush()
 
         logger.info(f"Version {target.version_number} activated successfully")
