@@ -33,9 +33,9 @@ body {
   --color-text-inverse: #ffffff;
 
   /* Interactive */
-  --color-accent: #1985f9;
-  --color-accent-hover: #1570d6;
-  --color-accent-subtle: #eff6ff;
+  --color-accent: #374151;
+  --color-accent-hover: #1f2937;
+  --color-accent-subtle: #f3f4f6;
 
   /* Feedback */
   --color-success: #059669;

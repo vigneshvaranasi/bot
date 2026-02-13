@@ -11,6 +11,7 @@ type ModalProps = {
   size?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "full";
   closeOnOverlayClick?: boolean;
   closeOnEsc?: boolean;
+  bodyOverflowVisible?: boolean;
 };
 
 const sizeClasses = {
@@ -33,6 +34,7 @@ export default function Modal({
   size = "md",
   closeOnOverlayClick = true,
   closeOnEsc = true,
+  bodyOverflowVisible = false,
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -132,11 +134,11 @@ export default function Modal({
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto px-4 py-4">{children}</div>
+            <div className={`flex-1 px-4 py-4 ${bodyOverflowVisible ? "overflow-visible" : "overflow-y-auto"}`}>{children}</div>
 
             {/* Footer */}
             {footer && (
-              <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+              <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200 bg-surface-secondary rounded-b-lg">
                 {footer}
               </div>
             )}
@@ -171,13 +173,6 @@ export function ConfirmModal({
   confirmVariant = "primary",
   isLoading = false,
 }: ConfirmModalProps) {
-  const confirmButtonClass =
-    confirmVariant === "danger"
-      ? "bg-red-600 hover:bg-red-700 text-white"
-      : confirmVariant === "secondary"
-        ? "bg-gray-500 hover:bg-gray-600 text-white"
-        : "bg-blue-600 hover:bg-blue-700 text-white";
-
   return (
     <Modal
       isOpen={isOpen}
@@ -186,12 +181,11 @@ export function ConfirmModal({
       size="sm"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={isLoading}>
+          <Button variant="ghost" onClick={onClose} disabled={isLoading}>
             {cancelLabel}
           </Button>
           <Button
-            variant="primary"
-            className={confirmButtonClass}
+            variant={confirmVariant}
             onClick={onConfirm}
             disabled={isLoading}
           >
@@ -261,7 +255,7 @@ export function InputModal({
       size="md"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={isLoading}>
+          <Button variant="ghost" onClick={onClose} disabled={isLoading}>
             {cancelLabel}
           </Button>
           <Button

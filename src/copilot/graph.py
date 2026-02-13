@@ -198,6 +198,11 @@ SYSTEM_MESSAGE_PROMPT = SystemMessage(
        * You may call multiple tools if needed
 
     6. Do not make up information. Be concise and factual. Never use code fences to encapsulate responses.
+
+    7. **(Only follow when you need to generate a table based on tool data to answer the user's question)Table Formatting Rules:**
+        * NEVER generate tables with more than 4 columns
+        * If data requires more columns, split into multiple smaller tables
+        * Prioritize the most important columns (ID, Title, Status, Action)
     """
 )
 

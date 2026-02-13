@@ -3,6 +3,9 @@ import SettingsHeader from "../../components/settings/SettingsHeader";
 import { Button } from "../../components/ui/Button";
 import IntegrationControl from "../../components/IntegrationControl";
 import InfoHint from "../../components/ui/InfoHint";
+import Modal from "../../components/ui/Modal";
+import Dropdown from "../../components/ui/Dropdown";
+import InputBox from "../../components/ui/InputBox";
 import {
   fetchIntegrations,
   createIntegration,
@@ -11,7 +14,7 @@ import {
   syncIntegration,
   type IntegrationPayload,
 } from "../../handlers/integrationHandlers";
-import { type Integration, type IntegrationSyncStatus } from "../../types/Integrations";
+import { type Integration, type IntegrationSyncStatus, AUTH_SCHEMAS } from "../../types/Integrations";
 import { SkeletonIntegrations } from "../../components/ui/Skeleton";
 import { usePermissions } from "../../hooks/usePermissions";
 import { PERMISSIONS } from "../../types/Permission";
@@ -30,6 +33,13 @@ const IntegrationsPage = () => {
   const [integrations, setIntegrations] = useState<IntegrationItem[]>([]);
   const [integrationsLoading, setIntegrationsLoading] = useState(false);
   const [integrationsError, setIntegrationsError] = useState<string | null>(null);
+
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newAuthType, setNewAuthType] = useState<string | undefined>(undefined);
+  const [newConfig, setNewConfig] = useState<Record<string, string>>({});
+  const [addError, setAddError] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
     const loadIntegrations = async () => {
@@ -69,23 +79,56 @@ const IntegrationsPage = () => {
     return date.toLocaleString();
   };
 
+  const authOptions = [
+    { value: "basic_auth", label: "Basic Auth" },
+    { value: "api_token", label: "API Token" },
+    { value: "oauth2", label: "OAuth 2.0" },
+  ];
+
   const handleAddIntegration = () => {
-    const tempId = `new-${Date.now()}`;
-    setIntegrations((prev) => [
-      ...prev,
-      {
-        id: tempId,
-        service_name: "",
-        auth_type: undefined,
-        config: {},
+    setNewName("");
+    setNewAuthType(undefined);
+    setNewConfig({});
+    setAddError(null);
+    setAddModalOpen(true);
+  };
+
+  const handleAddModalSave = async () => {
+    if (!newName.trim()) {
+      setAddError("Service name is required");
+      return;
+    }
+    if (!newAuthType) {
+      setAddError("Authentication type is required");
+      return;
+    }
+    for (const field of AUTH_SCHEMAS[newAuthType]) {
+      if (field.required && !newConfig[field.key]) {
+        setAddError(`${field.label} is required`);
+        return;
+      }
+    }
+
+    setAddError(null);
+    setIsAdding(true);
+    try {
+      const created = await createIntegration({
+        service_name: newName.trim(),
+        auth_type: newAuthType,
+        config: newConfig,
         is_active: true,
-        last_sync_error: null,
-        last_synced_at: null,
-        last_sync_status: null,
-        updated_at: undefined,
-        isNew: true,
-      },
-    ]);
+      });
+      if (!created) {
+        setAddError("Failed to add integration");
+        return;
+      }
+      setIntegrations((prev) => [...prev, created]);
+      setAddModalOpen(false);
+    } catch {
+      setAddError("Failed to add integration");
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   const handleIntegrationSave = async (
@@ -169,8 +212,6 @@ const IntegrationsPage = () => {
     });
 
     if (!updated) {
-      // If we got null and no error callback fired, it means we consumed all events
-      // The onComplete/onError callbacks already handled the state
     }
   };
 
@@ -243,6 +284,75 @@ const IntegrationsPage = () => {
           ))}
         </div>
       </div>
+
+      {/* Add Integration Modal */}
+      <Modal
+        isOpen={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        title="Add Integration"
+        size="md"
+        bodyOverflowVisible
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setAddModalOpen(false)} disabled={isAdding}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleAddModalSave} disabled={isAdding}>
+              {isAdding ? "Saving..." : "Save"}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">Service Name <span className="text-red-500">*</span></label>
+            <InputBox
+              value={newName}
+              placeholder="e.g. ServiceNow, Jira"
+              variant="primary"
+              onChange={(value) => setNewName(value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">Authentication Type <span className="text-red-500">*</span></label>
+            <Dropdown
+              options={authOptions}
+              value={newAuthType}
+              onChange={(value) => {
+                setNewAuthType(value);
+                setNewConfig({});
+                setAddError(null);
+              }}
+            />
+          </div>
+
+          {newAuthType && (
+            <div className="flex flex-col gap-3">
+              <label className="text-sm font-medium">Configuration</label>
+              {AUTH_SCHEMAS[newAuthType].map((field) => (
+                <div key={field.key} className="flex flex-col gap-1">
+                  <label className="text-xs font-medium">
+                    {field.label}
+                    {field.required && <span className="text-red-500"> *</span>}
+                  </label>
+                  <InputBox
+                    value={String(newConfig[field.key] || "")}
+                    placeholder={field.label}
+                    type={field.type === "url" ? "text" : field.type}
+                    variant="primary"
+                    onChange={(value) =>
+                      setNewConfig((prev) => ({ ...prev, [field.key]: value }))
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {addError && <span className="text-xs text-red-500">{addError}</span>}
+        </div>
+      </Modal>
     </div>
   );
 };

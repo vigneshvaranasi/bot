@@ -302,7 +302,7 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop }: Prompt
         {canStop ? (
           <button
             onClick={onStop}
-            className="flex-none h-10 w-10 rounded-xl mb-1.5 flex items-center justify-center cursor-pointer transition-colors bg-gray-700 hover:bg-gray-600 text-text-inverse"
+            className="flex-none h-10 w-10 rounded-xl mb-1.5 flex items-center justify-center cursor-pointer transition-colors bg-accent hover:bg-accent-hover text-text-inverse"
           >
             <StopIcon size={18} />
           </button>
@@ -313,7 +313,7 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop }: Prompt
             className={`flex-none h-10 w-10 rounded-xl mb-1.5 flex items-center justify-center cursor-pointer transition-colors ${
               isRecording || isLoading || !chatInput.trim()
                 ? "bg-surface-tertiary text-text-tertiary cursor-not-allowed"
-                : "bg-gray-700 hover:bg-gray-600 text-text-inverse"
+                : "bg-accent hover:bg-accent-hover text-text-inverse"
             }`}
           >
             <SendIcon size={18} />

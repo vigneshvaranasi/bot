@@ -10,6 +10,7 @@ import InputBox from "./ui/InputBox";
 import { useEffect, useState, useRef } from "react";
 import { useAuthContext } from "../hooks/useAuthContext";
 import { archiveChatById, renameChatById, getAllMyChats } from "../handlers/chatHandler";
+import { ConfirmModal } from "./ui/Modal";
 import { SkeletonChatList } from "./ui/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { usePaginatedChats } from "../hooks/usePaginatedChats";
@@ -38,6 +39,7 @@ function Sidebar() {
   const menuRef = useRef<HTMLDivElement>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string>("");
+  const [archiveModalChatId, setArchiveModalChatId] = useState<string | null>(null);
   const editingInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
 
@@ -288,8 +290,8 @@ function Sidebar() {
                     <Link
                       className={`block p-2 rounded-md group transition-colors ${
                         currentChat?.chatId === chat.chatId
-                          ? "bg-surface-primary border border-border-default shadow-sm"
-                          : "hover:bg-surface-tertiary"
+                          ? "bg-surface-primary shadow-sm border border-transparent"
+                          : "hover:bg-surface-tertiary border border-transparent"
                       }`}
                       to={`/${chat.chatId}`}
                       onClick={() => {
@@ -352,9 +354,9 @@ function Sidebar() {
                       </div>
                     </Link>
                     {activeMenu === chat.chatId && (
-                      <div ref={menuRef} className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-dropdown py-1 min-w-[140px] z-10">
+                      <div ref={menuRef} className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-dropdown p-1 min-w-[140px] z-10">
                         <button
-                          className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 w-full text-left"
+                          className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 w-full text-left rounded-md rounded-tl-md rounded-tr-md"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -372,9 +374,9 @@ function Sidebar() {
                           Rename
                         </button>
                         <button
-                          className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 w-full text-left"
+                          className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 w-full text-left rounded-md rounded-bl-md rounded-br-md"
                           onClick={() => {
-                            onArchiveChat(chat.chatId);
+                            setArchiveModalChatId(chat.chatId);
                             setActiveMenu(null);
                           }}
                         >
@@ -472,6 +474,22 @@ function Sidebar() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={archiveModalChatId !== null}
+        onClose={() => setArchiveModalChatId(null)}
+        onConfirm={() => {
+          if (archiveModalChatId) {
+            onArchiveChat(archiveModalChatId);
+          }
+          setArchiveModalChatId(null);
+        }}
+        title="Archive Chat"
+        message="Are you sure you want to archive this chat? You can find it in your archived chats later."
+        confirmLabel="Archive"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+      />
     </div>
   );
 }

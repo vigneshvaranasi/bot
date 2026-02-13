@@ -395,7 +395,7 @@ export default function IntegrationControl({
           <div className="flex flex-wrap gap-2">
             {onSave && !readOnly && (
               <Button
-                variant="secondary"
+                variant="primary"
                 className="w-full sm:w-fit mt-2"
                 onClick={handleSave}
                 disabled={isSaving}
@@ -405,8 +405,8 @@ export default function IntegrationControl({
             )}
             {onDelete && !isSaving && (
               <Button
-                variant="secondary"
-                className={`w-full sm:w-fit mt-2 ${isNew ? "bg-gray-500 hover:bg-gray-700" : "bg-red-500 hover:bg-red-800 border-red-300"}`}
+                variant={isNew ? "ghost" : "danger"}
+                className="w-full sm:w-fit mt-2"
                 onClick={openDeleteModal}
                 disabled={isDeleting}
               >

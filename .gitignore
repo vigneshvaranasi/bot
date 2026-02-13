@@ -16,3 +16,5 @@ output.log
 docs/reviews/*
 
 .claude/
+
+review/*
