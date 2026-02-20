@@ -10,7 +10,7 @@ from .schemas import UserSignup, UserLogin, TokenResponse
 from .providers import get_provider_class
 import uuid
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 
 async def revoke_token(jti: str, expires_at: datetime, session: AsyncSession):
     if expires_at.tzinfo is not None:
@@ -88,7 +88,7 @@ async def signup_user(user_data: UserSignup, session: AsyncSession) -> dict:
     user_role = UserRole(
         user_id=new_user.id,
         role_id=role_id,
-        assigned_at=datetime.utcnow(),
+        assigned_at=datetime.now(UTC),
         assigned_by=None
     )
     session.add(user_role)
@@ -238,7 +238,7 @@ async def resolve_oauth_user(profile: dict, session: AsyncSession) -> User:
     user_role = UserRole(
         user_id=new_user.id,
         role_id=role.id,
-        assigned_at=datetime.utcnow(),
+        assigned_at=datetime.now(UTC),
         assigned_by=None
     )
     session.add(user_role)

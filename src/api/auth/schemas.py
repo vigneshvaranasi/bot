@@ -2,7 +2,7 @@ import re
 import uuid
 from typing import Optional, List
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 
 from src.api.core.config import ENABLE_PASSWORD_VALIDATION
 
@@ -76,5 +76,4 @@ class UserResponse(BaseModel):
     role: str
     auth_identities: List[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

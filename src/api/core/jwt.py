@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 
 from src.api.core.config import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRY_DAYS
 
@@ -57,7 +58,7 @@ def decode_oauth_state(token: str) -> dict:
         if payload.get("sub") != "oauth_state":
             return None
         return payload
-    except JWTError:
+    except InvalidTokenError:
         return None
 
 from fastapi import HTTPException, status
@@ -72,7 +73,7 @@ def decode_token(token: str) -> dict:
                 detail="Token missing expiration or issued at time",
             )
         return payload
-    except JWTError:
+    except InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",

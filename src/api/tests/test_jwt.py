@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import timedelta
-from jose import jwt
+import jwt
 from fastapi import HTTPException
 
 

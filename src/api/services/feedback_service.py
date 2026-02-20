@@ -3,7 +3,7 @@
 import logging
 from typing import Optional, List, Tuple
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy import func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -342,7 +342,7 @@ class FeedbackService:
 
         feedback.status = "reviewed"
         feedback.reviewed_by = reviewer_id
-        feedback.reviewed_at = datetime.utcnow()
+        feedback.reviewed_at = datetime.now(UTC)
 
         golden_example = await self._create_golden_example_from_feedback(
             feedback=feedback,
@@ -376,7 +376,7 @@ class FeedbackService:
 
         feedback.status = "dismissed"
         feedback.reviewed_by = reviewer_id
-        feedback.reviewed_at = datetime.utcnow()
+        feedback.reviewed_at = datetime.now(UTC)
         if reason:
             if feedback.reason:
                 feedback.reason = f"{feedback.reason}\n\n[Dismissed: {reason}]"

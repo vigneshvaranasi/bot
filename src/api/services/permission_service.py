@@ -324,8 +324,8 @@ async def delete_permission_set(id: UUID, session: AsyncSession) -> bool:
     if not permission_set:
         return False
 
-    from datetime import datetime
-    permission_set.deleted_at = datetime.utcnow()
+    from datetime import datetime, UTC
+    permission_set.deleted_at = datetime.now(UTC)
     await session.commit()
     return True
 
@@ -460,8 +460,8 @@ async def delete_role(id: UUID, session: AsyncSession) -> bool:
     if not role:
         return False
 
-    from datetime import datetime
-    role.deleted_at = datetime.utcnow()
+    from datetime import datetime, UTC
+    role.deleted_at = datetime.now(UTC)
     await session.commit()
     return True
 

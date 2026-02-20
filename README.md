@@ -28,3 +28,16 @@ cd src/api/db
 alembic revision --autogenerate -m "describe changes"
 alembic upgrade head
 ```
+
+## Tests
+
+Run all tests:
+```bash
+uv run pytest src/api/tests/
+```
+
+Run tests with verbose output and coverage report:
+```bash
+uv run pytest src/api/tests/ -v --tb=short --cov=src/api --cov-report=term-missing
+```
+

@@ -7,7 +7,7 @@ and model discovery for LLM providers.
 from datetime import datetime
 from enum import Enum
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID
 
 
@@ -73,17 +73,16 @@ class LlmProviderCreate(LlmProviderBase):
     """Schema for creating a new LLM provider."""
     api_key: Optional[str] = Field(None, description="API key (will be encrypted before storage)")
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "name": "Production Claude",
-                "provider_type": "anthropic",
-                "api_key": "sk-ant-...",
-                "models": ["claude-3-5-sonnet-20241022"],
-                "is_active": True,
-                "is_default": True
-            }
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "name": "Production Claude",
+            "provider_type": "anthropic",
+            "api_key": "sk-ant-...",
+            "models": ["claude-3-5-sonnet-20241022"],
+            "is_active": True,
+            "is_default": True
         }
+    })
 
 
 class LlmProviderUpdate(BaseModel):
@@ -114,8 +113,7 @@ class LlmProviderResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LlmProviderListResponse(BaseModel):

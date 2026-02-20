@@ -6,7 +6,7 @@ import json
 import logging
 import math
 import uuid
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import List, Optional, Dict, Any, Tuple
 
 from sqlalchemy import func, desc, update
@@ -375,12 +375,12 @@ class IncidentIngestionService:
                 update(IncidentDatasetVersion)
                 .where(IncidentDatasetVersion.is_active == True)
                 .where(IncidentDatasetVersion.id != version.id)
-                .values(is_active=False, status="inactive", updated_at=datetime.utcnow())
+                .values(is_active=False, status="inactive", updated_at=datetime.now(UTC))
             )
 
             version.is_active = True
             version.status = "active"
-            version.activated_at = datetime.utcnow()
+            version.activated_at = datetime.now(UTC)
             await self.session.commit()
             await self.session.refresh(version)
 
@@ -634,13 +634,13 @@ class IncidentIngestionService:
             update(IncidentDatasetVersion)
             .where(IncidentDatasetVersion.is_active == True)
             .where(IncidentDatasetVersion.id != uuid.UUID(version_id))
-            .values(is_active=False, status="inactive", updated_at=datetime.utcnow())
+            .values(is_active=False, status="inactive", updated_at=datetime.now(UTC))
         )
 
         # Now safely activate target
         target.is_active = True
         target.status = "active"
-        target.activated_at = datetime.utcnow()
+        target.activated_at = datetime.now(UTC)
         if notes:
             target.notes = notes
 

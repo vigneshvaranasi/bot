@@ -20,3 +20,6 @@ docs/reviews/*
 review/*
 
 .github/prompts
+CLAUDE.md
+.coverage
+htmlcov/

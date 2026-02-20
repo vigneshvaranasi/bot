@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, UUID4
+from pydantic import BaseModel, UUID4, ConfigDict
 
 
 class SettingSegment(str, Enum):
@@ -89,8 +89,7 @@ class SettingResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SettingUpdate(BaseModel):
@@ -150,8 +149,7 @@ class SettingHistoryItem(BaseModel):
     auth_microsoft_enabled: bool
     auth_local_enabled: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SettingHistoryResponse(BaseModel):

@@ -339,7 +339,7 @@ async def sync_integration(
             yield _sse_event("progress", {"batch": 0, "totalBatches": 0, "message": "No new incidents to ingest"})
             await asyncio.sleep(0)
 
-        now_utc = datetime.utcnow()
+        now_utc = datetime.now(timezone.utc)
         integration.last_synced_at = now_utc
         integration.last_sync_status = "success"
         integration.last_sync_error = None

@@ -1,6 +1,6 @@
 """Roles router - provides role management endpoints."""
 
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import List
 from uuid import UUID
 
@@ -177,7 +177,7 @@ async def update_role(
             rps = RolePermissionSet(role_id=role_id, permission_set_id=ps_id)
             session.add(rps)
 
-    role.updated_at = datetime.utcnow()
+    role.updated_at = datetime.now(UTC)
     await session.commit()
     await session.refresh(role)
 
@@ -203,6 +203,6 @@ async def delete_role(
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
 
-    role.deleted_at = datetime.utcnow()
+    role.deleted_at = datetime.now(UTC)
     await session.commit()
     return None
