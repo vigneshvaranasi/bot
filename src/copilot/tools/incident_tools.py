@@ -7,12 +7,12 @@ improving LLM tool selection accuracy and maintainability.
 import logging
 import re
 from datetime import datetime, timedelta
-from typing import List, Optional, Callable
+from typing import List, Callable
 
 from langchain.schema import Document
 from langchain_core.tools import tool
 from langgraph.config import get_stream_writer
-from qdrant_client.http.models import FieldCondition, Filter, MatchValue, Range
+from qdrant_client.http.models import FieldCondition, Filter, MatchValue
 
 from src.copilot.tools._base import (
     _get_metadata_value,

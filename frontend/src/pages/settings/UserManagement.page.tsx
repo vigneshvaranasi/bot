@@ -4,7 +4,6 @@ import { ConfigurableTable } from "../../components/ui/Table";
 import SettingsHeader from "../../components/settings/SettingsHeader";
 import {
   fetchUsers,
-  fetchRoles,
   deleteUser,
   updateUserRoles,
   type AdminUser,
@@ -12,8 +11,8 @@ import {
 } from "../../handlers/adminHandlers";
 import { toast } from "react-hot-toast";
 import Toggle from "../../components/ui/Toggle";
-import { fetchSettings, updateSettings } from "../../handlers/settingsHandlers";
-import type { Settings } from "../../types/Settings";
+import { fetchAuthSettings, updateAuthSettings } from "../../handlers/settingsHandlers";
+import type { AuthSettings } from "../../types/Settings";
 import { logger } from "../../utils/logger";
 import { SkeletonUserManagement, SkeletonToggle } from "../../components/ui/Skeleton";
 import { ConfirmModal } from "../../components/ui/Modal";
@@ -32,6 +31,7 @@ import {
 import {
   fetchPermissions,
   fetchPermissionSets,
+  fetchRoles,
   fetchUserDirectPermissions,
   fetchUserDirectPermissionSets,
   updateUserDirectPermissions,
@@ -108,16 +108,17 @@ const UserManagement: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [rolesData, settings] = await Promise.all([
+        const [rolesData, authResponse] = await Promise.all([
           fetchRoles(),
-          fetchSettings(),
+          fetchAuthSettings(),
         ]);
         setRoles(rolesData);
-        // Set auth settings with defaults - even if settings is null (no settings in DB yet)
-        setAuthGoogleEnabled(settings?.auth_google_enabled ?? true);
-        setAuthGithubEnabled(settings?.auth_github_enabled ?? true);
-        setAuthMicrosoftEnabled(settings?.auth_microsoft_enabled ?? true);
-        setAuthLocalEnabled(settings?.auth_local_enabled ?? true);
+        // Set auth settings with defaults - even if no settings in DB yet
+        const authSettings = authResponse?.settings;
+        setAuthGoogleEnabled(authSettings?.auth_google_enabled ?? true);
+        setAuthGithubEnabled(authSettings?.auth_github_enabled ?? true);
+        setAuthMicrosoftEnabled(authSettings?.auth_microsoft_enabled ?? true);
+        setAuthLocalEnabled(authSettings?.auth_local_enabled ?? true);
         // Load initial users
         await loadUsers(1, pageSize);
       } catch (error) {
@@ -286,13 +287,13 @@ const UserManagement: React.FC = () => {
   const handleSaveAuth = async () => {
     try {
       setAuthSaving(true);
-      const authPayload: Partial<Settings> = {
+      const authPayload: Partial<AuthSettings> = {
         auth_google_enabled: authGoogleEnabled ?? true,
         auth_github_enabled: authGithubEnabled ?? true,
         auth_microsoft_enabled: authMicrosoftEnabled ?? true,
         auth_local_enabled: authLocalEnabled ?? true,
       };
-      await updateSettings(authPayload);
+      await updateAuthSettings(authPayload);
       toast.success("Authentication methods updated");
     } catch (error) {
       logger.error("Failed to save authentication settings", error);

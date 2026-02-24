@@ -171,12 +171,19 @@ const ChatView = () => {
       return;
     }
     
+    const isLastMessage = currentChat?.allMessages && 
+      currentChat.allMessages.length > 0 && 
+      currentChat.allMessages[currentChat.allMessages.length - 1].id === messageId;
+    
     if (activeFeedback.messageId === messageId && activeFeedback.feedbackType === feedbackType) {
       setActiveFeedback({ messageId: null, feedbackType: 'positive' });
     } else {
       setActiveFeedback({ messageId, feedbackType });
+      if (isLastMessage) {
+        setTimeout(() => scrollToBottom(true), 50);
+      }
     }
-  }, [currentChat?.allMessages, activeFeedback.messageId, activeFeedback.feedbackType]);
+  }, [currentChat?.allMessages, activeFeedback.messageId, activeFeedback.feedbackType, scrollToBottom]);
 
   const handleFeedbackSubmit = useCallback(async (reason: string) => {
     const { messageId, feedbackType } = activeFeedback;
@@ -276,7 +283,28 @@ const ChatView = () => {
     const el = containerRef.current;
     if (!el) return;
     if (typeof ResizeObserver !== "undefined") {
-      const ro = new ResizeObserver(() => scrollToBottom(false));
+      const getScrollParent = (element: HTMLElement): HTMLElement | null => {
+        let parent = element.parentElement;
+        while (parent) {
+          const style = getComputedStyle(parent);
+          if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+            return parent;
+          }
+          parent = parent.parentElement;
+        }
+        return null;
+      };
+      
+      const scrollParent = getScrollParent(el);
+      
+      const ro = new ResizeObserver(() => {
+        if (scrollParent) {
+          const isNearBottom = scrollParent.scrollHeight - scrollParent.scrollTop - scrollParent.clientHeight < 300;
+          if (isNearBottom) {
+            scrollToBottom(false);
+          }
+        }
+      });
       ro.observe(el);
       return () => ro.disconnect();
     }

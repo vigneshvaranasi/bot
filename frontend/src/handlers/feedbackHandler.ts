@@ -29,7 +29,7 @@ export async function submitFeedback(
   return response.json();
 }
 
-export async function getFeedbackForMessage(
+async function getFeedbackForMessage(
   token: string,
   messageId: string
 ): Promise<FeedbackResponse | null> {
@@ -64,6 +64,7 @@ export async function getFeedbackForMessages(
         feedbackMap.set(messageId, feedback);
       }
     } catch {
+      // Silently ignore - feedback may not exist for this message
     }
   });
 

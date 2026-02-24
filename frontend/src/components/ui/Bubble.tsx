@@ -63,7 +63,6 @@ const Bubble = ({ variant = "bot", content, streaming = false, stopped = false, 
         ADD_ATTR: ['class','href','target','rel'],
       });
       setRenderedContent(sanitizedContent);
-      // console.log('sanitizedContent: ', sanitizedContent);
     } catch (error) {
       console.error('Markdown parsing error:', error);
       setRenderedContent(content);

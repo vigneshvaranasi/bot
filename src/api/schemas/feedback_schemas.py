@@ -2,7 +2,6 @@
 from datetime import datetime
 from typing import Optional, List, Literal
 from pydantic import BaseModel, Field, ConfigDict
-from uuid import UUID
 
 class FeedbackCreate(BaseModel):
     """Schema for submitting feedback on a message."""

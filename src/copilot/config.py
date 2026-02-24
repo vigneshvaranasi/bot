@@ -28,15 +28,10 @@ def _get_optional_env(name: str, default: str = None) -> str:
     return os.getenv(name, default)
 
 
-# API Keys - Required for Gemini models
-GEMINI_API_KEY = _get_optional_env("GEMINI_API_KEY")
-
 # LLM Service Configuration
 OLLAMA_API_URL = _get_optional_env("OLLAMA_API_URL", "http://localhost:11434")
 
 # Model Configuration
-EMBEDDING_MODEL_NAME = "models/embedding-001"
-LLM_MODEL_NAME = "gemini-2.5-pro"
 DEFAULT_OLLAMA_MODEL = "gpt-oss:20b"
 
 # Database URLs - Required

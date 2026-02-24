@@ -10,7 +10,6 @@ This router provides endpoints for managing:
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
 from uuid import UUID
 import logging
 
@@ -18,8 +17,6 @@ from ..db.session import get_session
 from ..auth.dependencies import (
     get_current_user,
     require_permission,
-    require_any_permission,
-    get_current_user_permissions,
 )
 from ..services import permission_service
 from ..schemas.permission_schemas import (
@@ -35,11 +32,7 @@ from ..schemas.permission_schemas import (
     RoleUpdate,
     RoleResponse,
     RoleListResponse,
-    RoleBriefResponse,
     RoleEffectivePermissionsResponse,
-    UserRoleAssignment,
-    UserRolesResponse,
-    UserRoleResponse,
     UserEffectivePermissionsResponse,
 )
 

@@ -104,21 +104,6 @@ export async function saveChatToCache(
   }
 }
 
-export async function deleteChatFromCache(chatId: string, userKey?: string): Promise<void> {
-  try {
-    const db = await openDb();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_CHATS, "readwrite");
-      const store = tx.objectStore(STORE_CHATS);
-      const delReq = store.delete(keyFor(userKey, chatId));
-      delReq.onerror = () => reject(delReq.error);
-      delReq.onsuccess = () => resolve();
-    });
-  } catch (e) {
-    console.warn("deleteChatFromCache failed", e);
-  }
-}
-
 async function pruneCache(db: IDBDatabase, keepMostRecent: number, userKey?: string) {
   if (keepMostRecent <= 0) return;
   await new Promise<void>((resolve, reject) => {
@@ -204,22 +189,4 @@ export function mergeOlderMessages(
 
   // Prepend older messages
   return [...uniqueOlderMessages, ...existingMessages];
-}
-
-/**
- * Update pagination metadata in cache for a chat.
- */
-export async function updateChatCachePagination(
-  chatId: string,
-  pagination: CachedChatPagination,
-  userKey?: string
-): Promise<void> {
-  try {
-    const cached = await loadChatFromCache(chatId, userKey);
-    if (cached) {
-      await saveChatToCache(chatId, cached.messages, 20, userKey, pagination);
-    }
-  } catch (e) {
-    console.warn("updateChatCachePagination failed", e);
-  }
 }

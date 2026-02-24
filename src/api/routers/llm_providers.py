@@ -157,6 +157,39 @@ async def update_provider(
     return _to_response(provider)
 
 
+@router.put("/{provider_id}/toggle-active", response_model=LlmProviderResponse)
+async def toggle_provider_active(
+    provider_id: UUID,
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(require_permission("llm_provider.edit"))
+):
+    """Toggle a provider's active status.
+
+    Flips is_active on the provider. Prevents deactivating the last active provider.
+    """
+    service = LlmProviderService(db)
+
+    try:
+        provider = await service.toggle_active(provider_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+    if not provider:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Provider not found"
+        )
+
+    logger.info(
+        f"Admin {current_user.get('email')} toggled LLM provider {provider.name} "
+        f"active={provider.is_active}"
+    )
+    return _to_response(provider)
+
+
 @router.delete("/{provider_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_provider(
     provider_id: UUID,

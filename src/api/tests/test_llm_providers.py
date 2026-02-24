@@ -866,6 +866,82 @@ class TestDeleteProvider:
 
 
 # ============================================================
+# PATCH /llm-providers/{provider_id}/toggle-active — Toggle active
+# ============================================================
+
+
+class TestToggleActive:
+    """Tests for PATCH /llm-providers/{provider_id}/toggle-active"""
+
+    @pytest.mark.asyncio
+    async def test_toggle_active_deactivate(self, admin_client):
+        """Toggle active provider to inactive when multiple active providers exist."""
+        client, session, _ = admin_client
+
+        p1 = _make_provider(name="Provider A", is_active=True)
+        p2 = _make_provider(name="Provider B", is_active=True)
+        session.add_all([p1, p2])
+        await session.commit()
+        await session.refresh(p1)
+
+        response = await client.put(f"/llm-providers/{p1.id}/toggle-active")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_active"] is False
+
+    @pytest.mark.asyncio
+    async def test_toggle_active_activate(self, admin_client):
+        """Toggle inactive provider to active."""
+        client, session, _ = admin_client
+
+        provider = _make_provider(is_active=False)
+        session.add(provider)
+        await session.commit()
+        await session.refresh(provider)
+
+        response = await client.put(f"/llm-providers/{provider.id}/toggle-active")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["is_active"] is True
+
+    @pytest.mark.asyncio
+    async def test_toggle_active_last_provider_rejected(self, admin_client):
+        """Cannot deactivate the only active provider."""
+        client, session, _ = admin_client
+
+        provider = _make_provider(is_active=True)
+        session.add(provider)
+        await session.commit()
+        await session.refresh(provider)
+
+        response = await client.put(f"/llm-providers/{provider.id}/toggle-active")
+        assert response.status_code == 400
+        assert "Cannot deactivate the only active provider" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_toggle_active_not_found(self, admin_client):
+        """Toggle returns 404 for non-existent provider."""
+        client, _, _ = admin_client
+
+        fake_id = uuid4()
+        response = await client.put(f"/llm-providers/{fake_id}/toggle-active")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_toggle_active_requires_permission(self, no_perms_client):
+        """Toggle requires llm_provider.edit permission."""
+        client, session, _ = no_perms_client
+
+        provider = _make_provider(is_active=True)
+        session.add(provider)
+        await session.commit()
+        await session.refresh(provider)
+
+        response = await client.put(f"/llm-providers/{provider.id}/toggle-active")
+        assert response.status_code == 403
+
+
+# ============================================================
 # POST /llm-providers/{provider_id}/test — Test connection
 # ============================================================
 

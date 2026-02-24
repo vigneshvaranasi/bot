@@ -78,7 +78,7 @@ class TestListPermissions:
         from datetime import datetime, UTC
         client, session, _ = admin_client
         perm = _make_permission(code="test.deleted", name="Deleted Perm")
-        perm.deleted_at = datetime.now(UTC)
+        perm.deleted_at = datetime.now(UTC).replace(tzinfo=None)
         session.add(perm)
         await session.commit()
 

@@ -143,7 +143,7 @@ class TestListUsers:
         from datetime import datetime, UTC
         client, session, _ = admin_client
         user = await _create_user(session, email="deleted@test.com")
-        user.deleted_at = datetime.now(UTC)
+        user.deleted_at = datetime.now(UTC).replace(tzinfo=None)
         await session.commit()
 
         response = await client.get("/admin/users?search=deleted@test.com")
@@ -733,7 +733,7 @@ class TestDeleteUserEdgeCases:
         from datetime import datetime, UTC
         client, session, _ = admin_client
         user = await _create_user(session, email="alreadydel@test.com")
-        user.deleted_at = datetime.now(UTC)
+        user.deleted_at = datetime.now(UTC).replace(tzinfo=None)
         user.is_active = False
         await session.commit()
 

@@ -1,7 +1,7 @@
 import logging
 import time
 import urllib.parse
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 import httpx
 from fastapi import HTTPException, status

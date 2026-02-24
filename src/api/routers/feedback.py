@@ -48,7 +48,15 @@ async def submit_feedback(
     try:
         service = FeedbackService(db)
         user_id = UUID(current_user["user_id"])
-        message_id = UUID(data.message_id)
+        
+        # Validate message_id is a valid UUID format
+        try:
+            message_id = UUID(data.message_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid message ID format. Feedback can only be submitted for saved messages."
+            )
 
         feedback, golden_example = await service.create_feedback(
             message_id=message_id,
@@ -68,6 +76,8 @@ async def submit_feedback(
             reviewed_at=feedback.reviewed_at,
             created_at=feedback.created_at,
         )
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -86,10 +96,15 @@ async def get_feedback_for_message(
 ):
     """Get the current user's feedback for a specific message."""
     try:
+        try:
+            message_uuid = UUID(message_id)
+        except ValueError:
+            return None
+        
         service = FeedbackService(db)
         user_id = UUID(current_user["user_id"])
         
-        feedback = await service.get_feedback_by_message(UUID(message_id), user_id)
+        feedback = await service.get_feedback_by_message(message_uuid, user_id)
         if not feedback:
             return None
 
@@ -199,8 +214,7 @@ async def update_feedback_settings(
     """Update feedback auto-approval settings."""
     try:
         from src.api.services.settings_service import SettingsService
-        from src.api.schemas.setting_schemas import SettingSegment
-        
+
         settings_service = SettingsService(db)
         user_id = UUID(current_user["user_id"])
         

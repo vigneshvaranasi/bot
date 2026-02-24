@@ -80,7 +80,7 @@ class TestListChats:
         client, session, user_id = admin_client
         session.add_all([
             _make_chat(user_id, title="Active"),
-            _make_chat(user_id, title="Archived", archived_at=datetime.now(UTC)),
+            _make_chat(user_id, title="Archived", archived_at=datetime.now(UTC).replace(tzinfo=None)),
         ])
         await session.commit()
 
@@ -246,7 +246,7 @@ class TestGetChatMessages:
     async def test_get_messages_archived_chat(self, admin_client):
         """Archived chat is not accessible."""
         client, session, user_id = admin_client
-        chat = _make_chat(user_id, archived_at=datetime.now(UTC))
+        chat = _make_chat(user_id, archived_at=datetime.now(UTC).replace(tzinfo=None))
         session.add(chat)
         await session.commit()
         await session.refresh(chat)
@@ -535,7 +535,7 @@ class TestListChatsEdgeCases:
         """Chats are ordered by updated_at descending (newest first)."""
         from datetime import timedelta
         client, session, user_id = admin_client
-        now = datetime.now(UTC)
+        now = datetime.now(UTC).replace(tzinfo=None)
         c1 = _make_chat(user_id, title="First", updated_at=now - timedelta(seconds=10))
         c2 = _make_chat(user_id, title="Second", updated_at=now)
         session.add_all([c1, c2])
@@ -558,7 +558,7 @@ class TestRenameChatEdgeCases:
         This documents current behavior — the rename endpoint doesn't check archived_at.
         """
         client, session, user_id = admin_client
-        chat = _make_chat(user_id, title="Archived", archived_at=datetime.now(UTC))
+        chat = _make_chat(user_id, title="Archived", archived_at=datetime.now(UTC).replace(tzinfo=None))
         session.add(chat)
         await session.commit()
         await session.refresh(chat)
@@ -645,7 +645,7 @@ class TestArchiveChatEdgeCases:
     async def test_archive_already_archived_chat(self, admin_client):
         """Archiving an already-archived chat should still succeed."""
         client, session, user_id = admin_client
-        chat = _make_chat(user_id, title="Already Archived", archived_at=datetime.now(UTC))
+        chat = _make_chat(user_id, title="Already Archived", archived_at=datetime.now(UTC).replace(tzinfo=None))
         session.add(chat)
         await session.commit()
         await session.refresh(chat)

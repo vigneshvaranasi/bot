@@ -2,7 +2,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
-from sqlalchemy import func
 from ..db.models import User, AuthIdentity, Role, AuthProvider, RevokedToken, UserRole
 from ..core.security import get_password_hash, verify_password
 from ..core.jwt import create_access_token
@@ -88,7 +87,7 @@ async def signup_user(user_data: UserSignup, session: AsyncSession) -> dict:
     user_role = UserRole(
         user_id=new_user.id,
         role_id=role_id,
-        assigned_at=datetime.now(UTC),
+        assigned_at=datetime.now(UTC).replace(tzinfo=None),
         assigned_by=None
     )
     session.add(user_role)
@@ -238,7 +237,7 @@ async def resolve_oauth_user(profile: dict, session: AsyncSession) -> User:
     user_role = UserRole(
         user_id=new_user.id,
         role_id=role.id,
-        assigned_at=datetime.now(UTC),
+        assigned_at=datetime.now(UTC).replace(tzinfo=None),
         assigned_by=None
     )
     session.add(user_role)

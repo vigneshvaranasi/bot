@@ -2,25 +2,20 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from src.api.auth.dependencies import get_current_user, require_permission
+from src.api.auth.dependencies import require_permission
 from src.api.db.models.integration import Integration
 from src.api.db.session import get_session
 from src.api.schemas.integration_schema import (
     IntegrationBase,
     IntegrationCreate,
-    IntegrationResponse,
-    IntegrationListResponse,
 )
 from src.automation.snow import run_servicenow_ingestion
-from src.api.routers.knowledge_base import ingest_incidents_to_qdrant
 from src.api.services.incident_ingestion_service import IncidentIngestionService
 
 logger = logging.getLogger(__name__)

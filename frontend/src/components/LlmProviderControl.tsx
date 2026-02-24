@@ -31,6 +31,8 @@ type LlmProviderControlProps = {
   onTest?: (id: string) => Promise<HealthCheckResult | null>;
   onDiscoverModels?: (id: string) => Promise<ModelDiscoveryResult | null>;
   onDiscoverModelsFromConfig?: (config: LlmProviderCreate) => Promise<ModelDiscoveryResult | null>;
+  onToggleActive?: (id: string) => Promise<void>;
+  disableActiveToggle?: boolean;
   // Permission flags
   canEdit?: boolean;
   canDelete?: boolean;
@@ -52,6 +54,8 @@ export default function LlmProviderControl({
   onTest,
   onDiscoverModels,
   onDiscoverModelsFromConfig,
+  onToggleActive,
+  disableActiveToggle = false,
   canEdit = true,
   canDelete = true,
   canTest = true,
@@ -432,7 +436,14 @@ export default function LlmProviderControl({
             <input
               type="checkbox"
               checked={isActive}
-              onChange={() => setIsActive((prev) => !prev)}
+              onChange={() => {
+                if (!isNew && provider?.id && onToggleActive) {
+                  onToggleActive(provider.id);
+                } else {
+                  setIsActive((prev) => !prev);
+                }
+              }}
+              disabled={disableActiveToggle && isActive}
               className="w-3.5 h-3.5"
             />
             Active

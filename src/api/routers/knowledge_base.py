@@ -3,12 +3,10 @@ import json
 import logging
 import os
 import re
-from datetime import datetime
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,7 +26,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/knowledge-base", tags=["knowledge-base"])
 
 # Lazy-loaded dependencies (qdrant_client / sentence_transformers may not be installed)
-_model = None
 _qdrant_imports = None
 _embeddings = None
 
@@ -127,14 +124,6 @@ def get_qdrant_client():
     else:
         return q["QdrantClient"](url=q["QDRANT_URL"])
 
-class IncidentResponse(BaseModel):
-    incident_id: str
-    title: str
-    description: str
-    action_taken: str
-    opened_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    source: str = "servicenow"
 
 # GET list of incidents from knowledge base
 @router.get("/incidents")
@@ -186,7 +175,7 @@ async def list_incidents(
             # Qdrant client not available, fall back to JSON file
             pass
         except Exception as e:
-            print(f"Warning: Failed to read from Qdrant: {e}")
+            logger.warning(f"Failed to read from Qdrant: {e}")
         
         # Fallback: Read from JSON file (only shows latest sync)
         data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
@@ -271,22 +260,14 @@ async def delete_incident(
                         points_selector=points_to_delete
                     )
         except ImportError:
-            print("Warning: qdrant_client not installed, skipping Qdrant deletion")
+            logger.warning("qdrant_client not installed, skipping Qdrant deletion")
         except Exception as e:
-            print(f"Warning: Failed to delete from Qdrant: {e}")
+            logger.warning(f"Failed to delete from Qdrant: {e}")
             # Continue even if Qdrant deletion fails
         
         return {"success": True, "message": "Incident deleted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-class IncidentLogResponse(BaseModel):
-    id: str
-    incident_id: str
-    title: str
-    source: str
-    created_at: datetime
 
 
 @router.get("/logs")
@@ -461,12 +442,10 @@ async def ingest_incidents_to_qdrant(
         if session:
             await session.commit()
 
-        print(f"Successfully ingested {total_chunks} chunks from {len(incidents)} incidents in {total_batches} batches")
+        logger.info(f"Successfully ingested {total_chunks} chunks from {len(incidents)} incidents in {total_batches} batches")
         return True
     except Exception as e:
-        print(f"Error ingesting to Qdrant: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error ingesting to Qdrant: {e}", exc_info=True)
         return False
 
 

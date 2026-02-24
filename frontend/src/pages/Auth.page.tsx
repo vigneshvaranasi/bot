@@ -77,7 +77,7 @@ const AuthPage = () => {
           await login(response.data.access_token);
           return;
         }
-      } catch (loginError) {
+      } catch {
         // Login failed, try signup then login
         try {
           await http.post("/auth/signup", { email, password });

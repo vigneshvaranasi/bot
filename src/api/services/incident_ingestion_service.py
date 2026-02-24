@@ -7,7 +7,7 @@ import logging
 import math
 import uuid
 from datetime import datetime, UTC
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any
 
 from sqlalchemy import func, desc, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +19,6 @@ from src.api.db.models.incident_dataset_version import IncidentDatasetVersion
 from src.api.db.models.incident_log import IncidentLog
 from src.api.schemas.knowledge_base_schemas import (
     REQUIRED_FIELDS,
-    ALL_INCIDENT_FIELDS,
     ValidationErrorItem,
     ValidationReport,
     DatasetVersionResponse,
@@ -375,12 +374,12 @@ class IncidentIngestionService:
                 update(IncidentDatasetVersion)
                 .where(IncidentDatasetVersion.is_active == True)
                 .where(IncidentDatasetVersion.id != version.id)
-                .values(is_active=False, status="inactive", updated_at=datetime.now(UTC))
+                .values(is_active=False, status="inactive", updated_at=datetime.now(UTC).replace(tzinfo=None))
             )
 
             version.is_active = True
             version.status = "active"
-            version.activated_at = datetime.now(UTC)
+            version.activated_at = datetime.now(UTC).replace(tzinfo=None)
             await self.session.commit()
             await self.session.refresh(version)
 
@@ -634,13 +633,13 @@ class IncidentIngestionService:
             update(IncidentDatasetVersion)
             .where(IncidentDatasetVersion.is_active == True)
             .where(IncidentDatasetVersion.id != uuid.UUID(version_id))
-            .values(is_active=False, status="inactive", updated_at=datetime.now(UTC))
+            .values(is_active=False, status="inactive", updated_at=datetime.now(UTC).replace(tzinfo=None))
         )
 
         # Now safely activate target
         target.is_active = True
         target.status = "active"
-        target.activated_at = datetime.now(UTC)
+        target.activated_at = datetime.now(UTC).replace(tzinfo=None)
         if notes:
             target.notes = notes
 

@@ -2,7 +2,6 @@ import http from "../utils/http";
 import type {
   Permission,
   PermissionListResponse,
-  PermissionCategoryResponse,
   PermissionSet,
   PermissionSetCreate,
   PermissionSetUpdate,
@@ -11,11 +10,9 @@ import type {
   RoleCreate,
   RoleUpdate,
   RoleListResponse,
-  RoleEffectivePermissionsResponse,
   UserEffectivePermissionsResponse,
   UserDirectPermissionsResponse,
   UserDirectPermissionSetsResponse,
-  UserEffectivePermissionsDetailedResponse,
 } from "../types/Permission";
 
 // ==================== Permission API ====================
@@ -26,14 +23,6 @@ import type {
 export const fetchPermissions = async (): Promise<Permission[]> => {
   const response = await http.get<PermissionListResponse>("/permissions");
   return response.data.permissions;
-};
-
-/**
- * Fetch all permission categories.
- */
-export const fetchPermissionCategories = async (): Promise<string[]> => {
-  const response = await http.get<PermissionCategoryResponse>("/permissions/categories");
-  return response.data.categories;
 };
 
 /**
@@ -52,14 +41,6 @@ export const fetchMyPermissions = async (): Promise<string[]> => {
 export const fetchPermissionSets = async (): Promise<PermissionSet[]> => {
   const response = await http.get<PermissionSetListResponse>("/permissions/sets");
   return response.data.permission_sets;
-};
-
-/**
- * Fetch a permission set by ID.
- */
-export const fetchPermissionSet = async (id: string): Promise<PermissionSet> => {
-  const response = await http.get<PermissionSet>(`/permissions/sets/${id}`);
-  return response.data;
 };
 
 /**
@@ -99,14 +80,6 @@ export const fetchRoles = async (): Promise<Role[]> => {
 };
 
 /**
- * Fetch a role by ID.
- */
-export const fetchRole = async (id: string): Promise<Role> => {
-  const response = await http.get<Role>(`/permissions/roles/${id}`);
-  return response.data;
-};
-
-/**
  * Create a new role.
  */
 export const createRole = async (data: RoleCreate): Promise<Role> => {
@@ -127,16 +100,6 @@ export const updateRole = async (id: string, data: RoleUpdate): Promise<Role> =>
  */
 export const deleteRole = async (id: string): Promise<void> => {
   await http.delete(`/permissions/roles/${id}`);
-};
-
-/**
- * Fetch effective permissions for a role.
- */
-export const fetchRolePermissions = async (id: string): Promise<string[]> => {
-  const response = await http.get<RoleEffectivePermissionsResponse>(
-    `/permissions/roles/${id}/permissions`
-  );
-  return response.data.permissions;
 };
 
 // ==================== Direct User Permission API ====================
@@ -167,28 +130,6 @@ export const updateUserDirectPermissions = async (
   return response.data;
 };
 
-/**
- * Assign a single direct permission to a user.
- */
-export const assignUserDirectPermission = async (
-  userId: string,
-  permissionId: string
-): Promise<void> => {
-  await http.post(`/admin/users/${userId}/permissions/direct`, {
-    permission_id: permissionId,
-  });
-};
-
-/**
- * Remove a direct permission from a user.
- */
-export const removeUserDirectPermission = async (
-  userId: string,
-  permissionId: string
-): Promise<void> => {
-  await http.delete(`/admin/users/${userId}/permissions/direct/${permissionId}`);
-};
-
 // ==================== Direct User Permission Set API ====================
 
 /**
@@ -213,44 +154,6 @@ export const updateUserDirectPermissionSets = async (
   const response = await http.put<UserDirectPermissionSetsResponse>(
     `/admin/users/${userId}/permission-sets/direct`,
     { permission_set_ids: permissionSetIds }
-  );
-  return response.data;
-};
-
-/**
- * Assign a single direct permission set to a user.
- */
-export const assignUserDirectPermissionSet = async (
-  userId: string,
-  permissionSetId: string
-): Promise<void> => {
-  await http.post(`/admin/users/${userId}/permission-sets/direct`, {
-    permission_set_id: permissionSetId,
-  });
-};
-
-/**
- * Remove a direct permission set from a user.
- */
-export const removeUserDirectPermissionSet = async (
-  userId: string,
-  permissionSetId: string
-): Promise<void> => {
-  await http.delete(
-    `/admin/users/${userId}/permission-sets/direct/${permissionSetId}`
-  );
-};
-
-// ==================== Effective Permissions Detailed API ====================
-
-/**
- * Fetch user's effective permissions with breakdown by source.
- */
-export const fetchUserEffectivePermissionsDetailed = async (
-  userId: string
-): Promise<UserEffectivePermissionsDetailedResponse> => {
-  const response = await http.get<UserEffectivePermissionsDetailedResponse>(
-    `/admin/users/${userId}/permissions/effective`
   );
   return response.data;
 };

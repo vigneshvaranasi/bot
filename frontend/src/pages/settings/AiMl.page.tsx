@@ -13,6 +13,7 @@ import {
   createLlmProvider,
   updateLlmProvider,
   deleteLlmProvider,
+  toggleLlmProviderActive,
   testLlmProviderConnection,
   fetchAvailableModels,
   discoverProviderModels,
@@ -196,6 +197,37 @@ const AiMlConfigPage = () => {
     } catch (err) {
       logger.error("Error deleting provider", err);
       toast.error("Failed to delete provider");
+    }
+  };
+
+  const handleToggleActive = async (id: string) => {
+    setProviders((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, is_active: !p.is_active } : p))
+    );
+
+    try {
+      const result = await toggleLlmProviderActive(id);
+      if (result) {
+        setProviders((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, is_active: result.is_active } : p))
+        );
+        toast.success(`Provider ${result.is_active ? "activated" : "deactivated"}`);
+        const modelsResponse = await fetchAvailableModels();
+        if (modelsResponse?.models) {
+          setAvailableModels(modelsResponse.models);
+        }
+      } else {
+        setProviders((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, is_active: !p.is_active } : p))
+        );
+        toast.error("Failed to toggle provider status");
+      }
+    } catch (err) {
+      setProviders((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, is_active: !p.is_active } : p))
+      );
+      logger.error("Error toggling provider active status", err);
+      toast.error("Failed to toggle provider status");
     }
   };
 
@@ -405,6 +437,8 @@ const AiMlConfigPage = () => {
                   onTest={canTestProvider ? handleTestProvider : undefined}
                   onDiscoverModels={canEditProvider ? handleDiscoverModels : undefined}
                   onDiscoverModelsFromConfig={canEditProvider ? handleDiscoverModelsFromConfig : undefined}
+                  onToggleActive={canEditProvider ? handleToggleActive : undefined}
+                  disableActiveToggle={providers.length <= 1}
                   canEdit={canEditProvider}
                   canDelete={canDeleteProvider}
                   canTest={canTestProvider}

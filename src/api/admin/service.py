@@ -4,7 +4,6 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy import func, or_, delete
 from fastapi import HTTPException
 from ..db.models import AuthProvider, User, Role, UserRole
-from ..auth.service import revoke_all_user_tokens
 from ..services.audit_service import log_rbac_change, AuditEntityType, AuditAction
 from typing import Optional, Tuple, List
 import uuid
@@ -100,7 +99,7 @@ async def assign_role_to_user(
     user_role = UserRole(
         user_id=user_id,
         role_id=role_id,
-        assigned_at=datetime.now(UTC),
+        assigned_at=datetime.now(UTC).replace(tzinfo=None),
         assigned_by=assigned_by
     )
     session.add(user_role)
@@ -213,7 +212,7 @@ async def set_user_roles(
         user_role = UserRole(
             user_id=user_id,
             role_id=role.id,
-            assigned_at=datetime.now(UTC),
+            assigned_at=datetime.now(UTC).replace(tzinfo=None),
             assigned_by=assigned_by
         )
         session.add(user_role)
@@ -280,7 +279,7 @@ async def delete_user(user_id: uuid.UUID, session: AsyncSession):
         raise HTTPException(status_code=404, detail="User not found")
 
     # Soft delete - set deleted_at instead of hard delete
-    user.deleted_at = datetime.now(UTC)
+    user.deleted_at = datetime.now(UTC).replace(tzinfo=None)
     user.is_active = False
     # Revoke all tokens
     user.token_version = int(user.token_version) + 1

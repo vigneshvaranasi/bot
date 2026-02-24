@@ -187,7 +187,7 @@ const IntegrationsPage = () => {
   ) => {
     if (!id) return;
 
-    const updated = await syncIntegration(id, {
+    await syncIntegration(id, {
       onProgress: (evt) => {
         callbacks.onProgress(
           evt.message, 
@@ -210,9 +210,6 @@ const IntegrationsPage = () => {
         callbacks.onError(msg);
       },
     });
-
-    if (!updated) {
-    }
   };
 
   if (integrationsLoading) {

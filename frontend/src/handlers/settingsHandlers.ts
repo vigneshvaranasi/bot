@@ -1,49 +1,13 @@
 import http from "../utils/http";
 import { logger } from "../utils/logger";
 import type {
-    Settings,
     AiMlSettings,
     AuthSettings,
     SegmentSettingResponse,
     SettingHistoryResponse,
     SettingSegment,
+    Settings,
 } from "../types/Settings";
-
-// ============================================================
-// Legacy endpoints (for backward compatibility)
-// ============================================================
-
-export const fetchSettings = async (): Promise<Settings | null> => {
-    try {
-        const { data } = await http.get("/settings/");
-        return data;
-    } catch (error) {
-        logger.error("Error fetching settings:", error);
-        return null;
-    }
-};
-
-export const updateSettings = async (settings: Partial<Settings>): Promise<Settings | null> => {
-    try {
-        const current = await fetchSettings();
-        const merged: Partial<Settings> = {
-            ...(current ?? {}),
-            ...settings,
-        };
-
-        const { data } = await http.post("/settings/", merged);
-        return data;
-    } catch (error) {
-        logger.error("Error updating settings:", error);
-        return null;
-    }
-};
-
-// Legacy rollbackSettings endpoint removed - use rollbackToVersion instead
-
-// ============================================================
-// Segment-based endpoints
-// ============================================================
 
 export const fetchAiMlSettings = async (): Promise<SegmentSettingResponse<AiMlSettings> | null> => {
     try {

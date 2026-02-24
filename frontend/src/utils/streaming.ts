@@ -84,6 +84,7 @@ export function createMessageStreamer(params: {
     } else if (evt.event === "complete") {
       endAt = performance.now();
       const metrics = computeMetrics();
+      const realMessageId = evt.data?.message_id as string | undefined;
       setCurrentChat((prevChat: CurrentChatType | null) => {
         if (!prevChat) return prevChat;
         return {
@@ -92,6 +93,7 @@ export function createMessageStreamer(params: {
             if (m.id !== messageId) return m;
             return {
               ...m,
+              id: realMessageId || m.id,
               streaming: false,
               _finalAnswerDone: true,
               responseMetrics: metrics,

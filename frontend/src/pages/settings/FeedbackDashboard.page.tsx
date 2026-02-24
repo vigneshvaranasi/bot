@@ -204,7 +204,7 @@ const FeedbackDashboard: React.FC = () => {
       setIsDetailModalOpen(false);
       loadFeedbackList();
       loadData();
-    } catch (error) {
+    } catch {
       toast.error('Failed to dismiss feedback');
     } finally {
       setIsSubmitting(false);
@@ -340,7 +340,7 @@ const FeedbackDashboard: React.FC = () => {
       const updated = await updateFeedbackSettings(token, { [key]: value });
       setSettings(updated);
       toast.success('Settings updated');
-    } catch (error) {
+    } catch {
       toast.error('Failed to update settings');
     } finally {
       setSavingSettings(false);

@@ -23,11 +23,6 @@ export interface PermissionListResponse {
   permissions: Permission[];
 }
 
-export interface PermissionCategoryResponse {
-  status: string;
-  categories: string[];
-}
-
 // ==================== Permission Set Types ====================
 
 export interface PermissionSet {
@@ -76,10 +71,9 @@ export interface Role {
   permission_sets: PermissionSetBrief[];
 }
 
-export interface RoleBrief {
-  id: string;
-  name: string;
-  description?: string;
+export interface RoleListResponse {
+  status: string;
+  roles: Role[];
 }
 
 export interface RoleCreate {
@@ -94,18 +88,6 @@ export interface RoleUpdate {
   permission_set_codes?: string[];
 }
 
-export interface RoleListResponse {
-  status: string;
-  roles: Role[];
-}
-
-export interface RoleEffectivePermissionsResponse {
-  status: string;
-  role_id: string;
-  role_name: string;
-  permissions: string[];
-}
-
 // ==================== User Role Types ====================
 
 export interface UserRole {
@@ -113,12 +95,6 @@ export interface UserRole {
   role_name: string;
   assigned_at?: string;
   assigned_by?: string;
-}
-
-export interface UserRolesResponse {
-  status: string;
-  user_id: string;
-  roles: UserRole[];
 }
 
 export interface UserEffectivePermissionsResponse {
@@ -155,15 +131,6 @@ export interface UserDirectPermissionSetsResponse {
   status: string;
   user_id: string;
   direct_permission_sets: UserDirectPermissionSet[];
-}
-
-export interface UserEffectivePermissionsDetailedResponse {
-  status: string;
-  user_id: string;
-  from_roles: string[];
-  from_direct_sets: string[];
-  from_direct_permissions: string[];
-  effective: string[];
 }
 
 // ==================== Permission Categories ====================
@@ -254,5 +221,3 @@ export const PERMISSIONS = {
   SYSTEM_VIEW: "system.view",
   SYSTEM_EDIT: "system.edit",
 } as const;
-
-export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

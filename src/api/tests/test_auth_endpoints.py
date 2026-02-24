@@ -643,7 +643,7 @@ class TestProvidersEdgeCases:
         test_session.add(owner)
         await test_session.flush()
 
-        now = datetime.now(UTC)
+        now = datetime.now(UTC).replace(tzinfo=None)
 
         # First setting: all enabled (older timestamp)
         s1 = Setting(

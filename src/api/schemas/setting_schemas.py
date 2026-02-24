@@ -62,18 +62,6 @@ class AuthSettingsResponse(BaseModel):
 # Full settings schemas (for internal use and history)
 # ============================================================
 
-class SettingCreate(BaseModel):
-    deny_words: str = ""
-    model: str = "gemini-2.5-flash"
-    temperature: str = "0.2"
-    langfuse_enabled: bool = True
-    allow_user_model_selection: bool = False
-    auth_google_enabled: bool = True
-    auth_github_enabled: bool = True
-    auth_microsoft_enabled: bool = True
-    auth_local_enabled: bool = True
-
-
 class SettingResponse(BaseModel):
     id: UUID4
     user_id: UUID4
@@ -90,22 +78,6 @@ class SettingResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class SettingUpdate(BaseModel):
-    deny_words: Optional[str] = None
-    model: Optional[str] = None
-    temperature: Optional[str] = None
-    langfuse_enabled: Optional[bool] = None
-    allow_user_model_selection: Optional[bool] = None
-    auth_google_enabled: Optional[bool] = None
-    auth_github_enabled: Optional[bool] = None
-    auth_microsoft_enabled: Optional[bool] = None
-    auth_local_enabled: Optional[bool] = None
-
-
-class SettingListResponse(BaseModel):
-    settings: List[SettingResponse]
 
 
 # ============================================================

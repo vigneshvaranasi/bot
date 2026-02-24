@@ -71,12 +71,3 @@ def decrypt_value(ciphertext: str) -> str:
     except Exception as e:
         logger.error(f"Decryption failed: {e}")
         raise
-
-
-def is_encryption_configured() -> bool:
-    """Check if encryption is properly configured.
-
-    Returns:
-        True if ENCRYPTION_KEY is set, False otherwise.
-    """
-    return bool(os.getenv("ENCRYPTION_KEY"))

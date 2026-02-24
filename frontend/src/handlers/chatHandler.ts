@@ -3,42 +3,13 @@ import { logger } from "../utils/logger";
 
 export interface ChatSSEEventData {
   chunk?: string;
+  message_id?: string;
   message?: string;
   chat_id?: string;
   [key: string]: unknown;
 }
 
 export type ChatSSEEvent = { event: string; data: ChatSSEEventData; label?: string };
-
-export const newMessageHandlerNoStream = async (
-  chatId: string | null,
-  prompt: string,
-  token: string,
-  modelOverride?: { provider_id: string; model_id: string }
-) => {
-  const headers = new Headers();
-  headers.append("Authorization", `Bearer ${token}`);
-  headers.append("Content-Type", "application/json");
-  const response = await fetch(`${BE_URL}/chats/prompt`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      "chat_id": chatId,
-      "message": prompt,
-      ...(modelOverride && {
-        provider_id: modelOverride.provider_id,
-        model_id: modelOverride.model_id,
-      }),
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to send message");
-  }
-  const data = await response.json();
-  return data;
-};
-
 
 export const newMessageHandler = async (
   chatId: string | null,
@@ -102,17 +73,17 @@ export const newMessageHandler = async (
           const [event, data] = streamItem.split("\n");
           const actualEvent = event.slice(6).trim();
           const parsedData = JSON.parse(data.slice(5).trim());
-          if(onEvent){  
+          if(onEvent){
               onEvent({
                 event: actualEvent,
                 data: parsedData,
               });
           }
-          if(actualEvent==="complete"){
+          if(parsedData.chat_id){
             currChatId=parsedData.chat_id;
           }
 
-          
+
         } catch (error) {
           logger.error("Error parsing SSE event:", error);
         }
@@ -220,7 +191,7 @@ export const renameChatById = async (token: string, chatId: string, title: strin
   const headers = new Headers();
   headers.append("Authorization", `Bearer ${token}`);
   headers.append("Content-Type", "application/json");
-  
+
   const response = await fetch(`${BE_URL}/chats/rename/${chatId}`, {
     method: "PUT",
     headers,
@@ -232,3 +203,25 @@ export const renameChatById = async (token: string, chatId: string, title: strin
   const data = await response.json();
   return data;
 }
+
+export const savePartialMessage = async (
+  token: string,
+  messageId: string,
+  bot: string
+): Promise<boolean> => {
+  try {
+    const headers = new Headers();
+    headers.append("Authorization", `Bearer ${token}`);
+    headers.append("Content-Type", "application/json");
+
+    const response = await fetch(`${BE_URL}/chats/messages/${messageId}/partial`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ bot }),
+    });
+    return response.ok;
+  } catch (error) {
+    logger.error("Error saving partial message:", error);
+    return false;
+  }
+};

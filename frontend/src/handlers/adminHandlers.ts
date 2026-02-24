@@ -46,14 +46,6 @@ export const fetchUsers = async (
 };
 
 /**
- * Update user (legacy single role).
- */
-export const updateUser = async (userId: string, data: { is_active: boolean; role_id: string }) => {
-    const response = await http.put(`/admin/users/${userId}`, data);
-    return response.data;
-};
-
-/**
  * Delete a user.
  */
 export const deleteUser = async (userId: string) => {
@@ -61,94 +53,11 @@ export const deleteUser = async (userId: string) => {
     return response.data;
 };
 
-/**
- * Fetch all roles.
- */
-export const fetchRoles = async (): Promise<Role[]> => {
-    const response = await http.get("/roles/");
-    return response.data;
-};
-
 // ==================== Multi-role API ====================
-
-/**
- * Get all roles assigned to a user.
- */
-export const fetchUserRoles = async (userId: string): Promise<UserRole[]> => {
-    const response = await http.get(`/admin/users/${userId}/roles`);
-    return response.data.roles;
-};
 
 /**
  * Replace all roles for a user.
  */
 export const updateUserRoles = async (userId: string, roleIds: string[]): Promise<void> => {
     await http.put(`/admin/users/${userId}/roles`, { role_ids: roleIds });
-};
-
-/**
- * Assign a single role to a user.
- */
-export const assignUserRole = async (userId: string, roleId: string): Promise<void> => {
-    await http.post(`/admin/users/${userId}/roles`, { role_id: roleId });
-};
-
-/**
- * Remove a role from a user.
- */
-export const removeUserRole = async (userId: string, roleId: string): Promise<void> => {
-    await http.delete(`/admin/users/${userId}/roles/${roleId}`);
-};
-
-// ==================== Role Management API ====================
-
-export interface RoleDetail extends Role {
-    permission_sets: Array<{
-        id: string;
-        code: string;
-        name: string;
-    }>;
-}
-
-export interface CreateRoleData {
-    name: string;
-    description?: string;
-    permission_set_ids?: string[];
-}
-
-export interface UpdateRoleData {
-    name?: string;
-    description?: string;
-    permission_set_ids?: string[];
-}
-
-/**
- * Get a role with its permission sets.
- */
-export const fetchRoleDetail = async (roleId: string): Promise<RoleDetail> => {
-    const response = await http.get(`/roles/${roleId}`);
-    return response.data;
-};
-
-/**
- * Create a new role.
- */
-export const createRole = async (data: CreateRoleData): Promise<Role> => {
-    const response = await http.post("/roles/", data);
-    return response.data;
-};
-
-/**
- * Update an existing role.
- */
-export const updateRole = async (roleId: string, data: UpdateRoleData): Promise<Role> => {
-    const response = await http.put(`/roles/${roleId}`, data);
-    return response.data;
-};
-
-/**
- * Delete a role (soft delete).
- */
-export const deleteRole = async (roleId: string): Promise<void> => {
-    await http.delete(`/roles/${roleId}`);
 };

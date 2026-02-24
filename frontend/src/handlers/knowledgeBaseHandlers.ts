@@ -1,7 +1,7 @@
 import http from "../utils/http";
 import { logger } from "../utils/logger";
 import { BE_URL } from "../config/config";
-import type { DatasetVersion, DatasetVersionList, ValidationReport } from "../types/KnowledgeBase";
+import type { DatasetVersionList, ValidationReport } from "../types/KnowledgeBase";
 
 export interface Incident {
   incident_id: string;
@@ -19,29 +19,6 @@ export interface IncidentLog {
   title: string;
   source: string;
   created_at: string;
-}
-
-export async function fetchIncidents(): Promise<Incident[] | null> {
-  try {
-    const { data } = await http.get("/api/knowledge-base/incidents");
-    if (data.success) {
-      return data.incidents;
-    }
-    return null;
-  } catch (error) {
-    logger.error("Error fetching incidents:", error);
-    return null;
-  }
-}
-
-export async function deleteIncident(incidentId: string): Promise<boolean> {
-  try {
-    const { data } = await http.delete(`/api/knowledge-base/incidents/${encodeURIComponent(incidentId)}`);
-    return data.success;
-  } catch (error) {
-    logger.error("Error deleting incident:", error);
-    return false;
-  }
 }
 
 export async function fetchIncidentLogs(limit: number = 10): Promise<IncidentLog[] | null> {
@@ -193,19 +170,6 @@ export async function fetchDatasetVersions(
     return null;
   } catch (error) {
     logger.error("Error fetching dataset versions:", error);
-    return null;
-  }
-}
-
-export async function fetchActiveVersion(): Promise<DatasetVersion | null> {
-  try {
-    const { data } = await http.get("/api/knowledge-base/versions/active");
-    if (data.success) {
-      return data.version;
-    }
-    return null;
-  } catch (error) {
-    logger.error("Error fetching active version:", error);
     return null;
   }
 }

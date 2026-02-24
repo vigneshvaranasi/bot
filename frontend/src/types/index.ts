@@ -25,30 +25,6 @@ export interface ChatMessage {
   feedbackId?: string;
 }
 
-/**
- * A chat with all its messages (used for current chat state).
- */
-export interface Chat {
-  chatId: string;
-  allMessages: ChatMessage[];
-}
-
-/**
- * Chat list item from API (for sidebar display).
- */
-export interface ChatListItem {
-  id: string;
-  title: string;
-  updated_at: string;
-}
-
-/**
- * Response from getAllMyChats API.
- */
-export interface ChatsListResponse {
-  chats: ChatListItem[];
-}
-
 // ============================================================================
 // Stream Metrics Types
 // ============================================================================
@@ -62,112 +38,8 @@ export interface StreamMetrics {
 }
 
 // ============================================================================
-// Settings Types
+// Feedback Types
 // ============================================================================
-
-/**
- * Settings response from API.
- */
-export interface SettingResponse {
-  id: string;
-  user_id: string;
-  deny_words: string;
-  model: string;
-  temperature: string;
-  langfuse_enabled: boolean;
-  auth_google_enabled: boolean;
-  auth_github_enabled: boolean;
-  auth_microsoft_enabled: boolean;
-  auth_local_enabled: boolean;
-  updated_at: string;
-}
-
-/**
- * Settings update payload.
- */
-export interface SettingUpdate {
-  deny_words?: string;
-  model?: string;
-  temperature?: string;
-  langfuse_enabled?: boolean;
-  auth_google_enabled?: boolean;
-  auth_github_enabled?: boolean;
-  auth_microsoft_enabled?: boolean;
-  auth_local_enabled?: boolean;
-}
-
-// ============================================================================
-// User & Auth Types
-// ============================================================================
-
-/**
- * User information stored in auth context.
- */
-export interface User {
-  id: string;
-  email: string;
-  role: string;
-  is_active?: boolean;
-  auth_identities?: string[];
-}
-
-/**
- * Token response from login/signup.
- */
-export interface TokenResponse {
-  access_token: string;
-  token_type: string;
-  user_id: string;
-  email: string | null;
-  role: string;
-}
-
-/**
- * User response from API.
- */
-export interface UserResponse {
-  id: string;
-  email: string | null;
-  is_active: boolean;
-  role: string;
-  auth_identities: string[];
-}
-
-// ============================================================================
-// Integration Types
-// ============================================================================
-
-/**
- * Authentication type for integrations.
- */
-export type AuthType = "basic_auth" | "api_token" | "oauth2";
-
-/**
- * Integration configuration.
- */
-export interface Integration {
-  id: string;
-  service_name: string;
-  auth_type: AuthType;
-  config: Record<string, string>;
-  is_active: boolean;
-  last_synced_at?: string | null;
-  last_sync_status?: string | null;
-  last_sync_error?: string | null;
-  updated_at: string;
-}
-
-// ============================================================================
-// Role Types
-// ============================================================================
-
-/**
- * User role.
- */
-export interface Role {
-  id: string;
-  name: string;
-}
 
 export type FeedbackType = 'positive' | 'negative';
 

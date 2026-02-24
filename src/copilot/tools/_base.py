@@ -133,7 +133,6 @@ def _get_active_collection_name() -> str:
     version exists or the DB is unreachable.
     """
     try:
-        import sqlalchemy as sa
         from src.api.db.base import Base  # noqa: F401 – ensures metadata is loaded
         from sqlalchemy import create_engine, text
         import os
@@ -154,17 +153,6 @@ def _get_active_collection_name() -> str:
     except Exception:
         pass
     return config.QDRANT_COLLECTION_NAME
-
-
-def invalidate_vector_store_cache():
-    """Reset the cached vector store and retriever globals.
-
-    Called by the service layer after version activation so the copilot
-    picks up the new collection on the next query.
-    """
-    global _vector_store, _retriever
-    _vector_store = None
-    _retriever = None
 
 
 def _get_vector_store() -> QdrantVectorStore:

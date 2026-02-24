@@ -6,7 +6,7 @@ from alembic import context
 from dotenv import load_dotenv
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
 from pathlib import Path
-dotenv_path = Path(__file__).parents[2] / ".env"
+dotenv_path = Path(__file__).parents[4] / ".env"
 load_dotenv(dotenv_path)
 
 from src.api.db.base import Base

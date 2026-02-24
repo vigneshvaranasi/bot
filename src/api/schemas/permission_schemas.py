@@ -12,10 +12,6 @@ class PermissionBase(BaseModel):
     category: str
 
 
-class PermissionCreate(PermissionBase):
-    pass
-
-
 class PermissionResponse(PermissionBase):
     id: UUID4
     is_system: bool
@@ -97,13 +93,6 @@ class RoleResponse(BaseModel):
     permission_sets: List[PermissionSetBriefResponse] = []
 
 
-class RoleBriefResponse(BaseModel):
-    """Brief response for user role assignments."""
-    id: UUID4
-    name: str
-    description: Optional[str] = None
-
-
 class RoleListResponse(BaseModel):
     status: str = Field(default="success")
     roles: List[RoleResponse]
@@ -141,20 +130,6 @@ class UserEffectivePermissionsResponse(BaseModel):
     status: str = Field(default="success")
     user_id: UUID4
     permissions: List[str]  # List of permission codes
-
-
-# ==================== Bulk Operations ====================
-
-class BulkRoleAssignment(BaseModel):
-    user_ids: List[UUID4]
-    role_id: UUID4
-
-
-class BulkRoleAssignmentResponse(BaseModel):
-    status: str = Field(default="success")
-    assigned_count: int
-    failed_count: int
-    errors: List[str] = []
 
 
 # ==================== Direct User Permission Schemas ====================

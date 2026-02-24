@@ -5,7 +5,7 @@ import PromptBar from "../components/PromptBar";
 import type { ModelOverride } from "../components/PromptBar";
 import { useSidebarContext } from "../hooks/useSidebarContext";
 import { Outlet, useNavigate, useParams } from "react-router-dom";
-import { newMessageHandler } from "../handlers/chatHandler";
+import { newMessageHandler, savePartialMessage } from "../handlers/chatHandler";
 import { useAuthContext } from "../hooks/useAuthContext";
 import { saveChatMetrics } from "../utils/metrics";
 import { saveChatToCache } from "../utils/chatCache";
@@ -35,9 +35,14 @@ function ChatPage() {
       return;
     }
     const newMessageId = Date.now().toString();
+    const currChatId = chatId || "";
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    let streamedChatId = "";
+    let streamedMessageId = "";
 
     try {
-      const currChatId = chatId || "";
       logger.debug("currChatId:", currChatId);
 
       setCurrentChat((prevChat: CurrentChatType | null) => ({
@@ -68,14 +73,21 @@ function ChatPage() {
         return;
       }
 
-      const controller = new AbortController();
-      abortRef.current = controller;
+      const wrappedOnEvent = (evt: Parameters<typeof streamer.onEvent>[0]) => {
+        if (evt?.data?.chat_id) {
+          streamedChatId = evt.data.chat_id as string;
+        }
+        if (evt?.data?.message_id) {
+          streamedMessageId = evt.data.message_id as string;
+        }
+        streamer.onEvent(evt);
+      };
 
       const res = await newMessageHandler(
         currChatId,
         prompt,
         token,
-        streamer.onEvent,
+        wrappedOnEvent,
         modelOverride,
         controller.signal
       );
@@ -101,11 +113,13 @@ function ChatPage() {
         // Cache errors are non-critical
       }
     } catch (error: unknown) {
-      if (error instanceof DOMException && error.name === "AbortError") {
+      if (controller.signal.aborted) {
+        let partialBot = "";
         setCurrentChat((prevChat: CurrentChatType | null) => {
           if (!prevChat) return null;
           const updatedMessages = prevChat.allMessages.map((msg: ChatMessage) => {
             if (msg.id === newMessageId) {
+              partialBot = msg.botMessage || "";
               return {
                 ...msg,
                 streaming: false,
@@ -115,8 +129,24 @@ function ChatPage() {
             }
             return msg;
           });
-          return { ...prevChat, allMessages: updatedMessages };
+          return {
+            ...prevChat,
+            chatId: streamedChatId || prevChat.chatId,
+            allMessages: updatedMessages,
+          };
         });
+
+        if (currChatId === "" && streamedChatId) {
+          navigate(`/${streamedChatId}`, { replace: true });
+          triggerRefreshChats();
+        }
+
+        if (streamedMessageId && partialBot) {
+          const token = localStorage.getItem("token");
+          if (token) {
+            savePartialMessage(token, streamedMessageId, partialBot);
+          }
+        }
       } else {
         logger.error("Error sending prompt:", error);
         const errorMessage = error instanceof Error ? error.message : "An error occurred.";

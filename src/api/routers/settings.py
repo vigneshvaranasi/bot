@@ -5,23 +5,16 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.auth.dependencies import get_current_user, require_permission, require_any_permission
-from src.api.db.models import Setting
+from src.api.auth.dependencies import require_permission, require_any_permission
 from src.api.db.session import get_session
 from src.api.schemas.setting_schemas import (
-    SettingCreate,
     SettingResponse,
-    SettingListResponse,
     SettingSegment,
     ChangeType,
-    ChangeDescription,
     AiMlSettingsUpdate,
-    AiMlSettingsResponse,
     AuthSettingsUpdate,
-    AuthSettingsResponse,
     SettingHistoryResponse,
     SettingHistoryItem,
     SegmentSettingResponse,
@@ -221,101 +214,3 @@ async def rollback_to_version(
 
     logger.info(f"Admin {current_user.get('email')} rolled back to version {version_id}")
     return SettingResponse.model_validate(new_setting)
-
-
-# ============================================================
-# Legacy endpoints
-# ============================================================
-
-@router.post("/", response_model=SettingResponse, status_code=status.HTTP_201_CREATED)
-async def create_setting(
-    setting: SettingCreate,
-    db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_any_permission("aiml.edit", "auth.edit"))
-):
-    """Create a new settings version (legacy endpoint)."""
-    service = SettingsService(db)
-    latest_setting = await service.get_latest_setting()
-
-    # Check if there are actual changes
-    if latest_setting and (
-        latest_setting.deny_words == setting.deny_words and
-        latest_setting.model == setting.model and
-        latest_setting.temperature == setting.temperature and
-        latest_setting.langfuse_enabled == setting.langfuse_enabled and
-        latest_setting.auth_google_enabled == setting.auth_google_enabled and
-        latest_setting.auth_github_enabled == setting.auth_github_enabled and
-        latest_setting.auth_microsoft_enabled == setting.auth_microsoft_enabled and
-        latest_setting.auth_local_enabled == setting.auth_local_enabled
-    ):
-        logger.debug("No changes detected, returning existing setting")
-        return SettingResponse.model_validate(latest_setting)
-
-    # Create new setting
-    new_setting = Setting(
-        user_id=UUID(current_user["user_id"]),
-        deny_words=setting.deny_words,
-        model=setting.model,
-        temperature=setting.temperature,
-        langfuse_enabled=setting.langfuse_enabled,
-        auth_google_enabled=setting.auth_google_enabled,
-        auth_github_enabled=setting.auth_github_enabled,
-        auth_microsoft_enabled=setting.auth_microsoft_enabled,
-        auth_local_enabled=setting.auth_local_enabled
-    )
-    db.add(new_setting)
-    await db.commit()
-    await db.refresh(new_setting)
-    logger.debug("Created new setting")
-    return SettingResponse.model_validate(new_setting)
-
-
-@router.get("/", response_model=Optional[SettingResponse])
-async def get_latest_setting(
-    db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_any_permission("aiml.view", "auth.view"))
-):
-    """Get the latest settings version (legacy endpoint).
-
-    Returns null if no settings have been configured yet.
-    """
-    service = SettingsService(db)
-    setting = await service.get_latest_setting()
-
-    if not setting:
-        return None
-
-    return SettingResponse.model_validate(setting)
-
-
-@router.get("/all", response_model=SettingListResponse)
-async def list_settings(
-    db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_permission("history.view"))
-):
-    """List all settings versions (legacy endpoint)."""
-    service = SettingsService(db)
-    settings, _ = await service.get_settings_history(limit=100, offset=0)
-    return SettingListResponse(settings=[SettingResponse.model_validate(s) for s in settings])
-
-
-@router.get("/last", response_model=Optional[SettingResponse])
-async def get_last_setting(
-    db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_any_permission("aiml.view", "auth.view"))
-):
-    """Get the last setting (alias for get_latest_setting).
-
-    Returns null if no settings have been configured yet.
-    """
-    service = SettingsService(db)
-    setting = await service.get_latest_setting()
-
-    if not setting:
-        return None
-
-    return SettingResponse.model_validate(setting)
-
-
-# Legacy PUT /rollback endpoint removed - use POST /rollback/{version_id} instead
-# The old endpoint was destructive (deleted rows) which violates append-only history

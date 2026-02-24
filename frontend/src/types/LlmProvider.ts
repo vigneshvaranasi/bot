@@ -116,36 +116,6 @@ export interface AvailableModelsResponse {
 }
 
 /**
- * Default models for each provider type.
- */
-export const PROVIDER_MODELS: Record<ProviderType, string[]> = {
-  anthropic: [
-    'claude-3-5-sonnet-20241022',
-    'claude-3-5-haiku-20241022',
-    'claude-3-opus-20240229',
-    'claude-3-sonnet-20240229',
-    'claude-3-haiku-20240307',
-  ],
-  openai: [
-    'gpt-4o',
-    'gpt-4o-mini',
-    'gpt-4-turbo',
-    'gpt-4',
-    'gpt-3.5-turbo',
-    'o1-preview',
-    'o1-mini',
-  ],
-  google: [
-    'gemini-2.0-flash-exp',
-    'gemini-1.5-pro',
-    'gemini-1.5-flash',
-    'gemini-1.5-flash-8b',
-    'gemini-1.0-pro',
-  ],
-  custom: [],
-};
-
-/**
  * Display labels for provider types.
  */
 export const PROVIDER_LABELS: Record<ProviderType, string> = {
@@ -231,28 +201,3 @@ export const AUTH_TYPE_OPTIONS = [
   { value: 'api_key_header', label: 'API Key Header' },
   { value: 'basic', label: 'Basic Auth' },
 ];
-
-/**
- * Check if a provider requires an API key.
- */
-export function requiresApiKey(providerType: ProviderType): boolean {
-  return PROVIDER_FIELDS[providerType].apiKeyRequired;
-}
-
-/**
- * Get default base URL for a provider type.
- */
-export function getDefaultBaseUrl(providerType: ProviderType): string | null {
-  switch (providerType) {
-    case 'anthropic':
-      return 'https://api.anthropic.com';
-    case 'openai':
-      return 'https://api.openai.com';
-    case 'google':
-      return null; // Google uses SDK, no base URL
-    case 'custom':
-      return '';
-    default:
-      return null;
-  }
-}

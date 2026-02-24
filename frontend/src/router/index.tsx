@@ -10,7 +10,6 @@ import ProtectedRoute from "./ProtectedRoute";
 import OAuthCallback from "../pages/OAuthCallback.page";
 import SettingsLayout from "../components/settings/SettingsLayout";
 import MyAccountPage from "../pages/settings/MyAccount.page";
-// import SystemConfigPage from "../pages/settings/System.page";
 import AiMlConfigPage from "../pages/settings/AiMl.page";
 import IntegrationsPage from "../pages/settings/Integrations.page";
 import ConfigurationHistoryPage from "../pages/settings/ConfigurationHistory.page";
@@ -66,7 +65,6 @@ const normalRoutes: RouteObject = {
                   element: <ConfigurationHistoryPage />,
                 },
                 { path: "knowledge-base", element: <KnowledgeBasePage /> },
-                // { path: "system", element: <SystemConfigPage /> },
               ],
             },
           ],

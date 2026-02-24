@@ -7,15 +7,11 @@ from uuid import UUID
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import joinedload
-
 from src.api.db.models import Setting, User
 from src.api.schemas.setting_schemas import (
     SettingSegment,
     ChangeType,
     ChangeDescription,
-    AiMlSettingsResponse,
-    AuthSettingsResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -210,27 +206,6 @@ class SettingsService:
         fields = SEGMENT_FIELDS.get(segment, [])
         return {field: DEFAULT_SETTINGS.get(field) for field in fields}
 
-    def get_segment_response(self, setting: Setting, segment: SettingSegment):
-        """Get the appropriate response schema for a segment."""
-        if segment == SettingSegment.AIML:
-            return AiMlSettingsResponse(
-                model=setting.model,
-                temperature=setting.temperature,
-                deny_words=setting.deny_words,
-                langfuse_enabled=setting.langfuse_enabled,
-                provider_id=str(setting.provider_id) if setting.provider_id else None,
-                allow_user_model_selection=setting.allow_user_model_selection,
-            )
-        elif segment == SettingSegment.AUTH:
-            return AuthSettingsResponse(
-                auth_google_enabled=setting.auth_google_enabled,
-                auth_github_enabled=setting.auth_github_enabled,
-                auth_microsoft_enabled=setting.auth_microsoft_enabled,
-                auth_local_enabled=setting.auth_local_enabled,
-            )
-        else:
-            raise ValueError(f"Unknown segment: {segment}")
-
     async def update_segment(
         self,
         segment: SettingSegment,
@@ -343,20 +318,3 @@ class SettingsService:
             f"Source: {current_setting.id if current_setting else 'None'}"
         )
         return new_setting
-
-    async def get_version_for_comparison(self, version_id: UUID) -> Optional[Dict[str, Any]]:
-        """Get a specific version with user info for comparison."""
-        result = await self.session.execute(
-            select(Setting, User.email)
-            .join(User, Setting.user_id == User.id, isouter=True)
-            .where(Setting.id == version_id)
-        )
-        row = result.first()
-        if not row:
-            return None
-
-        setting, user_email = row
-        return {
-            "setting": setting,
-            "user_email": user_email,
-        }

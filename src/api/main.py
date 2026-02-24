@@ -47,9 +47,6 @@ from src.api.admin.router import router as admin_router
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(admin_router, prefix="/admin", tags=["Admin"])
 
-from src.api.routers import roles
-app.include_router(roles.router, prefix="/roles", tags=["Roles"])
-
 from src.api.routers import chat
 app.include_router(chat.router, prefix="/chats", tags=["Chat"])
 

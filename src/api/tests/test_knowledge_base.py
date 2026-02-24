@@ -906,7 +906,7 @@ class TestIncidentLogsEdgeCases:
         """Logs should be ordered by created_at descending."""
         from datetime import timedelta
         client, session, _ = admin_client
-        now = datetime.now(UTC)
+        now = datetime.now(UTC).replace(tzinfo=None)
 
         old_log = IncidentLog(
             incident_id="INC_OLD", title="Old", source="servicenow",

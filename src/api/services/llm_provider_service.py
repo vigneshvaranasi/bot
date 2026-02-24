@@ -16,7 +16,6 @@ from sqlalchemy.future import select
 from src.api.db.models.llm_provider import LlmProvider
 from src.api.services.encryption_service import encrypt_value, decrypt_value
 from src.api.schemas.llm_provider_schemas import (
-    ProviderType,
     LlmProviderCreate,
     LlmProviderUpdate,
     AvailableModel,
@@ -190,6 +189,38 @@ class LlmProviderService:
 
         logger.info(f"Deleted LLM provider: {provider_name}")
         return True
+
+    async def toggle_active(self, provider_id: UUID) -> Optional[LlmProvider]:
+        """Toggle a provider's is_active flag.
+
+        Prevents deactivating the last active provider.
+
+        Args:
+            provider_id: UUID of the provider to toggle.
+
+        Returns:
+            Updated LlmProvider or None if not found.
+
+        Raises:
+            ValueError: If trying to deactivate the last active provider.
+        """
+        provider = await self.get_provider(provider_id)
+        if not provider:
+            return None
+
+        # If currently active, check it's not the last active provider
+        if provider.is_active:
+            active_providers = await self.list_providers(active_only=True)
+            if len(active_providers) <= 1:
+                raise ValueError("Cannot deactivate the only active provider")
+
+        provider.is_active = not provider.is_active
+
+        await self.session.commit()
+        await self.session.refresh(provider)
+
+        logger.info(f"Toggled LLM provider '{provider.name}' active={provider.is_active}")
+        return provider
 
     async def test_connection(self, provider_id: UUID) -> Dict[str, Any]:
         """Test connection to an LLM provider.

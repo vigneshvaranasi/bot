@@ -10,7 +10,6 @@ This service provides functions to:
 import logging
 from typing import List, Set, Optional
 from uuid import UUID
-from functools import lru_cache
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -22,10 +21,8 @@ from ..db.models import (
     PermissionSetPermission,
     Role,
     RolePermissionSet,
-    UserRole,
     UserPermission,
     UserPermissionSet,
-    User,
 )
 from .audit_service import log_rbac_change, AuditEntityType, AuditAction
 
@@ -102,51 +99,6 @@ async def get_role_permissions(role_id: UUID, session: AsyncSession) -> Set[str]
 
     result = await session.execute(query, {"role_id": str(role_id)})
     return {row[0] for row in result.fetchall()}
-
-
-async def user_has_permission(user_id: UUID, permission_code: str, session: AsyncSession) -> bool:
-    """Check if a user has a specific permission.
-
-    Args:
-        user_id: The user's UUID
-        permission_code: The permission code to check
-        session: Database session
-
-    Returns:
-        True if user has the permission, False otherwise
-    """
-    permissions = await get_user_permissions(user_id, session)
-    return permission_code in permissions
-
-
-async def user_has_any_permission(user_id: UUID, permission_codes: List[str], session: AsyncSession) -> bool:
-    """Check if a user has any of the specified permissions.
-
-    Args:
-        user_id: The user's UUID
-        permission_codes: List of permission codes to check
-        session: Database session
-
-    Returns:
-        True if user has at least one permission, False otherwise
-    """
-    permissions = await get_user_permissions(user_id, session)
-    return bool(permissions.intersection(set(permission_codes)))
-
-
-async def user_has_all_permissions(user_id: UUID, permission_codes: List[str], session: AsyncSession) -> bool:
-    """Check if a user has all of the specified permissions.
-
-    Args:
-        user_id: The user's UUID
-        permission_codes: List of permission codes to check
-        session: Database session
-
-    Returns:
-        True if user has all permissions, False otherwise
-    """
-    permissions = await get_user_permissions(user_id, session)
-    return set(permission_codes).issubset(permissions)
 
 
 # ==================== Permission CRUD ====================
@@ -325,7 +277,7 @@ async def delete_permission_set(id: UUID, session: AsyncSession) -> bool:
         return False
 
     from datetime import datetime, UTC
-    permission_set.deleted_at = datetime.now(UTC)
+    permission_set.deleted_at = datetime.now(UTC).replace(tzinfo=None)
     await session.commit()
     return True
 
@@ -461,128 +413,9 @@ async def delete_role(id: UUID, session: AsyncSession) -> bool:
         return False
 
     from datetime import datetime, UTC
-    role.deleted_at = datetime.now(UTC)
+    role.deleted_at = datetime.now(UTC).replace(tzinfo=None)
     await session.commit()
     return True
-
-
-# ==================== User Role Management ====================
-
-async def get_user_roles(user_id: UUID, session: AsyncSession) -> List[UserRole]:
-    """Get all roles assigned to a user."""
-    result = await session.execute(
-        select(UserRole)
-        .where(UserRole.user_id == user_id)
-        .options(selectinload(UserRole.role))
-    )
-    return list(result.scalars().all())
-
-
-async def assign_role_to_user(
-    user_id: UUID,
-    role_id: UUID,
-    assigned_by: Optional[UUID] = None,
-    session: AsyncSession = None
-) -> UserRole:
-    """Assign a role to a user."""
-    # Check if already assigned
-    result = await session.execute(
-        select(UserRole)
-        .where(UserRole.user_id == user_id)
-        .where(UserRole.role_id == role_id)
-    )
-    existing = result.scalar_one_or_none()
-    if existing:
-        return existing
-
-    # Get role name for audit
-    role = await get_role_by_id(role_id, session)
-    role_name = role.name if role else "Unknown"
-
-    user_role = UserRole(
-        user_id=user_id,
-        role_id=role_id,
-        assigned_by=assigned_by
-    )
-    session.add(user_role)
-
-    # Audit log
-    await log_rbac_change(
-        session=session,
-        entity_type=AuditEntityType.USER_ROLE,
-        entity_id=user_id,
-        secondary_entity_id=role_id,
-        action=AuditAction.ASSIGN,
-        changed_by=assigned_by,
-        new_value={"role_id": str(role_id), "role_name": role_name}
-    )
-
-    await session.commit()
-    await session.refresh(user_role)
-    return user_role
-
-
-async def remove_role_from_user(
-    user_id: UUID,
-    role_id: UUID,
-    session: AsyncSession,
-    removed_by: Optional[UUID] = None
-) -> bool:
-    """Remove a role from a user."""
-    result = await session.execute(
-        select(UserRole)
-        .where(UserRole.user_id == user_id)
-        .where(UserRole.role_id == role_id)
-        .options(selectinload(UserRole.role))
-    )
-    user_role = result.scalar_one_or_none()
-    if not user_role:
-        return False
-
-    role_name = user_role.role.name if user_role.role else "Unknown"
-
-    # Audit log
-    await log_rbac_change(
-        session=session,
-        entity_type=AuditEntityType.USER_ROLE,
-        entity_id=user_id,
-        secondary_entity_id=role_id,
-        action=AuditAction.UNASSIGN,
-        changed_by=removed_by,
-        old_value={"role_id": str(role_id), "role_name": role_name}
-    )
-
-    await session.delete(user_role)
-    await session.commit()
-    return True
-
-
-async def set_user_roles(
-    user_id: UUID,
-    role_ids: List[UUID],
-    assigned_by: Optional[UUID] = None,
-    session: AsyncSession = None
-) -> List[UserRole]:
-    """Set all roles for a user (replaces existing roles)."""
-    # Remove existing roles
-    await session.execute(
-        text("DELETE FROM user_roles WHERE user_id = :user_id"),
-        {"user_id": str(user_id)}
-    )
-
-    # Add new roles
-    user_roles = []
-    for role_id in role_ids:
-        user_role = UserRole(
-            user_id=user_id,
-            role_id=role_id,
-            assigned_by=assigned_by
-        )
-        session.add(user_role)
-        user_roles.append(user_role)
-
-    await session.commit()
-    return user_roles
 
 
 # ==================== Direct User Permission Management ====================

@@ -1,11 +1,10 @@
 import asyncio
 import json
 import logging
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import AIMessage, AIMessageChunk
+from langchain_core.messages import AIMessageChunk
 from langfuse import get_client, propagate_attributes
 from sqlalchemy import asc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +13,7 @@ from scripts.cache import check_cache_for_query, store_chat_response
 from src.api.auth.dependencies import get_current_user
 from src.api.db.models import Chat, Message, Setting
 from src.api.db.session import get_session
-from src.api.schemas.chat_schema import ChatListItem, ChatRenameRequest, PromptModel
+from src.api.schemas.chat_schema import ChatListItem, ChatRenameRequest, MessagePartialUpdate, PromptModel
 from src.api.utils.llm_provider_helper import get_provider_config_for_chat, get_provider_config_for_model
 from src.api.utils.tracing import conditional_observation
 from src.copilot.graph import create_agent_graph, set_llm_from_config, generate_title_from_query
@@ -190,7 +189,6 @@ async def prompt_stream(
     human_message = request.message
     chat_id = request.chat_id
     user_id = current_user["user_id"]
-    new_chat = None
     try:
         is_valid, reject_msg, settings = await validate_prompt(human_message, session)
         if not is_valid:
@@ -260,6 +258,14 @@ async def prompt_stream(
             "generate_title": not needs_title,
         }
 
+        pre_saved_message = Message(
+            chat_id=actual_chat_id, human=human_message, bot=""
+        )
+        session.add(pre_saved_message)
+        await session.commit()
+        await session.refresh(pre_saved_message)
+        cached_response = check_cache_for_query(human_message)
+
         async def stream_generator():
             title_queue = asyncio.Queue()
             title_task = None
@@ -311,37 +317,32 @@ async def prompt_stream(
                     await session.rollback()
                     logger.debug(f"[TITLE DB] Error saving title: {e}")
 
-            # Check cache first before processing with LangGraph
-            # Only use cache for self-contained queries without conversation context
-            logger.debug(f"[CACHE CHECK] Checking cache for query: '{human_message[:50]}...'")
-            logger.debug(f"[CACHE CHECK] Has conversation history: {has_conversation_history}")
-            cached_response = check_cache_for_query(human_message)
+            yield f"event: chat_init\ndata: {json.dumps({'chat_id': str(actual_chat_id), 'message_id': str(pre_saved_message.id)})}\n\n"
 
             if cached_response:
                 logger.debug(f"[CACHE HIT] Found cached response, streaming from cache")
-                # Stream cached response
-                yield f"event: status\ndata: {json.dumps({'message': 'Found cached response, delivering instantly...'})}\n\n"
 
                 if needs_title:
                     title_task = asyncio.create_task(parallel_title_generator())
 
-                # Save cached response to database (if new chat)
+                # Update pre-saved message with cached response
                 try:
-                    new_message = Message(
-                        chat_id=actual_chat_id,
-                        human=human_message,
-                        bot=cached_response,
+                    # Re-fetch the message to ensure we have a fresh object attached to the session
+                    msg_result = await session.execute(
+                        select(Message).where(Message.id == pre_saved_message.id)
                     )
-                    session.add(new_message)
-                    await session.commit()
-                    await session.refresh(new_message)
+                    msg_to_update = msg_result.scalar_one_or_none()
+                    if msg_to_update:
+                        msg_to_update.bot = cached_response
+                        await session.commit()
                 except Exception as e:
                     await session.rollback()
-                    logger.debug(f"Error saving cached response to database: {e}")
-                
+                    logger.debug(f"Error updating message with cached response: {e}")
+
+                yield f"event: status\ndata: {json.dumps({'message': 'Found cached response, delivering instantly...'})}\n\n"
+
                 # Stream the cached answer - send content chunks preserving markdown
                 logger.debug(f"[CACHE STREAM] Streaming cached response with markdown formatting")
-                
                 # Split by characters to preserve newlines and markdown formatting
                 chunk_size = 5  # Send 5 characters at a time for smooth streaming
                 for i in range(0, len(cached_response), chunk_size):
@@ -367,7 +368,7 @@ async def prompt_stream(
                         logger.debug("[PARALLEL TITLE] Timeout waiting for title")
 
                 # Send completion event with full answer
-                final_data = {"answer": cached_response, "chat_id": str(actual_chat_id)}
+                final_data = {"answer": cached_response, "chat_id": str(actual_chat_id), "message_id": str(pre_saved_message.id)}
                 yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
                 logger.debug(f"[CACHE STREAM] Stream completed successfully")
                 return
@@ -435,9 +436,6 @@ async def prompt_stream(
                                             except asyncio.TimeoutError:
                                                 logger.debug("[PARALLEL TITLE] Timeout at completion")
 
-                                        final_data = {"answer": answer, "chat_id": str(actual_chat_id)}
-                                        yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
-
                                         # Store response in cache for future use
                                         try:
                                             logger.debug(f"[CACHE STORE] Storing response in cache for query: '{human_message[:50]}...'")
@@ -446,17 +444,22 @@ async def prompt_stream(
                                         except Exception as e:
                                             logger.debug(f"[CACHE ERROR] Error storing response in cache: {e}")
 
-                                        # Finalize and save message to DB
+                                        # Update the pre-saved message with the full answer
                                         try:
-                                            message = Message(
-                                                chat_id=actual_chat_id, human=human_message, bot=answer
+                                            # Re-fetch the message to ensure we have a fresh object attached to the session
+                                            msg_result = await session.execute(
+                                                select(Message).where(Message.id == pre_saved_message.id)
                                             )
-                                            session.add(message)
-                                            memory_saved = True
-                                            await session.commit()
+                                            msg_to_update = msg_result.scalar_one_or_none()
+                                            if msg_to_update:
+                                                msg_to_update.bot = answer
+                                                memory_saved = True
+                                                await session.commit()
                                         except Exception as e:
                                             await session.rollback()
-                                            logger.debug(f"Error saving message to database: {e}")
+
+                                        final_data = {"answer": answer, "chat_id": str(actual_chat_id), "message_id": str(pre_saved_message.id)}
+                                        yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
 
                             elif mode == "messages":
                                 token_chunk, metadata = chunk
@@ -480,6 +483,20 @@ async def prompt_stream(
                 # Ensure title task is cleaned up
                 if title_task and not title_task.done():
                     title_task.cancel()
+                # Update pre-saved message with partial answer on disconnect
+                print(f"[STREAM FINALLY] memory_saved={memory_saved}, answer_len={len(answer) if answer else 0}")
+                if not memory_saved and answer:
+                    try:
+                        # Re-fetch the message to ensure we have a fresh object attached to the session
+                        msg_result = await session.execute(
+                            select(Message).where(Message.id == pre_saved_message.id)
+                        )
+                        msg_to_update = msg_result.scalar_one_or_none()
+                        if msg_to_update:
+                            msg_to_update.bot = answer
+                            await session.commit()
+                    except Exception as save_err:
+                        await session.rollback()
 
         return StreamingResponse(
             stream_generator(),
@@ -506,11 +523,7 @@ async def get_graph_response_non_stream(inputs, config, graph=None):
         # Run blocking graph invoke in thread pool to avoid blocking event loop
         result = await asyncio.to_thread(graph.invoke, inputs, config=config)
         final_message = result["messages"][-1]
-
-        if isinstance(final_message, AIMessage):
-            answer = str(final_message.content)
-        else:
-            answer = str(final_message.content)
+        answer = str(final_message.content)
         title = result.get("title") if isinstance(result, dict) else None
         return answer, title
     except Exception as e:
@@ -528,7 +541,6 @@ async def prompt(
     human_message = request.message
     chat_id = request.chat_id
     user_id = current_user["user_id"]
-    new_chat = None
     try:
         is_valid, reject_msg, settings = await validate_prompt(human_message, session)
         if not is_valid:
@@ -792,3 +804,27 @@ async def archive_chat(
             "error": True,
             "message": f"An error occurred while archiving the chat: {e}",
         }
+
+
+@router.patch("/messages/{message_id}/partial")
+async def save_partial_message(
+    message_id: str,
+    data: MessagePartialUpdate,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """Save a partial bot response (e.g. when user stops streaming)."""
+    user_id = current_user["user_id"]
+    result = await session.execute(
+        select(Message).join(Chat, Message.chat_id == Chat.id).where(
+            Message.id == message_id,
+            Chat.user_id == user_id,
+        )
+    )
+    message = result.scalar_one_or_none()
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    message.bot = data.bot
+    await session.commit()
+    return {"success": True}

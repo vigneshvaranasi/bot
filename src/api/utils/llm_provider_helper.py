@@ -6,7 +6,6 @@ and prepare it for the copilot graph.
 
 import logging
 from typing import Any, Dict, Optional
-from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -209,19 +208,3 @@ async def get_provider_config_for_model(
         return await get_provider_config_for_chat(session)
 
     return config
-
-
-async def get_provider_for_title_generation(
-    session: AsyncSession,
-) -> Dict[str, Any]:
-    """Fetch provider configuration specifically for title generation.
-
-    Uses the same provider as chat but could be customized if needed.
-
-    Args:
-        session: Async database session.
-
-    Returns:
-        Provider configuration dictionary.
-    """
-    return await get_provider_config_for_chat(session)

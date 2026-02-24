@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 
 /**
  * Hook that delays showing a loading indicator until after a threshold.
@@ -35,28 +35,6 @@ export function useDelayedLoading(isLoading: boolean, delay: number = 150): bool
   }, [isLoading, delay]);
 
   return showLoading;
-}
-
-/**
- * Hook for managing loading state with delayed indicator.
- * Returns loading controls and a delayed showLoading flag.
- *
- * @param delay - Delay in ms before showing loading indicator (default: 150ms)
- */
-export function useLoadingState(delay: number = 150) {
-  const [isLoading, setIsLoading] = useState(false);
-  const showLoading = useDelayedLoading(isLoading, delay);
-
-  const startLoading = useCallback(() => setIsLoading(true), []);
-  const stopLoading = useCallback(() => setIsLoading(false), []);
-
-  return {
-    isLoading,
-    showLoading,
-    startLoading,
-    stopLoading,
-    setIsLoading,
-  };
 }
 
 export default useDelayedLoading;

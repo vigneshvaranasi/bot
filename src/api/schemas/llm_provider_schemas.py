@@ -19,14 +19,6 @@ class ProviderType(str, Enum):
     CUSTOM = "custom"
 
 
-class CustomAuthType(str, Enum):
-    """Authentication types for custom providers."""
-    NONE = "none"
-    BEARER = "bearer"
-    BASIC = "basic"
-    API_KEY_HEADER = "api_key_header"
-
-
 # Predefined model lists for each provider
 ANTHROPIC_MODELS = [
     "claude-opus-4-5-20251101",

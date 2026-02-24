@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
 
-from src.api.db.models import MessageFeedback, GoldenExample, Message, Chat, User, Setting
+from src.api.db.models import MessageFeedback, GoldenExample, Message, User, Setting
 
 logger = logging.getLogger(__name__)
 

@@ -10,8 +10,5 @@ PROVIDER_REGISTRY: Dict[str, Type[BaseProvider]] = {
     "microsoft": MicrosoftProvider
 }
 
-def register_provider(name: str, provider_cls: Type[BaseProvider]):
-    PROVIDER_REGISTRY[name] = provider_cls
-
 def get_provider_class(name: str) -> Optional[Type[BaseProvider]]:
     return PROVIDER_REGISTRY.get(name)

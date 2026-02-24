@@ -2,9 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import List
 import uuid
-import logging
 
 from ..core.jwt import decode_token
 from ..db.session import get_session
@@ -12,7 +10,6 @@ from ..db.models import User, RevokedToken
 from ..services.permission_service import get_user_permissions
 
 security = HTTPBearer()
-logger = logging.getLogger(__name__)
 
 
 async def get_current_user(
@@ -60,23 +57,6 @@ async def get_current_user(
         )
 
     return payload
-
-
-# Role checks are allowed ONLY for admin/internal routes.
-# DEPRECATED: Use require_permission() instead for new code.
-def require_role(role_name: str):
-    """Deprecated: Use require_permission() for permission-based authorization."""
-    logger.warning(f"require_role('{role_name}') is deprecated. Use require_permission() instead.")
-
-    def dependency(user: dict = Depends(get_current_user)):
-        role = user.get("role")
-        if role != role_name:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Missing role: {role_name}",
-            )
-        return user
-    return dependency
 
 
 def require_permission(permission_code: str):
@@ -137,53 +117,3 @@ def require_any_permission(*permission_codes: str):
             )
         return user
     return dependency
-
-
-def require_all_permissions(*permission_codes: str):
-    """Require all of the specified permissions.
-
-    Usage:
-        @router.delete("/critical", dependencies=[Depends(require_all_permissions("admin.delete", "audit.log"))])
-        async def delete_critical():
-            ...
-
-    Args:
-        *permission_codes: Permission codes, all must be present
-
-    Returns:
-        FastAPI dependency function
-    """
-    async def dependency(
-        user: dict = Depends(get_current_user),
-        session: AsyncSession = Depends(get_session)
-    ):
-        user_id = uuid.UUID(user["user_id"])
-        permissions = await get_user_permissions(user_id, session)
-
-        missing = set(permission_codes) - permissions
-        if missing:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Missing permissions: {', '.join(missing)}",
-            )
-        return user
-    return dependency
-
-
-async def get_current_user_permissions(
-    user: dict = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session)
-) -> set:
-    """Get current user's permission codes as a set.
-
-    Useful when you need to check permissions within a route handler.
-
-    Usage:
-        @router.get("/data")
-        async def get_data(permissions: set = Depends(get_current_user_permissions)):
-            if "data.edit" in permissions:
-                # Show edit button
-            ...
-    """
-    user_id = uuid.UUID(user["user_id"])
-    return await get_user_permissions(user_id, session)

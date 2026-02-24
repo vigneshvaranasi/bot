@@ -9,6 +9,12 @@ import type {
     AvailableModelsResponse,
 } from "../types/LlmProvider";
 
+export interface ModelDiscoveryResponse {
+    success: boolean;
+    models: string[];
+    message: string;
+}
+
 /**
  * Fetch all LLM providers.
  *
@@ -24,24 +30,6 @@ export const fetchLlmProviders = async (
         return data;
     } catch (error) {
         logger.error("Error fetching LLM providers:", error);
-        return null;
-    }
-};
-
-/**
- * Fetch a single LLM provider by ID.
- *
- * @param providerId - UUID of the provider.
- * @returns Provider or null on error.
- */
-export const fetchLlmProvider = async (
-    providerId: string
-): Promise<LlmProvider | null> => {
-    try {
-        const { data } = await http.get(`/llm-providers/${providerId}`);
-        return data;
-    } catch (error) {
-        logger.error("Error fetching LLM provider:", error);
         return null;
     }
 };
@@ -101,6 +89,24 @@ export const deleteLlmProvider = async (providerId: string): Promise<boolean> =>
 };
 
 /**
+ * Toggle a provider's active status.
+ *
+ * @param providerId - UUID of the provider to toggle.
+ * @returns Updated provider or null on error.
+ */
+export const toggleLlmProviderActive = async (
+    providerId: string
+): Promise<LlmProvider | null> => {
+    try {
+        const { data } = await http.put(`/llm-providers/${providerId}/toggle-active`, {});
+        return data;
+    } catch (error) {
+        logger.error("Error toggling LLM provider active status:", error);
+        return null;
+    }
+};
+
+/**
  * Test connection to an LLM provider.
  *
  * @param providerId - UUID of the provider to test.
@@ -132,57 +138,6 @@ export const fetchAvailableModels = async (): Promise<AvailableModelsResponse | 
         return null;
     }
 };
-
-/**
- * Set a provider as the default.
- *
- * @param providerId - UUID of the provider to set as default.
- * @returns Updated provider or null on error.
- */
-export const setDefaultProvider = async (
-    providerId: string
-): Promise<LlmProvider | null> => {
-    try {
-        const { data } = await http.put(`/llm-providers/${providerId}`, {
-            is_default: true,
-        });
-        return data;
-    } catch (error) {
-        logger.error("Error setting default provider:", error);
-        return null;
-    }
-};
-
-/**
- * Toggle provider active state.
- *
- * @param providerId - UUID of the provider.
- * @param isActive - New active state.
- * @returns Updated provider or null on error.
- */
-export const toggleProviderActive = async (
-    providerId: string,
-    isActive: boolean
-): Promise<LlmProvider | null> => {
-    try {
-        const { data } = await http.put(`/llm-providers/${providerId}`, {
-            is_active: isActive,
-        });
-        return data;
-    } catch (error) {
-        logger.error("Error toggling provider active state:", error);
-        return null;
-    }
-};
-
-/**
- * Model discovery response.
- */
-export interface ModelDiscoveryResponse {
-    success: boolean;
-    models: string[];
-    message: string;
-}
 
 /**
  * Discover available models from a saved provider's API.
