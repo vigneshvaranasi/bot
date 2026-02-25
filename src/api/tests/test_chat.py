@@ -729,3 +729,35 @@ class TestGetMessagesEdgeCases:
         data = response.json()
         # Should not be able to see messages
         assert data["error"] is True
+
+
+# ============================================================
+# _message_content_to_str — LLM-agnostic content normalization
+# ============================================================
+
+
+class TestMessageContentToStr:
+    """Tests for normalizing AIMessageChunk content (OpenAI/Gemini str vs Anthropic list)."""
+
+    def test_str_passthrough(self):
+        from src.api.routers.chat import _message_content_to_str
+        assert _message_content_to_str("hello") == "hello"
+        assert _message_content_to_str("") == ""
+
+    def test_none_returns_empty(self):
+        from src.api.routers.chat import _message_content_to_str
+        assert _message_content_to_str(None) == ""
+
+    def test_anthropic_text_blocks(self):
+        from src.api.routers.chat import _message_content_to_str
+        content = [{"type": "text", "text": "Hi "}, {"type": "text", "text": "there"}]
+        assert _message_content_to_str(content) == "Hi there"
+
+    def test_anthropic_thinking_excluded(self):
+        from src.api.routers.chat import _message_content_to_str
+        content = [{"type": "thinking", "thinking": "internal"}, {"type": "text", "text": "Answer"}]
+        assert _message_content_to_str(content) == "Answer"
+
+    def test_other_type_coerced_to_str(self):
+        from src.api.routers.chat import _message_content_to_str
+        assert _message_content_to_str(123) == "123"

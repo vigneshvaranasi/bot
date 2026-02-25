@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -22,6 +23,29 @@ from src.copilot.utils import should_ask_clarification
 
 logger = logging.getLogger(__name__)
 langfuse = get_client()
+
+
+def _message_content_to_str(content: Any) -> str:
+    """Normalize AIMessageChunk content to string for streaming.
+
+    OpenAI/Gemini return content as str; Anthropic returns a list of content blocks.
+    Only user-visible 'text' is included; 'thinking' (internal reasoning) is excluded.
+    """
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, dict):
+                parts.append(block.get("text", ""))
+            elif hasattr(block, "text"):
+                parts.append(getattr(block, "text", "") or "")
+            else:
+                parts.append(str(block) if block is not None else "")
+        return "".join(parts)
+    return str(content)
 
 
 router = APIRouter()
@@ -468,8 +492,9 @@ async def prompt_stream(
                                     and isinstance(token_chunk, AIMessageChunk)
                                     and token_chunk.content
                                 ):
-                                    answer += token_chunk.content
-                                    chunk_payload = {"chunk": token_chunk.content}
+                                    chunk_text = _message_content_to_str(token_chunk.content)
+                                    answer += chunk_text
+                                    chunk_payload = {"chunk": chunk_text}
                                     yield f"event: final_answer\ndata: {json.dumps(chunk_payload)}\n\n"
 
                         observation.update(output=answer, name=generated_title)
