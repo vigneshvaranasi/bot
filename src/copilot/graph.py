@@ -8,7 +8,7 @@ import logging
 from typing import Annotated, Any, Dict, Optional, Sequence, TypedDict
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import BaseMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
@@ -27,6 +27,32 @@ from src.api.services.golden_example_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_text_content(content: Any) -> str:
+    """Normalize LLM response content to a plain string.
+
+    OpenAI/Gemini return content as str; Anthropic returns a list of
+    content blocks.  Strips surrounding quotes that some models add.
+    """
+    if content is None:
+        return ""
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, dict):
+                if block.get("type") == "text":
+                    parts.append(block.get("text", ""))
+            elif hasattr(block, "text"):
+                parts.append(getattr(block, "text", "") or "")
+            else:
+                parts.append(str(block) if block is not None else "")
+        text = "".join(parts)
+    else:
+        text = str(content)
+    # Strip whitespace, then surrounding quotes some models add
+    text = text.strip().strip('"').strip("'").strip()
+    return text
 
 # Connection settings for PostgreSQL checkpointer
 _connection_kwargs = {
@@ -329,17 +355,18 @@ def title_generation_node(state: AgentState) -> dict:
     llm = get_configured_llm()
 
     chat_text = "\n".join(
-        f"{m.type.upper()}: {getattr(m, 'content', '')}"
+        f"{m.type.upper()}: {_extract_text_content(getattr(m, 'content', ''))}"
         for m in state["messages"]
     )
 
-    prompt = SystemMessage(
-        "Generate a concise, 2-4 word title by using the chat history. "
-        "The title should clearly represent the main theme or subject of the conversation. "
-        "Here is a conversation transcript:\n"
-        f"{chat_text}\n\n"
+    system = SystemMessage(
+        "Generate a concise, 2-4 word title for the conversation. "
         "Prioritize accuracy over excessive creativity; keep it clear and simple. "
-        "The output must be only the title, without any markdown code fences or other encapsulating text."
+        "The output must be only the title, without any quotes, markdown code fences or other encapsulating text."
+    )
+    human = HumanMessage(
+        f"Here is the conversation transcript:\n{chat_text}\n\n"
+        "Generate a short title."
     )
 
     callbacks = _get_callbacks(state)
@@ -348,11 +375,11 @@ def title_generation_node(state: AgentState) -> dict:
         user_id=state.get("user_id")
     ):
         response = llm.invoke(
-            [prompt],
+            [system, human],
             config={"callbacks": callbacks, "run_name": "Title Generator LLM"},
         )
 
-    title_text = response.content.strip()
+    title_text = _extract_text_content(response.content)
     if not title_text:
         title_text = "Untitled Chat"
 
@@ -388,13 +415,12 @@ def generate_title_from_query(
 
     llm = get_configured_llm()
 
-    prompt = SystemMessage(
-        "Generate a concise, 2-4 word title for this query. "
-        "The title should clearly represent the main theme or subject. "
-        f"Query: {query}\n\n"
+    system = SystemMessage(
+        "Generate a concise, 2-4 word title for the user's query. "
         "Prioritize accuracy over excessive creativity; keep it clear and simple. "
-        "The output must be only the title, without any markdown code fences or other encapsulating text."
+        "The output must be only the title, without any quotes, markdown code fences or other encapsulating text."
     )
+    human = HumanMessage(f"{query}")
 
     callbacks = []
     if langfuse_enabled:
@@ -402,11 +428,11 @@ def generate_title_from_query(
 
     with propagate_attributes(session_id=session_id, user_id=user_id):
         response = llm.invoke(
-            [prompt],
+            [system, human],
             config={"callbacks": callbacks, "run_name": "Parallel Title Generator"},
         )
 
-    title_text = response.content.strip()
+    title_text = _extract_text_content(response.content)
     if not title_text:
         title_text = "Untitled Chat"
 

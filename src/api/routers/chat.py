@@ -185,7 +185,7 @@ async def get_or_create_chat(
         existing_chat = result.scalar_one_or_none()
         if not existing_chat:
             raise ValueError("Chat not found.")
-        thread_config = {"configurable": {"thread_id": str(chat_id)}}
+        thread_config = {"configurable": {"thread_id": str(chat_id)}, "recursion_limit": 10}
         actual_chat_id = chat_id
     else:
         # create new chat
@@ -195,7 +195,7 @@ async def get_or_create_chat(
             await session.commit()
             await session.refresh(new_chat)
             actual_chat_id = new_chat.id
-            thread_config = {"configurable": {"thread_id": str(new_chat.id)}}
+            thread_config = {"configurable": {"thread_id": str(new_chat.id)}, "recursion_limit": 10}
         except Exception as e:
             await session.rollback()
             raise ValueError(f"An error occurred while creating a new chat: {e}")
@@ -499,17 +499,26 @@ async def prompt_stream(
 
                         observation.update(output=answer, name=generated_title)
             except Exception as e:
-                logger.debug(f"Error during streaming response: {e}")
+                logger.error(f"Error during streaming response: {e}", exc_info=True)
                 # Cancel title task if still running
                 if title_task and not title_task.done():
                     title_task.cancel()
-                raise e
+                # Send error event so the frontend stops the loading state
+                error_payload = {"message": "An error occurred while generating the response. Please try again."}
+                yield f"event: error\ndata: {json.dumps(error_payload)}\n\n"
+                # Also send a complete event so frontend can finalize
+                final_data = {
+                    "answer": answer or "",
+                    "chat_id": str(actual_chat_id),
+                    "message_id": str(pre_saved_message.id),
+                }
+                yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
             finally:
                 # Ensure title task is cleaned up
                 if title_task and not title_task.done():
                     title_task.cancel()
                 # Update pre-saved message with partial answer on disconnect
-                print(f"[STREAM FINALLY] memory_saved={memory_saved}, answer_len={len(answer) if answer else 0}")
+                logger.debug(f"[STREAM FINALLY] memory_saved={memory_saved}, answer_len={len(answer) if answer else 0}")
                 if not memory_saved and answer:
                     try:
                         # Re-fetch the message to ensure we have a fresh object attached to the session

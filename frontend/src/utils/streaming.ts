@@ -81,6 +81,27 @@ export function createMessageStreamer(params: {
           }),
         };
       });
+    } else if (evt.event === "error") {
+      endAt = performance.now();
+      const metrics = computeMetrics();
+      setCurrentChat((prevChat: CurrentChatType | null) => {
+        if (!prevChat) return prevChat;
+        return {
+          ...prevChat,
+          allMessages: prevChat.allMessages.map((m: ChatMessage) => {
+            if (m.id !== messageId) return m;
+            return {
+              ...m,
+              botMessage: m.botMessage || (evt.data?.message as string) || "Something went wrong. Please try again.",
+              statusMessage: undefined,
+              streaming: false,
+              _finalAnswerDone: true,
+              responseMetrics: metrics,
+            };
+          }),
+        };
+      });
+      onComplete?.(metrics);
     } else if (evt.event === "complete") {
       endAt = performance.now();
       const metrics = computeMetrics();
