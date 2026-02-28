@@ -92,6 +92,8 @@ class FeedbackService:
         if not message:
             raise ValueError(f"Message {message_id} not found")
 
+        if not message.chat or str(message.chat.user_id) != str(user_id):
+            raise ValueError(f"Message {message_id} not found")
         existing = await self.get_feedback_by_message(message_id, user_id)
         if existing:
             raise ValueError("You have already submitted feedback for this message")

@@ -1,5 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import threading
+import uuid
+
 import jwt
 from jwt import InvalidTokenError
 
@@ -9,7 +12,8 @@ SECRET_KEY = JWT_SECRET_KEY
 ALGORITHM = JWT_ALGORITHM
 ACCESS_TOKEN_EXPIRE_DAYS = JWT_EXPIRY_DAYS
 
-import uuid
+_consumed_state_jtis: dict[str, datetime] = {}
+_consumed_jtis_lock = threading.Lock()
 
 def create_access_token(
     user_id: str,
@@ -37,9 +41,10 @@ def create_access_token(
     return encoded_jwt
 
 def create_oauth_state(provider: str, user_id: Optional[str] = None, purpose: str = "login") -> str:
-    """Create a signed OAuth state."""
+    """Create a signed OAuth state with a unique jti for replay protection."""
     expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode = {
+        "jti": str(uuid.uuid4()),
         "sub": "oauth_state",
         "provider": provider,
         "purpose": purpose,
@@ -51,12 +56,33 @@ def create_oauth_state(provider: str, user_id: Optional[str] = None, purpose: st
         
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-def decode_oauth_state(token: str) -> dict:
-    """Verify and decode OAuth state."""
+
+def decode_oauth_state(token: str) -> Optional[dict]:
+    """Verify, decode, and consume an OAuth state token (single-use).
+
+    Returns None if the token is invalid, expired, or already used.
+    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_exp": True})
         if payload.get("sub") != "oauth_state":
             return None
+        jti = payload.get("jti")
+        if not jti:
+            return None
+
+        exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+
+        with _consumed_jtis_lock:
+            now = datetime.now(timezone.utc)
+            expired_keys = [k for k, v in _consumed_state_jtis.items() if v <= now]
+            for k in expired_keys:
+                del _consumed_state_jtis[k]
+
+            if jti in _consumed_state_jtis:
+                return None
+
+            _consumed_state_jtis[jti] = exp
+
         return payload
     except InvalidTokenError:
         return None

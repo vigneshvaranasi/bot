@@ -128,10 +128,12 @@ def get_qdrant_client():
 # GET list of incidents from knowledge base
 @router.get("/incidents")
 async def list_incidents(
+    limit: int = 100,
+    offset: int = 0,
     session: AsyncSession = Depends(get_session),
     current_user=Depends(require_permission("integration.view")),
 ):
-    """List all ServiceNow incidents from Qdrant vector database."""
+    """List ServiceNow incidents from Qdrant vector database with pagination."""
     try:
         # Try to read from Qdrant first (shows all historical incidents)
         try:
@@ -140,39 +142,48 @@ async def list_incidents(
             collection_name = await svc.get_active_collection_name()
             
             if client.collection_exists(collection_name):
-                # Get all ServiceNow incidents from Qdrant
-                scroll_result = client.scroll(
-                    collection_name=collection_name,
-                    limit=10000,
-                    with_payload=True
-                )
-                
                 result = []
                 seen_ids = set()
-                for point in scroll_result[0]:
-                    payload = point.payload or {}
-                    # LangChain format: metadata is nested
-                    metadata = payload.get("metadata", {})
-                    source = metadata.get("source_system", "").lower()
-                    
-                    # Check if this is a ServiceNow incident (LangChain format)
-                    if "servicenow" in source:
-                        inc_id = metadata.get("incident_id", "")
-                        if inc_id not in seen_ids:
-                            seen_ids.add(inc_id)
-                            result.append({
-                                "incident_id": inc_id,
-                                "title": metadata.get("incident_title", ""),
-                                "description": payload.get("page_content", ""),
-                                "action_taken": metadata.get("mitigation", ""),
-                                "opened_at": metadata.get("opened_at"),
-                                "updated_at": metadata.get("updated_at"),
-                                "source": "servicenow"
-                            })
-                
-                return {"success": True, "incidents": result}
+                next_offset = None
+                skipped = 0
+
+                while True:
+                    scroll_result = client.scroll(
+                        collection_name=collection_name,
+                        limit=min(limit * 2, 500),
+                        offset=next_offset,
+                        with_payload=True,
+                    )
+                    points, next_offset = scroll_result
+
+                    for point in points:
+                        payload = point.payload or {}
+                        metadata = payload.get("metadata", {})
+                        source = metadata.get("source_system", "").lower()
+                        if "servicenow" in source:
+                            inc_id = metadata.get("incident_id", "")
+                            if inc_id and inc_id not in seen_ids:
+                                seen_ids.add(inc_id)
+                                if skipped < offset:
+                                    skipped += 1
+                                    continue
+                                result.append({
+                                    "incident_id": inc_id,
+                                    "title": metadata.get("incident_title", ""),
+                                    "description": payload.get("page_content", ""),
+                                    "action_taken": metadata.get("mitigation", ""),
+                                    "opened_at": metadata.get("opened_at"),
+                                    "updated_at": metadata.get("updated_at"),
+                                    "source": "servicenow"
+                                })
+                                if len(result) >= limit:
+                                    break
+
+                    if len(result) >= limit or next_offset is None:
+                        break
+
+                return {"success": True, "incidents": result, "limit": limit, "offset": offset}
         except ImportError:
-            # Qdrant client not available, fall back to JSON file
             pass
         except Exception as e:
             logger.warning(f"Failed to read from Qdrant: {e}")
@@ -233,32 +244,26 @@ async def delete_incident(
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(incidents, f, ensure_ascii=False, indent=2)
 
-        # Delete from Qdrant (best-effort, requires qdrant_client)
+        # Delete from Qdrant using filter (best-effort, requires qdrant_client)
         try:
+            from qdrant_client.models import Filter, FieldCondition, MatchValue
+
             client = get_qdrant_client()
             svc = IncidentIngestionService(session)
             collection_name = await svc.get_active_collection_name()
-            
+
             if client.collection_exists(collection_name):
-                scroll_result = client.scroll(
+                client.delete(
                     collection_name=collection_name,
-                    limit=10000,
-                    with_payload=True
+                    points_selector=Filter(
+                        must=[
+                            FieldCondition(
+                                key="metadata.incident_id",
+                                match=MatchValue(value=incident_id),
+                            )
+                        ]
+                    ),
                 )
-                
-                points_to_delete = []
-                for point in scroll_result[0]:
-                    payload = point.payload or {}
-                    metadata = payload.get("metadata", {})
-                    # LangChain format: incident_id is in metadata
-                    if metadata.get("incident_id") == incident_id:
-                        points_to_delete.append(point.id)
-                
-                if points_to_delete:
-                    client.delete(
-                        collection_name=collection_name,
-                        points_selector=points_to_delete
-                    )
         except ImportError:
             logger.warning("qdrant_client not installed, skipping Qdrant deletion")
         except Exception as e:
