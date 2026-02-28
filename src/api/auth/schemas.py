@@ -40,7 +40,6 @@ def validate_password_strength(password: str) -> str:
 class UserSignup(BaseModel):
     email: EmailStr
     password: str
-    role_id: Optional[uuid.UUID] = None
 
     @field_validator('password')
     @classmethod

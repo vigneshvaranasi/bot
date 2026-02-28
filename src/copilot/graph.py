@@ -19,12 +19,14 @@ from langfuse.langchain import CallbackHandler
 from psycopg import Connection
 
 import src.copilot.config as config
-# LLM factory imports are done lazily in set_llm_from_config and get_configured_llm
+# LLM factory imports are done lazily in create_llm_for_request and get_configured_llm
 from src.copilot.tools import available_tools
 from src.api.services.golden_example_service import (
     search_golden_examples_sync,
     build_prompt_with_golden_examples,
 )
+import threading
+import atexit
 
 logger = logging.getLogger(__name__)
 
@@ -64,13 +66,16 @@ _connection_kwargs = {
 _langfuse_handler = None
 
 
-def _get_model_with_tools() -> BaseChatModel:
+def _get_model_with_tools(state: Optional[Dict[str, Any]] = None) -> BaseChatModel:
     """Get the configured LLM bound with tools.
+
+    Args:
+        state: Agent state containing llm_config for per-request LLM.
 
     Returns:
         LLM instance with tools bound.
     """
-    llm = get_configured_llm()
+    llm = get_configured_llm(state)
     return llm.bind_tools(available_tools)
 
 
@@ -105,26 +110,25 @@ class AgentState(TypedDict):
     user_id: Optional[str]
     langfuse_enabled: Optional[bool]
     generate_title: Optional[bool]
+    llm_config: Optional[Dict[str, Any]]
+
+_llm_cache: Dict[str, BaseChatModel] = {}
+_llm_cache_lock = threading.Lock()
+_LLM_CACHE_MAX_SIZE = 20
 
 
-# Global LLM instance cache (refreshed when provider config changes)
-_cached_llm: Optional[BaseChatModel] = None
-_cached_llm_config_hash: Optional[str] = None
-
-
-def set_llm_from_config(
+def create_llm_for_request(
     provider_type: Optional[str] = None,
     model_id: Optional[str] = None,
     api_key: Optional[str] = None,
     base_url: Optional[str] = None,
     provider_config: Optional[Dict[str, Any]] = None,
     temperature: Optional[float] = None,
-) -> None:
-    """Set the LLM instance from provider configuration.
+) -> BaseChatModel:
+    """Create or retrieve a cached LLM instance for a request.
 
-    This function should be called before invoking the graph to configure
-    which LLM provider to use. The LLM is cached and reused until the
-    configuration changes.
+    Thread-safe. The cache key includes api_key to prevent cross-user
+    contamination.
 
     Args:
         provider_type: Type of provider (anthropic, openai, google, custom).
@@ -133,21 +137,21 @@ def set_llm_from_config(
         base_url: Provider base URL.
         provider_config: Additional provider config.
         temperature: LLM temperature setting.
-    """
-    global _cached_llm, _cached_llm_config_hash
 
-    # Create a hash of the config to detect changes
-    config_tuple = (provider_type, model_id, base_url, temperature)
+    Returns:
+        An LLM instance for this configuration.
+    """
+    config_tuple = (provider_type, model_id, api_key, base_url, temperature)
     config_hash = str(hash(config_tuple))
 
-    # Only recreate if config changed
-    if _cached_llm_config_hash == config_hash and _cached_llm is not None:
-        return
+    with _llm_cache_lock:
+        if config_hash in _llm_cache:
+            return _llm_cache[config_hash]
 
-    # Create new LLM from config
+    # Build outside the lock to avoid holding it during network calls
     if provider_type and model_id:
         from src.copilot.llm_factory import create_llm_from_provider
-        _cached_llm = create_llm_from_provider(
+        llm = create_llm_from_provider(
             provider_type=provider_type,
             model_id=model_id,
             api_key=api_key,
@@ -155,28 +159,44 @@ def set_llm_from_config(
             provider_config=provider_config or {},
             temperature=temperature or config.DEFAULT_LLM_TEMPERATURE,
         )
-        logger.info(f"Configured LLM: {provider_type}/{model_id}")
+        logger.info(f"Created LLM: {provider_type}/{model_id}")
     else:
         from src.copilot.llm_factory import get_default_llm
-        _cached_llm = get_default_llm(
+        llm = get_default_llm(
             temperature=temperature or config.DEFAULT_LLM_TEMPERATURE
         )
         logger.info("Using default Ollama LLM")
 
-    _cached_llm_config_hash = config_hash
+    with _llm_cache_lock:
+        if len(_llm_cache) >= _LLM_CACHE_MAX_SIZE:
+            oldest_key = next(iter(_llm_cache))
+            del _llm_cache[oldest_key]
+        _llm_cache[config_hash] = llm
+
+    return llm
 
 
-def get_configured_llm() -> BaseChatModel:
-    """Get the currently configured LLM instance.
+def get_configured_llm(state: Optional[Dict[str, Any]] = None) -> BaseChatModel:
+    """Get the LLM for the current request from state, or fall back to default.
+
+    Args:
+        state: Agent state containing llm_config dict.
 
     Returns:
-        The cached LLM instance, or creates a default one if not configured.
+        An LLM instance.
     """
-    global _cached_llm
-    if _cached_llm is None:
-        from src.copilot.llm_factory import get_default_llm
-        _cached_llm = get_default_llm()
-    return _cached_llm
+    if state and state.get("llm_config"):
+        cfg = state["llm_config"]
+        return create_llm_for_request(
+            provider_type=cfg.get("provider_type"),
+            model_id=cfg.get("model_id"),
+            api_key=cfg.get("api_key"),
+            base_url=cfg.get("base_url"),
+            provider_config=cfg.get("provider_config"),
+            temperature=cfg.get("temperature"),
+        )
+    from src.copilot.llm_factory import get_default_llm
+    return get_default_llm()
 
 
 SYSTEM_MESSAGE_PROMPT = SystemMessage(
@@ -249,11 +269,11 @@ def call_model(state: AgentState) -> dict:
     """
     logger.debug("NODE: CALLING MODEL")
 
-    # Get the configured LLM with tools
-    model_with_tools = _get_model_with_tools()
+    # Get the per-request LLM with tools
+    model_with_tools = _get_model_with_tools(state)
 
     user_messages = [m for m in state["messages"] if hasattr(m, 'type') and m.type == 'human']
-    latest_query = user_messages[-1].content if user_messages else ""
+    latest_query = _extract_text_content(user_messages[-1].content) if user_messages else ""
 
     enhanced_system_prompt = SYSTEM_MESSAGE_PROMPT
     if latest_query:
@@ -351,12 +371,13 @@ def title_generation_node(state: AgentState) -> dict:
     writer = get_stream_writer()
     logger.debug("NODE: GENERATING TITLE")
 
-    # Get the configured LLM
-    llm = get_configured_llm()
+    # Get per-request LLM from state
+    llm = get_configured_llm(state)
 
     chat_text = "\n".join(
-        f"{m.type.upper()}: {_extract_text_content(getattr(m, 'content', ''))}"
+        f"{m.type.upper()}: {_extract_text_content(getattr(m, 'content', ''))[:500]}"
         for m in state["messages"]
+        if getattr(m, 'type', '') in ('human', 'ai')
     )
 
     system = SystemMessage(
@@ -395,6 +416,7 @@ def generate_title_from_query(
     session_id: Optional[str] = None,
     user_id: Optional[str] = None,
     langfuse_enabled: bool = False,
+    llm_config: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Generate a title from user query (standalone, for parallel execution).
 
@@ -407,13 +429,14 @@ def generate_title_from_query(
         session_id: Optional session ID for tracing
         user_id: Optional user ID for tracing
         langfuse_enabled: Whether Langfuse tracing is enabled
+        llm_config: Optional LLM config for per-request model selection
 
     Returns:
         Generated title string
     """
     logger.debug("PARALLEL TITLE GENERATION: Starting")
 
-    llm = get_configured_llm()
+    llm = get_configured_llm({"llm_config": llm_config} if llm_config else None)
 
     system = SystemMessage(
         "Generate a concise, 2-4 word title for the user's query. "
@@ -439,6 +462,23 @@ def generate_title_from_query(
     logger.debug(f"PARALLEL TITLE GENERATION: Generated '{title_text}'")
     return title_text
 
+_checkpointer_conn: Optional[Connection] = None
+
+
+def _cleanup_checkpointer_conn():
+    """Close the checkpointer connection on process exit."""
+    global _checkpointer_conn
+    if _checkpointer_conn is not None:
+        try:
+            _checkpointer_conn.close()
+            logger.info("Checkpointer PostgreSQL connection closed.")
+        except Exception:
+            pass
+        _checkpointer_conn = None
+
+
+atexit.register(_cleanup_checkpointer_conn)
+
 
 def create_agent_graph():
     """Create and compile the agent graph with PostgreSQL checkpointing.
@@ -447,11 +487,17 @@ def create_agent_graph():
         Compiled LangGraph workflow ready for invocation
 
     Note:
-        The connection to PostgreSQL is managed internally. For production,
-        consider using a connection pool for better resource management.
+        The connection is stored at module level and cleaned up via atexit.
     """
-    conn = Connection.connect(config.VECTOR_DATABASE_URL, **_connection_kwargs)
-    checkpointer = PostgresSaver(conn)
+    global _checkpointer_conn
+    if _checkpointer_conn is not None:
+        try:
+            _checkpointer_conn.close()
+        except Exception:
+            pass
+
+    _checkpointer_conn = Connection.connect(config.VECTOR_DATABASE_URL, **_connection_kwargs)
+    checkpointer = PostgresSaver(_checkpointer_conn)
     checkpointer.setup()
 
     workflow = StateGraph(AgentState)

@@ -9,7 +9,7 @@ from sqlalchemy.future import select
 
 from ..db.session import get_session
 from .schemas import UserSignup, UserLogin, TokenResponse, UserResponse, PasswordUpdate
-from .service import signup_user, login_user, get_user_profile, get_provider_instance, resolve_oauth_user, revoke_token, update_user_password
+from .service import signup_user, login_user, get_user_profile, get_provider_instance, resolve_oauth_user, revoke_token, update_user_password, link_oauth_identity, unlink_identity
 from .dependencies import get_current_user
 from ..core.jwt import create_access_token, create_oauth_state, decode_oauth_state
 from ..db.models import Setting
@@ -176,4 +176,80 @@ async def oauth_callback(provider: str, code: str, state: str, session: AsyncSes
         email=user.email,
         role=role_name
     )
+
+
+@router.get("/link/{provider}")
+async def initiate_link(
+    provider: str,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session)
+):
+    """Start OAuth flow to link a provider to the current user's account."""
+    await check_auth_enabled(provider, session)
+
+    user_id = current_user["user_id"]
+
+    provider_instance = await get_provider_instance(provider, session)
+
+    state = create_oauth_state(provider=provider, user_id=user_id, purpose="link")
+
+    auth_url = await provider_instance.get_authorization_url(state)
+
+    return {"authorization_url": auth_url, "state": state}
+
+
+@router.get("/link/{provider}/callback")
+async def link_callback(
+    provider: str,
+    code: str,
+    state: str,
+    session: AsyncSession = Depends(get_session)
+):
+    """Handle OAuth callback for account linking."""
+    await check_auth_enabled(provider, session)
+
+    payload = decode_oauth_state(state)
+    if not payload:
+        raise HTTPException(status_code=400, detail="Invalid or expired state")
+
+    if payload.get("purpose") != "link":
+        raise HTTPException(status_code=400, detail="Invalid state purpose")
+
+    if payload.get("provider") != provider:
+        raise HTTPException(status_code=400, detail="Provider mismatch")
+
+    user_id_str = payload.get("user_id")
+    if not user_id_str:
+        raise HTTPException(status_code=400, detail="Missing user_id in state")
+
+    user_id = uuid.UUID(user_id_str)
+
+    provider_instance = await get_provider_instance(provider, session)
+
+    try:
+        token_data = await provider_instance.exchange_code_for_token(code)
+    except httpx.HTTPStatusError:
+        logger.exception("OAuth token exchange failed for %s (link)", provider)
+        raise HTTPException(status_code=400, detail="Failed to exchange code for token")
+
+    try:
+        profile = await provider_instance.fetch_user_profile(token_data)
+    except Exception:
+        logger.exception("OAuth fetch profile failed for %s (link)", provider)
+        raise HTTPException(status_code=500, detail="Failed to fetch user profile")
+
+    result = await link_oauth_identity(user_id, profile, session)
+
+    return result
+
+
+@router.delete("/identities/{provider}")
+async def unlink_provider(
+    provider: str,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session)
+):
+    """Unlink an auth provider from the current user's account."""
+    user_id = uuid.UUID(current_user["user_id"])
+    return await unlink_identity(user_id, provider, session)
 

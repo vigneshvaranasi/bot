@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import InputBox from "../components/ui/InputBox";
 import http from "../utils/http";
@@ -18,6 +18,15 @@ const AuthPage = () => {
   const [fetchingProviders, setFetchingProviders] = useState(true);
   const { login, user } = useAuthContext();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const error = searchParams.get("error");
+    if (error) {
+      toast.error(decodeURIComponent(error));
+      searchParams.delete("error");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, []);
 
   useEffect(() => {
     const fetchProviders = async () => {

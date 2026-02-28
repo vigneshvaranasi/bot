@@ -17,7 +17,7 @@ from src.api.db.session import get_session
 from src.api.schemas.chat_schema import ChatListItem, ChatRenameRequest, MessagePartialUpdate, PromptModel
 from src.api.utils.llm_provider_helper import get_provider_config_for_chat, get_provider_config_for_model
 from src.api.utils.tracing import conditional_observation
-from src.copilot.graph import create_agent_graph, set_llm_from_config, generate_title_from_query
+from src.copilot.graph import create_agent_graph, generate_title_from_query
 from src.copilot.guardrails.prompt_guardrails import PromptGuardrail
 from src.copilot.utils import should_ask_clarification
 
@@ -260,14 +260,14 @@ async def prompt_stream(
             )
         else:
             provider_config = await get_provider_config_for_chat(session, str(user_id))
-        set_llm_from_config(
-            provider_type=provider_config.get("provider_type"),
-            model_id=provider_config.get("model_id"),
-            api_key=provider_config.get("api_key"),
-            base_url=provider_config.get("base_url"),
-            provider_config=provider_config.get("provider_config", {}),
-            temperature=provider_config.get("temperature"),
-        )
+        llm_config = {
+            "provider_type": provider_config.get("provider_type"),
+            "model_id": provider_config.get("model_id"),
+            "api_key": provider_config.get("api_key"),
+            "base_url": provider_config.get("base_url"),
+            "provider_config": provider_config.get("provider_config", {}),
+            "temperature": provider_config.get("temperature"),
+        }
 
         needs_title = (
             request.generate_title
@@ -280,6 +280,7 @@ async def prompt_stream(
             "user_id": str(user_id),
             "langfuse_enabled": langfuse_enabled,
             "generate_title": not needs_title,
+            "llm_config": llm_config,
         }
 
         pre_saved_message = Message(
@@ -305,6 +306,7 @@ async def prompt_stream(
                         str(actual_chat_id),
                         str(user_id),
                         langfuse_enabled,
+                        llm_config,
                     )
                     await title_queue.put({"title": title})
                     logger.debug(f"[PARALLEL TITLE] Generated: {title}")
@@ -621,14 +623,14 @@ async def prompt(
             )
         else:
             provider_config = await get_provider_config_for_chat(session, str(user_id))
-        set_llm_from_config(
-            provider_type=provider_config.get("provider_type"),
-            model_id=provider_config.get("model_id"),
-            api_key=provider_config.get("api_key"),
-            base_url=provider_config.get("base_url"),
-            provider_config=provider_config.get("provider_config", {}),
-            temperature=provider_config.get("temperature"),
-        )
+        llm_config = {
+            "provider_type": provider_config.get("provider_type"),
+            "model_id": provider_config.get("model_id"),
+            "api_key": provider_config.get("api_key"),
+            "base_url": provider_config.get("base_url"),
+            "provider_config": provider_config.get("provider_config", {}),
+            "temperature": provider_config.get("temperature"),
+        }
 
         # Check if we need to generate a title
         result = await session.execute(
@@ -647,6 +649,7 @@ async def prompt(
             "user_id": str(user_id),
             "langfuse_enabled": langfuse_enabled,
             "generate_title": not needs_title,  # False = API handles title in parallel
+            "llm_config": llm_config,
         }
 
         # Run main response and title generation in parallel
@@ -659,6 +662,7 @@ async def prompt(
                     str(actual_chat_id),
                     str(user_id),
                     langfuse_enabled,
+                    llm_config,
                 )
             )
             logger.debug("[PARALLEL TITLE] Non-stream: Task started")

@@ -53,17 +53,42 @@ async def signup_user(user_data: UserSignup, session: AsyncSession) -> dict:
     existing_user = result.scalar_one_or_none()
 
     if existing_user:
+        # If the user was soft-deleted, reactivate the account
+        if existing_user.deleted_at is not None:
+            role = await get_default_role(session)
+            existing_user.is_active = True
+            existing_user.deleted_at = None
+            existing_user.role_id = role.id
+            existing_user.token_version = existing_user.token_version + 1
+
+            # Update or create local auth identity with new password
+            hashed_password = get_password_hash(user_data.password)
+            stmt = select(AuthIdentity).where(
+                AuthIdentity.user_id == existing_user.id,
+                AuthIdentity.provider == "local"
+            )
+            result = await session.execute(stmt)
+            local_identity = result.scalar_one_or_none()
+            if local_identity:
+                local_identity.password_hash = hashed_password
+            else:
+                session.add(AuthIdentity(
+                    user_id=existing_user.id,
+                    provider="local",
+                    password_hash=hashed_password
+                ))
+
+            await session.commit()
+            return {"message": "User created successfully"}
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User with this email already exists"
         )
 
-    # Determine role
-    if user_data.role_id:
-        role_id = user_data.role_id
-    else:
-        role = await get_default_role(session)
-        role_id = role.id
+    # Always assign default role — role assignment is admin-only
+    role = await get_default_role(session)
+    role_id = role.id
 
     # Create User
     new_user = User(
@@ -101,7 +126,7 @@ async def login_user(user_credentials: UserLogin, session: AsyncSession) -> Toke
     stmt = select(User).options(
         selectinload(User.role),
         selectinload(User.auth_identities)
-    ).where(User.email == user_credentials.email)
+    ).where(User.email == user_credentials.email, User.deleted_at.is_(None))
     
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()
@@ -143,7 +168,7 @@ async def get_user_profile(user_id: uuid.UUID, session: AsyncSession):
     stmt = select(User).options(
         selectinload(User.role),
         selectinload(User.auth_identities)
-    ).where(User.id == user_id)
+    ).where(User.id == user_id, User.deleted_at.is_(None))
     
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()
@@ -192,31 +217,33 @@ async def resolve_oauth_user(profile: dict, session: AsyncSession) -> User:
     identity = result.scalar_one_or_none()
     
     if identity:
-        return identity.user
-        
-    # Check if email exists
-    if profile.get("email"):
-        stmt = select(User).where(User.email == profile["email"])
-        result = await session.execute(stmt)
-        user = result.scalar_one_or_none()
-        
-        if user:
-            # Account exists but no identity linked -> Link automatically
-            new_identity = AuthIdentity(
-                user_id=user.id,
-                provider=profile["provider"],
-                provider_user_id=profile["provider_user_id"]
-            )
-            session.add(new_identity)
+        user = identity.user
+        # Reactivate if the linked user account was soft-deleted
+        if user.deleted_at is not None:
+            role = await get_default_role(session)
+            user.is_active = True
+            user.deleted_at = None
+            user.role_id = role.id
+            user.token_version = user.token_version + 1
             await session.commit()
-            
-            # Reload user with role
+            await session.refresh(user)
+            # Re-fetch with role loaded
             stmt = select(User).options(selectinload(User.role)).where(User.id == user.id)
             result = await session.execute(stmt)
             user = result.scalar_one()
-            
-            return user
-            
+        return user
+
+    # Check if email is already in use by another active account
+    if profile.get("email"):
+        stmt = select(User).where(User.email == profile["email"], User.deleted_at.is_(None))
+        result = await session.execute(stmt)
+        existing_user = result.scalar_one_or_none()
+
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email already exists. Please log in to that account and link this provider from Account Settings."
+            )
     # Create new user
     role = await get_default_role(session)
     new_user = User(
@@ -277,3 +304,76 @@ async def update_user_password(user_id: uuid.UUID, password: str, session: Async
     
     await session.commit()
     return {"message": "Password updated successfully"}
+
+
+async def link_oauth_identity(user_id: uuid.UUID, profile: dict, session: AsyncSession) -> dict:
+    """Link an OAuth identity to an existing authenticated user."""
+    stmt = select(User).where(User.id == user_id)
+    result = await session.execute(stmt)
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    stmt = select(AuthIdentity).where(
+        AuthIdentity.provider == profile["provider"],
+        AuthIdentity.provider_user_id == profile["provider_user_id"]
+    )
+    result = await session.execute(stmt)
+    existing_identity = result.scalar_one_or_none()
+
+    if existing_identity:
+        if existing_identity.user_id == user_id:
+            return {"message": f"{profile['provider']} is already linked to your account"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"This {profile['provider']} account is already linked to a different user"
+            )
+
+    stmt = select(AuthIdentity).where(
+        AuthIdentity.user_id == user_id,
+        AuthIdentity.provider == profile["provider"]
+    )
+    result = await session.execute(stmt)
+    user_provider_identity = result.scalar_one_or_none()
+
+    if user_provider_identity:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"You already have a {profile['provider']} account linked. Unlink it first to link a different one."
+        )
+
+    new_identity = AuthIdentity(
+        user_id=user_id,
+        provider=profile["provider"],
+        provider_user_id=profile["provider_user_id"]
+    )
+    session.add(new_identity)
+    await session.commit()
+
+    return {"message": f"{profile['provider']} account linked successfully"}
+
+
+async def unlink_identity(user_id: uuid.UUID, provider: str, session: AsyncSession) -> dict:
+    """Unlink an auth identity from a user. Cannot remove the last identity."""
+    stmt = select(AuthIdentity).where(AuthIdentity.user_id == user_id)
+    result = await session.execute(stmt)
+    identities = result.scalars().all()
+
+    if len(identities) <= 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot remove your last authentication method. Link another provider first."
+        )
+
+    target = next((i for i in identities if i.provider == provider), None)
+    if not target:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No {provider} identity linked to your account"
+        )
+
+    await session.delete(target)
+    await session.commit()
+
+    return {"message": f"{provider} account unlinked successfully"}
