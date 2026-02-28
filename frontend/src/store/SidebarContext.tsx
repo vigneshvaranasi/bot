@@ -79,8 +79,11 @@ export const SidebarProvider = ({
   const [chatsPagination, setChatsPagination] = useState<ChatsPaginationState>(initialPaginationState);
 
   const toggleSidebar = () => {
-    setSidebarOpen((prev) => !prev);
-    localStorage.setItem("isSidebarOpen", JSON.stringify(!isSidebarOpen));
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      localStorage.setItem("isSidebarOpen", JSON.stringify(next));
+      return next;
+    });
   };
 
   const triggerRefreshChats = () => {

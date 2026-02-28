@@ -70,9 +70,17 @@ export const newMessageHandler = async (
 
       for (const streamItem of streamMessages) {
         try {
-          const [event, data] = streamItem.split("\n");
-          const actualEvent = event.slice(6).trim();
-          const parsedData = JSON.parse(data.slice(5).trim());
+          let actualEvent = "message";
+          let rawData = "";
+          for (const line of streamItem.split("\n")) {
+            if (line.startsWith("event:")) {
+              actualEvent = line.slice(6).trim();
+            } else if (line.startsWith("data:")) {
+              rawData += line.slice(5).trim();
+            }
+          }
+          if (!rawData) continue;
+          const parsedData = JSON.parse(rawData);
           if(onEvent){
               onEvent({
                 event: actualEvent,

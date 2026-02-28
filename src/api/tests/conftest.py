@@ -2,6 +2,7 @@
 
 import os
 import uuid as uuid_module
+from datetime import datetime, timedelta, timezone
 import pytest
 import pytest_asyncio
 from unittest.mock import patch, AsyncMock
@@ -170,6 +171,8 @@ async def admin_client(test_session):
         "role": "admin",
         "auth_provider": "local",
         "token_version": "0",
+        "jti": str(uuid_module.uuid4()),
+        "exp": int((datetime.now(timezone.utc) + timedelta(days=7)).timestamp()),
     }
 
     async def override_get_current_user():

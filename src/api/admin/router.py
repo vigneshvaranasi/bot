@@ -421,7 +421,7 @@ async def list_rbac_audit_logs(
     admin: dict = Depends(require_permission("history.view"))
 ):
     """List RBAC audit logs with optional filters."""
-    logs = await audit_service.get_audit_logs(
+    logs, total = await audit_service.get_audit_logs(
         session=session,
         entity_type=entity_type,
         entity_id=entity_id,
@@ -445,7 +445,7 @@ async def list_rbac_audit_logs(
             )
             for log in logs
         ],
-        total=len(logs),  # For a proper implementation, add a count query
+        total=total,
         limit=limit,
         offset=offset
     )

@@ -68,7 +68,7 @@ for i, incident in enumerate(incidents):
             ]
         )
     except Exception as e:
-        print(f"Error inserting incident {incident['Incident ID']} into Qdrant: {e}")
+        print(f"Error inserting incident {incident['incident_id']} into Qdrant: {e}")
         continue
     
     if (i + 1) % 100 == 0:

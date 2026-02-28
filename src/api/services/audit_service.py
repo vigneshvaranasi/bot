@@ -10,7 +10,7 @@ import logging
 from typing import Optional, Any, Dict, List
 from uuid import UUID
 
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -95,7 +95,7 @@ async def get_audit_logs(
     changed_by: Optional[UUID] = None,
     limit: int = 100,
     offset: int = 0,
-) -> List[RbacAuditLog]:
+) -> tuple[List[RbacAuditLog], int]:
     """Query audit logs with optional filters.
 
     Args:
@@ -108,24 +108,27 @@ async def get_audit_logs(
         offset: Number of records to skip
 
     Returns:
-        List of RbacAuditLog records
+        Tuple of (list of RbacAuditLog records, total count).
     """
-    query = select(RbacAuditLog)
+    base = select(RbacAuditLog)
 
     if entity_type:
-        query = query.where(RbacAuditLog.entity_type == entity_type)
+        base = base.where(RbacAuditLog.entity_type == entity_type)
     if entity_id:
-        query = query.where(RbacAuditLog.entity_id == entity_id)
+        base = base.where(RbacAuditLog.entity_id == entity_id)
     if action:
-        query = query.where(RbacAuditLog.action == action)
+        base = base.where(RbacAuditLog.action == action)
     if changed_by:
-        query = query.where(RbacAuditLog.changed_by == changed_by)
+        base = base.where(RbacAuditLog.changed_by == changed_by)
 
-    query = query.order_by(desc(RbacAuditLog.changed_at))
-    query = query.offset(offset).limit(limit)
+    count_result = await session.execute(
+        select(func.count()).select_from(base.subquery())
+    )
+    total = count_result.scalar() or 0
 
+    query = base.order_by(desc(RbacAuditLog.changed_at)).offset(offset).limit(limit)
     result = await session.execute(query)
-    return list(result.scalars().all())
+    return list(result.scalars().all()), total
 
 
 async def get_entity_history(

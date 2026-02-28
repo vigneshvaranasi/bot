@@ -43,7 +43,7 @@ async def get_default_role(session: AsyncSession) -> Role:
         # Create a basic user role if none exists
         role = Role(name="Basic User")
         session.add(role)
-        await session.commit()
+        await session.flush()
         await session.refresh(role)
     return role
 

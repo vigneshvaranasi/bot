@@ -112,7 +112,7 @@ class PromptGuardrail:
         lowered = text.lower()
 
         for phrase in self.phrases:
-            if phrase in lowered:
+            if re.search(r"\b" + re.escape(phrase) + r"\b", lowered):
                 return True
 
         tokens = re.findall(r"\w+", lowered)
@@ -177,9 +177,9 @@ class PromptGuardrail:
             if self._semantic_model is None:
                 self._init_semantic_model()
             if self._semantic_model is None:
-                # Model initialization failed - fail closed
-                logger.warning("Semantic model unavailable, failing closed")
-                return True
+                # Model unavailable — skip semantic check; keyword check still guards.
+                logger.warning("Semantic model unavailable, skipping semantic check")
+                return False
 
             emb = self._semantic_model.encode([text], convert_to_numpy=True)
             norm = np.linalg.norm(emb, axis=1, keepdims=True)

@@ -44,9 +44,10 @@ async def logout(
 ):
     jti = current_user.get("jti")
     exp = current_user.get("exp")
-    if jti and exp:
-        expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
-        await revoke_token(jti, expires_at, session)
+    if not jti or not exp:
+        raise HTTPException(status_code=400, detail="Invalid token: missing jti or exp")
+    expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
+    await revoke_token(jti, expires_at, session)
     return {"message": "Logged out successfully"}
 
 @router.post("/password")

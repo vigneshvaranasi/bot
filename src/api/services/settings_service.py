@@ -302,6 +302,11 @@ class SettingsService:
             auth_github_enabled=target_setting.auth_github_enabled,
             auth_microsoft_enabled=target_setting.auth_microsoft_enabled,
             auth_local_enabled=target_setting.auth_local_enabled,
+            provider_id=target_setting.provider_id,
+            feedback_auto_approve_positive=target_setting.feedback_auto_approve_positive,
+            feedback_auto_approve_negative=target_setting.feedback_auto_approve_negative,
+            feedback_require_reason_positive=target_setting.feedback_require_reason_positive,
+            feedback_require_reason_negative=target_setting.feedback_require_reason_negative,
             # Audit trail
             change_type=ChangeType.ROLLBACK.value,
             source_version_id=current_setting.id if current_setting else None,

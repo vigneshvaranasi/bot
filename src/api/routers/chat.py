@@ -153,14 +153,11 @@ async def validate_prompt(prompt: str, session: AsyncSession):
             select(Setting).order_by(Setting.updated_at.desc())
         )
         settings = result.scalars().first()
-        try:
-            guard = PromptGuardrail(deny_words=settings.deny_words if settings else "")
-            is_valid, reject_msg = guard.validate_or_reject(prompt=prompt)
-            return is_valid, reject_msg, settings
-        except Exception as e:
-            raise ValueError(f"An error occurred while validating the prompt: {e}")
+        guard = PromptGuardrail(deny_words=settings.deny_words if settings else "")
+        is_valid, reject_msg = guard.validate_or_reject(prompt=prompt)
+        return is_valid, reject_msg, settings
     except Exception as e:
-        raise ValueError(f"An error occurred while accessing the Settings: {e}")
+        raise ValueError(f"An error occurred while validating the prompt: {e}")
 
 
 async def get_or_create_chat(
@@ -780,6 +777,8 @@ async def get_chat_with_messages(
             "offset": offset,
             "has_more": offset + len(messages_data) < total,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.debug(f"Error retrieving chat messages: {e}")
         return{

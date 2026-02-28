@@ -222,12 +222,10 @@ class TestGetChatMessages:
 
     @pytest.mark.asyncio
     async def test_get_messages_not_found(self, admin_client):
-        """Non-existent chat returns error."""
+        """Non-existent chat returns 404."""
         client, _, _ = admin_client
         response = await client.get(f"/chats/messages/{uuid4()}")
-        data = response.json()
-        # The endpoint catches exceptions and returns error JSON
-        assert data["error"] is True
+        assert response.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_messages_other_user(self, admin_client):
@@ -239,8 +237,7 @@ class TestGetChatMessages:
         await session.refresh(other_chat)
 
         response = await client.get(f"/chats/messages/{other_chat.id}")
-        data = response.json()
-        assert data["error"] is True
+        assert response.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_messages_archived_chat(self, admin_client):
@@ -252,8 +249,7 @@ class TestGetChatMessages:
         await session.refresh(chat)
 
         response = await client.get(f"/chats/messages/{chat.id}")
-        data = response.json()
-        assert data["error"] is True
+        assert response.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_messages_response_format(self, admin_client):
@@ -668,8 +664,7 @@ class TestArchiveChatEdgeCases:
         await client.delete(f"/chats/archive/{chat_id}")
 
         response = await client.get(f"/chats/messages/{chat_id}")
-        data = response.json()
-        assert data["error"] is True
+        assert response.status_code == 404
 
 
 class TestGetMessagesEdgeCases:
@@ -726,9 +721,8 @@ class TestGetMessagesEdgeCases:
         await session.refresh(other_chat)
 
         response = await client.get(f"/chats/messages/{other_chat.id}")
-        data = response.json()
         # Should not be able to see messages
-        assert data["error"] is True
+        assert response.status_code == 404
 
 
 # ============================================================

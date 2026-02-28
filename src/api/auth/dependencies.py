@@ -30,14 +30,19 @@ async def get_current_user(
             detail="Invalid token payload",
         )
 
+    if not jti or not token_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
     # Check revocation (JTI)
-    if jti:
-        result = await session.execute(select(RevokedToken).where(RevokedToken.jti == jti))
-        if result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token revoked",
-            )
+    result = await session.execute(select(RevokedToken).where(RevokedToken.jti == jti))
+    if result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token revoked",
+        )
 
     # Check if user is active in DB
     result = await session.execute(select(User).where(User.id == uuid.UUID(user_id)))
@@ -50,7 +55,7 @@ async def get_current_user(
         )
 
     # Check token version (Global revocation)
-    if token_version and str(token_version) != str(user.token_version):
+    if str(token_version) != str(user.token_version):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token invalid (logged out or role changed)",

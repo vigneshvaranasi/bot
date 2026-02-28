@@ -95,9 +95,11 @@ function ChatPage() {
       if (currChatId === "") {
         if (res?.chat_id) {
           saveChatMetrics(res.chat_id, metrics);
+          triggerRefreshChats();
+          navigate(`/${res.chat_id}`);
+        } else {
+          triggerRefreshChats();
         }
-        triggerRefreshChats();
-        navigate(`/${res.chat_id}`);
         return;
       }
 
@@ -108,7 +110,9 @@ function ChatPage() {
           botMessage: m.botMessage,
           responseMetrics: m.responseMetrics,
         }));
-        await saveChatToCache(res.chat_id, toCache!, 20, user?.email);
+        if (res?.chat_id) {
+          await saveChatToCache(res.chat_id, toCache!, 20, user?.email);
+        }
       } catch {
         // Cache errors are non-critical
       }
