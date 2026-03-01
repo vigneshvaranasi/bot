@@ -229,11 +229,15 @@ async def update_feedback_settings(
             update_data["feedback_require_reason_negative"] = data.require_reason_negative
 
         latest = await settings_service.get_latest_setting()
-        if latest:
-            for key, value in update_data.items():
-                setattr(latest, key, value)
-            await db.commit()
-            await db.refresh(latest)
+        if not latest:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No settings found. Please configure settings first."
+            )
+        for key, value in update_data.items():
+            setattr(latest, key, value)
+        await db.commit()
+        await db.refresh(latest)
 
         feedback_service = FeedbackService(db)
         settings = await feedback_service.get_feedback_settings()

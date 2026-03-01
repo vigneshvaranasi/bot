@@ -46,6 +46,8 @@ class IncidentIngestionService:
         source: str = "upload",
     ) -> IncidentUploadSession:
         """Parse file content and create an upload session with raw records."""
+        if not user_id:
+            raise ValueError("user_id is required to create an upload session")
         all_records: List[Dict[str, Any]] = []
         file_meta: List[Dict[str, Any]] = []
 
@@ -239,6 +241,8 @@ class IncidentIngestionService:
         progress_callback=None,
     ) -> IncidentDatasetVersion:
         """Normalize, create Qdrant collection, copy existing data, embed/ingest new records, create version record."""
+        if not user_id:
+            raise ValueError("user_id is required for ingestion")
         upload = await self._get_upload_session(session_id)
         records = upload.raw_data or []
 
@@ -738,9 +742,13 @@ class IncidentIngestionService:
     # ── Helpers ───────────────────────────────────────────────────────
 
     async def _get_upload_session(self, session_id: str) -> IncidentUploadSession:
+        try:
+            session_uuid = uuid.UUID(session_id)
+        except (ValueError, AttributeError):
+            raise ValueError(f"Invalid session ID: {session_id}")
         result = await self.session.execute(
             select(IncidentUploadSession).where(
-                IncidentUploadSession.id == uuid.UUID(session_id)
+                IncidentUploadSession.id == session_uuid
             )
         )
         upload = result.scalars().first()

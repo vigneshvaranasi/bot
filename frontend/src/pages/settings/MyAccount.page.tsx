@@ -22,7 +22,7 @@ const PROVIDER_META: Record<string, { label: string; icon: string }> = {
 };
 
 const MyAccountPage = () => {
-  const { user, refreshUser } = useAuthContext();
+  const { user, refreshUser, login } = useAuthContext();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [showPasswordUpdate, setShowPasswordUpdate] = useState(false);
@@ -76,7 +76,10 @@ const MyAccountPage = () => {
     }
     try {
       setPasswordBusy(true);
-      await updatePasswordHandler(newPassword);
+      const data = await updatePasswordHandler(newPassword);
+      if (data?.access_token) {
+        await login(data.access_token);
+      }
       toast.success("Password updated successfully");
       setNewPassword("");
       setConfirmPassword("");
@@ -99,7 +102,10 @@ const MyAccountPage = () => {
     }
     try {
       setLocalBusy(true);
-      await updatePasswordHandler(localPassword);
+      const data = await updatePasswordHandler(localPassword);
+      if (data?.access_token) {
+        await login(data.access_token);
+      }
       toast.success("Password authentication set up successfully");
       setLocalPassword("");
       setLocalConfirm("");

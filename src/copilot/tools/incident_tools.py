@@ -388,6 +388,11 @@ def get_recent_incidents(days: int = 7, limit: int = 10) -> str:
                 if inc_id:
                     incident_ids.add(inc_id)
             writer({"status": f"Found {len(incident_ids)} incidents from the last {days} days..."})
+        elif all_docs:
+            # No date-formatted IDs matched — return latest documents as fallback
+            fallback = all_docs[:limit]
+            writer({"status": f"No date-filtered incidents found, returning {len(fallback)} latest incidents"})
+            return format_incidents_response(fallback)
         else:
             writer({"status": f"No incidents found in the last {days} days"})
 

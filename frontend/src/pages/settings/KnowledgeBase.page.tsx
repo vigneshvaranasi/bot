@@ -97,8 +97,8 @@ const KnowledgeBasePage = () => {
   };
 
   useEffect(() => {
-    if (hasPermission(PERMISSIONS.KB_VIEW)) loadSyncData();
-  }, []);
+    if (!permLoading && hasPermission(PERMISSIONS.KB_VIEW)) loadSyncData();
+  }, [permLoading]);
 
   // ── Upload handlers ───────────────────────────────────────────
 

@@ -57,7 +57,23 @@ async def set_password(
     session: AsyncSession = Depends(get_session)
 ):
     user_id = uuid.UUID(current_user["user_id"])
-    return await update_user_password(user_id, data.password, session)
+    await update_user_password(user_id, data.password, session)
+    # Issue a new token so the current session stays valid
+    user = await get_user_profile(user_id, session)
+    access_token = create_access_token(
+        user_id=str(user.id),
+        role=user.role.name,
+        auth_provider="local",
+        token_version=user.token_version
+    )
+    return {
+        "message": "Password updated successfully",
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user_id": user.id,
+        "email": user.email,
+        "role": user.role.name,
+    }
 
 @router.post("/signup")
 async def signup(user_data: UserSignup, session: AsyncSession = Depends(get_session)):

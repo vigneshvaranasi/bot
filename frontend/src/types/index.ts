@@ -20,6 +20,8 @@ export interface ChatMessage {
   _streamBuffer?: string;
   _finalAnswerStarted?: boolean;
   _finalAnswerDone?: boolean;
+  _fenceStripped?: boolean;
+  _fenceCleanDone?: boolean;
   responseMetrics?: StreamMetrics;
   feedback?: 'positive' | 'negative' | null;
   feedbackId?: string;

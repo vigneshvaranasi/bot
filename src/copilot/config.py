@@ -6,6 +6,7 @@ Loads and validates environment variables required for the agent to function.
 import logging
 import os
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -23,7 +24,7 @@ def _get_required_env(name: str) -> str:
     return value
 
 
-def _get_optional_env(name: str, default: str = None) -> str:
+def _get_optional_env(name: str, default: Optional[str] = None) -> Optional[str]:
     """Get an optional environment variable with a default value."""
     return os.getenv(name, default)
 

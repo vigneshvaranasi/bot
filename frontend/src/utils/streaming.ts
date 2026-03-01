@@ -48,9 +48,14 @@ export function createMessageStreamer(params: {
               statusMessage: undefined,
               streaming: true,
               _finalAnswerStarted: true,
+              _fenceStripped: chunk !== (evt.data.chunk ?? ""),
               _streamBuffer: buffer,
             };
           } else {
+            // If fence was split across chunks, strip leftover language tag
+            if (m._fenceStripped && !m._fenceCleanDone) {
+              chunk = chunk.replace(/^[a-zA-Z0-9]*\n?/, "");
+            }
             // remove trailing fence, if any
             chunk = chunk.replace(/```$/, "");
             buffer += chunk;
@@ -59,6 +64,7 @@ export function createMessageStreamer(params: {
               botMessage: buffer,
               streaming: true,
               _streamBuffer: buffer,
+              _fenceCleanDone: true,
             };
           }
         });

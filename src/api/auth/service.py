@@ -27,7 +27,7 @@ async def revoke_all_user_tokens(user_id: uuid.UUID, session: AsyncSession):
     
     if user:
         user.token_version = user.token_version + 1
-        await session.commit()
+        await session.flush()
 
 async def get_default_role(session: AsyncSession) -> Role:
     """Get the default role for new users (Basic User)."""
@@ -278,26 +278,25 @@ async def resolve_oauth_user(profile: dict, session: AsyncSession) -> User:
     return new_user
 
 async def update_user_password(user_id: uuid.UUID, password: str, session: AsyncSession):
-    # Check if local identity exists
+    # Get all local identities for this user
     stmt = select(AuthIdentity).where(
         AuthIdentity.user_id == user_id,
         AuthIdentity.provider == "local"
     )
     result = await session.execute(stmt)
-    identity = result.scalar_one_or_none()
+    identities = list(result.scalars().all())
     
     hashed_password = get_password_hash(password)
     
-    if identity:
-        identity.password_hash = hashed_password
+    if identities:
+        for identity in identities:
+            identity.password_hash = hashed_password
     else:
-        # Create local identity
-        identity = AuthIdentity(
+        session.add(AuthIdentity(
             user_id=user_id,
             provider="local",
             password_hash=hashed_password
-        )
-        session.add(identity)
+        ))
         
     # Revoke all tokens (security best practice on password change)
     await revoke_all_user_tokens(user_id, session)
