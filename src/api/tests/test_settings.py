@@ -766,3 +766,237 @@ class TestUpdateAuthEdgeCases:
         assert settings["auth_google_enabled"] is False
 
 
+
+from src.api.db.models import User
+from src.api.services.settings_service import (
+    SettingsService,
+    get_field_segment,
+    format_value_for_display,
+    SEGMENT_FIELDS,
+)
+from src.api.schemas.setting_schemas import SettingSegment
+
+
+async def _ensure_user(session, uid=None):
+    from uuid import uuid4 as _u4
+    uid = uid or _u4()
+    user = User(id=uid, email=f"u_{str(uid)[:8]}@test.com", is_active=True)
+    session.add(user)
+    await session.flush()
+    return uid
+
+
+class TestGetFieldSegment:
+    def test_aiml_fields(self):
+        assert get_field_segment("model") == SettingSegment.AIML
+        assert get_field_segment("temperature") == SettingSegment.AIML
+
+    def test_auth_fields(self):
+        assert get_field_segment("auth_google_enabled") == SettingSegment.AUTH
+        assert get_field_segment("auth_local_enabled") == SettingSegment.AUTH
+
+    def test_unknown_field_defaults_to_auth(self):
+        # Unknown fields fall through to AUTH
+        assert get_field_segment("nonexistent") == SettingSegment.AUTH
+
+
+class TestFormatValueForDisplay:
+    def test_none(self):
+        assert format_value_for_display("model", None) == "None"
+
+    def test_bool_true(self):
+        assert format_value_for_display("langfuse_enabled", True) == "On"
+
+    def test_bool_false(self):
+        assert format_value_for_display("langfuse_enabled", False) == "Off"
+
+    def test_deny_words_empty(self):
+        assert format_value_for_display("deny_words", "") == "(empty)"
+
+    def test_deny_words_long(self):
+        long_words = "a" * 100
+        result = format_value_for_display("deny_words", long_words)
+        assert result.endswith("...")
+        assert len(result) == 53
+
+    def test_deny_words_normal(self):
+        assert format_value_for_display("deny_words", "bad,evil") == "bad,evil"
+
+    def test_string_value(self):
+        assert format_value_for_display("model", "gpt-4") == "gpt-4"
+
+
+class TestSettingsServiceGetLatest:
+    @pytest.mark.asyncio
+    async def test_no_settings(self, test_session):
+        svc = SettingsService(test_session)
+        result = await svc.get_latest_setting()
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_latest(self, test_session):
+        uid = await _ensure_user(test_session)
+        s1 = _make_setting(uid, model="old")
+        s2 = _make_setting(uid, model="new")
+        test_session.add_all([s1, s2])
+        await test_session.commit()
+
+        svc = SettingsService(test_session)
+        latest = await svc.get_latest_setting()
+        assert latest is not None
+
+
+class TestSettingsServiceComputeChanges:
+    @pytest.mark.asyncio
+    async def test_initial_creation(self, test_session):
+        uid = await _ensure_user(test_session)
+        setting = _make_setting(uid, model="gpt-4", temperature="0.7")
+        test_session.add(setting)
+        await test_session.commit()
+
+        svc = SettingsService(test_session)
+        changes = svc.compute_changes(None, setting)
+        fields_changed = {c.field for c in changes}
+        assert "model" in fields_changed
+        assert "temperature" in fields_changed
+
+    @pytest.mark.asyncio
+    async def test_no_changes(self, test_session):
+        uid = await _ensure_user(test_session)
+        s1 = _make_setting(uid, model="gpt-4")
+        s2 = _make_setting(uid, model="gpt-4")
+        test_session.add_all([s1, s2])
+        await test_session.commit()
+
+        svc = SettingsService(test_session)
+        changes = svc.compute_changes(s1, s2)
+        assert len(changes) == 0
+
+    @pytest.mark.asyncio
+    async def test_segment_filter(self, test_session):
+        uid = await _ensure_user(test_session)
+        s1 = _make_setting(uid, model="old", auth_google_enabled=True)
+        s2 = _make_setting(uid, model="new", auth_google_enabled=False)
+        test_session.add_all([s1, s2])
+        await test_session.commit()
+
+        svc = SettingsService(test_session)
+        # Only AIML changes
+        aiml_changes = svc.compute_changes(s1, s2, SettingSegment.AIML)
+        assert all(c.segment == SettingSegment.AIML for c in aiml_changes)
+        # Only AUTH changes
+        auth_changes = svc.compute_changes(s1, s2, SettingSegment.AUTH)
+        assert all(c.segment == SettingSegment.AUTH for c in auth_changes)
+
+
+class TestSettingsServiceUpdateSegment:
+    @pytest.mark.asyncio
+    async def test_create_initial(self, test_session):
+        uid = await _ensure_user(test_session)
+        svc = SettingsService(test_session)
+        result = await svc.update_segment(
+            SettingSegment.AIML,
+            {"model": "claude-3", "temperature": "0.5"},
+            uid,
+        )
+        assert result.model == "claude-3"
+        assert result.change_type == "create"
+
+    @pytest.mark.asyncio
+    async def test_update_existing(self, test_session):
+        uid = await _ensure_user(test_session)
+        svc = SettingsService(test_session)
+        await svc.update_segment(SettingSegment.AIML, {"model": "v1"}, uid)
+        result = await svc.update_segment(SettingSegment.AIML, {"model": "v2"}, uid)
+        assert result.model == "v2"
+        assert result.change_type == "update"
+
+    @pytest.mark.asyncio
+    async def test_no_op_returns_existing(self, test_session):
+        uid = await _ensure_user(test_session)
+        svc = SettingsService(test_session)
+        first = await svc.update_segment(SettingSegment.AIML, {"model": "same"}, uid)
+        second = await svc.update_segment(SettingSegment.AIML, {"model": "same"}, uid)
+        # Should return the same setting (no new version created)
+        assert first.id == second.id
+
+
+class TestSettingsServiceRollback:
+    @pytest.mark.asyncio
+    async def test_rollback_creates_new_version(self, test_session):
+        uid = await _ensure_user(test_session)
+        svc = SettingsService(test_session)
+        v1 = await svc.update_segment(SettingSegment.AIML, {"model": "v1"}, uid)
+        await svc.update_segment(SettingSegment.AIML, {"model": "v2"}, uid)
+
+        rollback = await svc.rollback_to_version(v1.id, uid, reason="Reverting")
+        assert rollback is not None
+        assert rollback.model == "v1"
+        assert rollback.change_type == "rollback"
+
+    @pytest.mark.asyncio
+    async def test_rollback_not_found(self, test_session):
+        uid = await _ensure_user(test_session)
+        svc = SettingsService(test_session)
+        result = await svc.rollback_to_version(uuid4(), uid)
+        assert result is None
+
+
+class TestSettingsServiceExtractSegment:
+    @pytest.mark.asyncio
+    async def test_extract_aiml(self, test_session):
+        uid = await _ensure_user(test_session)
+        setting = _make_setting(uid, model="gpt-4", temperature="0.7")
+        test_session.add(setting)
+        await test_session.commit()
+
+        svc = SettingsService(test_session)
+        fields = svc.extract_segment_fields(setting, SettingSegment.AIML)
+        assert "model" in fields
+        assert "temperature" in fields
+        assert "auth_google_enabled" not in fields
+
+    @pytest.mark.asyncio
+    async def test_extract_auth(self, test_session):
+        uid = await _ensure_user(test_session)
+        setting = _make_setting(uid, auth_google_enabled=True)
+        test_session.add(setting)
+        await test_session.commit()
+
+        svc = SettingsService(test_session)
+        fields = svc.extract_segment_fields(setting, SettingSegment.AUTH)
+        assert "auth_google_enabled" in fields
+        assert "model" not in fields
+
+
+class TestSettingsServiceDefaults:
+    def test_get_default_aiml(self):
+        defaults = SettingsService.get_default_segment_fields(SettingSegment.AIML)
+        assert "model" in defaults
+        assert "temperature" in defaults
+
+    def test_get_default_auth(self):
+        defaults = SettingsService.get_default_segment_fields(SettingSegment.AUTH)
+        assert "auth_google_enabled" in defaults
+        assert defaults["auth_google_enabled"] is True
+
+
+class TestSettingsServiceHistory:
+    @pytest.mark.asyncio
+    async def test_empty_history(self, test_session):
+        svc = SettingsService(test_session)
+        items, total = await svc.get_settings_history()
+        assert total == 0
+        assert items == []
+
+    @pytest.mark.asyncio
+    async def test_history_with_changes(self, test_session):
+        uid = await _ensure_user(test_session)
+        svc = SettingsService(test_session)
+        await svc.update_segment(SettingSegment.AIML, {"model": "v1"}, uid)
+        await svc.update_segment(SettingSegment.AIML, {"model": "v2"}, uid)
+
+        items, total = await svc.get_settings_history()
+        assert total == 2
+        assert len(items) == 2
+

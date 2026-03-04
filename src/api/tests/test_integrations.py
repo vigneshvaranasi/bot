@@ -16,6 +16,8 @@ calls external ServiceNow APIs, so it is not tested here.
 
 import pytest
 from uuid import uuid4
+from unittest.mock import patch, AsyncMock, MagicMock
+from datetime import datetime, timezone
 
 from sqlalchemy.future import select
 
@@ -722,3 +724,298 @@ class TestIntegrationsUnauthenticated:
     async def test_delete_unauth(self, client):
         response = await client.delete(f"/integrations/delete/{uuid4()}")
         assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_sync_unauth(self, client):
+        response = await client.post(f"/integrations/sync/{uuid4()}")
+        assert response.status_code == 403
+
+class TestSyncIntegration:
+    """Tests for POST /integrations/sync/{integration_id}"""
+
+    @pytest.mark.asyncio
+    async def test_sync_not_found(self, admin_client):
+        """Sync non-existent integration returns SSE error event."""
+        client, _, _ = admin_client
+        response = await client.post(f"/integrations/sync/{uuid4()}")
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers.get("content-type", "")
+        body = response.text
+        assert "not found" in body.lower()
+
+    @pytest.mark.asyncio
+    async def test_sync_missing_config(self, admin_client):
+        """Sync with missing ServiceNow config returns SSE error."""
+        client, session, user_id = admin_client
+        intg = _make_integration(user_id, config={"url": "https://x.com"})
+        session.add(intg)
+        await session.commit()
+        await session.refresh(intg)
+
+        response = await client.post(f"/integrations/sync/{intg.id}")
+        assert response.status_code == 200
+        body = response.text
+        assert "missing" in body.lower() or "error" in body.lower()
+
+    @pytest.mark.asyncio
+    async def test_sync_requires_permission(self, no_perms_client):
+        """Requires integration.sync permission."""
+        client, _, _ = no_perms_client
+        response = await client.post(f"/integrations/sync/{uuid4()}")
+        assert response.status_code == 403
+
+class TestMaskHelpers:
+    """Unit tests for masking helper functions."""
+
+    def test_mask_sensitive_config_empty(self):
+        from src.api.routers.integrations import mask_sensitive_config
+        assert mask_sensitive_config({}) == {}
+        assert mask_sensitive_config(None) is None
+
+    def test_mask_sensitive_config_masks_keys(self):
+        from src.api.routers.integrations import mask_sensitive_config
+        config = {"url": "x", "password": "pw", "api_key": "k", "secret": "s", "token": "t"}
+        result = mask_sensitive_config(config)
+        assert result["url"] == "x"
+        assert result["password"] == "********"
+        assert result["api_key"] == "********"
+        assert result["secret"] == "********"
+        assert result["token"] == "********"
+
+    def test_mask_integration_response_format(self):
+        from src.api.routers.integrations import mask_integration_response
+        from unittest.mock import MagicMock
+        from datetime import datetime, timezone
+
+        intg = MagicMock()
+        intg.id = uuid4()
+        intg.service_name = "snow"
+        intg.auth_type = "basic"
+        intg.config = {"url": "x", "password": "secret"}
+        intg.is_active = True
+        intg.last_synced_at = datetime.now(timezone.utc)
+        intg.last_sync_status = "success"
+        intg.last_sync_error = None
+        intg.updated_at = datetime.now(timezone.utc)
+        intg.user_id = uuid4()
+
+        result = mask_integration_response(intg)
+        assert result["service_name"] == "snow"
+        assert result["config"]["password"] == "********"
+        assert "Z" in result["last_synced_at"]
+
+    def test_sse_event_format(self):
+        from src.api.routers.integrations import _sse_event
+        result = _sse_event("progress", {"batch": 1})
+        assert result.startswith("event: progress\n")
+        assert '"batch": 1' in result
+        assert result.endswith("\n\n")
+
+class TestIntegrationErrorPaths:
+    """Tests for exception handling in integration CRUD."""
+
+    @pytest.mark.asyncio
+    async def test_get_integrations_db_error(self, admin_client):
+        """DB error in get_integrations returns error response."""
+        client, session, _ = admin_client
+        with patch.object(session, "execute", side_effect=RuntimeError("db down")):
+            response = await client.get("/integrations/all")
+        data = response.json()
+        assert data["success"] is False
+
+class TestSyncIntegrationSSE:
+    """Tests for POST /integrations/sync/{id} SSE endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_sync_not_found(self, admin_client):
+        """Non-existent integration returns SSE error event."""
+        client, _, _ = admin_client
+        response = await client.post(f"/integrations/sync/{uuid4()}")
+        assert response.status_code == 200
+        assert "event-stream" in response.headers.get("content-type", "")
+        assert "Integration not found" in response.text
+
+    @pytest.mark.asyncio
+    async def test_sync_missing_config(self, admin_client):
+        """Integration without url/username/password returns SSE error."""
+        client, session, _ = admin_client
+        from src.api.db.models import Integration
+        intg = Integration(
+            service_name="snow", auth_type="basic",
+            config={"url": "http://example.com"},  # missing username/password
+            is_active=True, user_id=str(uuid4()),
+        )
+        session.add(intg)
+        await session.commit()
+        await session.refresh(intg)
+
+        response = await client.post(f"/integrations/sync/{intg.id}")
+        assert "Missing ServiceNow configuration" in response.text
+
+    @pytest.mark.asyncio
+    async def test_sync_servicenow_error(self, admin_client):
+        """ServiceNow fetch error streams error event."""
+        client, session, _ = admin_client
+        from src.api.db.models import Integration
+        intg = Integration(
+            service_name="snow", auth_type="basic",
+            config={"url": "http://sn.test", "username": "u", "password": "p"},
+            is_active=True, user_id=str(uuid4()),
+        )
+        session.add(intg)
+        await session.commit()
+        await session.refresh(intg)
+
+        with patch("src.api.routers.integrations.run_servicenow_ingestion",
+                   side_effect=RuntimeError("Connection refused")):
+            response = await client.post(f"/integrations/sync/{intg.id}")
+        body = response.text
+        assert "Connection refused" in body
+        assert "event: error" in body
+
+    @pytest.mark.asyncio
+    async def test_sync_no_incidents(self, admin_client):
+        """Sync with 0 incidents succeeds with progress event."""
+        client, session, _ = admin_client
+        from src.api.db.models import Integration
+        intg = Integration(
+            service_name="snow", auth_type="basic",
+            config={"url": "http://sn.test", "username": "u", "password": "p"},
+            is_active=True, user_id=str(uuid4()),
+        )
+        session.add(intg)
+        await session.commit()
+        await session.refresh(intg)
+
+        with patch("src.api.routers.integrations.run_servicenow_ingestion",
+                   return_value={"normalized": [], "added": 0, "total": 0,
+                                 "last_synced": "2025-01-01"}):
+            response = await client.post(f"/integrations/sync/{intg.id}")
+        body = response.text
+        assert "event: complete" in body
+        assert "No new incidents" in body or "event: progress" in body
+
+    @pytest.mark.asyncio
+    async def test_sync_with_incidents(self, admin_client):
+        """Sync with incidents starts ingestion and streams events."""
+        client, session, _ = admin_client
+        from src.api.db.models import Integration
+        intg = Integration(
+            service_name="snow", auth_type="basic",
+            config={"url": "http://sn.test", "username": "u", "password": "p"},
+            is_active=True, user_id=str(uuid4()),
+        )
+        session.add(intg)
+        await session.commit()
+        await session.refresh(intg)
+
+        incidents = [{"number": f"INC{i}", "short_description": f"Issue {i}",
+                      "description": f"Desc {i}", "priority": "1", "state": "6",
+                      "category": "network", "assigned_to": "admin",
+                      "sys_created_on": "2025-01-01", "sys_updated_on": "2025-01-02",
+                      "resolved_at": "2025-01-03", "close_notes": "fixed"}
+                     for i in range(3)]
+
+        mock_svc = AsyncMock()
+        mock_upload = MagicMock()
+        mock_upload.id = uuid4()
+        mock_svc.create_upload_session = AsyncMock(return_value=mock_upload)
+        mock_version = MagicMock()
+        mock_version.id = uuid4()
+        mock_version.version_number = 1
+        mock_svc.confirm_and_ingest = AsyncMock(return_value=mock_version)
+
+        with patch("src.api.routers.integrations.run_servicenow_ingestion",
+                   return_value={"normalized": incidents, "added": 3, "total": 3,
+                                 "last_synced": "2025-01-02"}), \
+             patch("src.api.routers.integrations.IncidentIngestionService",
+                   return_value=mock_svc):
+            response = await client.post(f"/integrations/sync/{intg.id}")
+        body = response.text
+        assert "event: progress" in body
+        assert "event: complete" in body
+
+
+class TestCreateDeleteErrorPaths:
+    """Cover create/delete exception handlers (lines 117-119, 142-144)."""
+
+    @pytest.mark.asyncio
+    async def test_create_integration_db_commit_error(self, admin_client):
+        """DB error during create returns error response (lines 117-119)."""
+        client, session, uid = admin_client
+        from src.api.main import app
+        from src.api.db.session import get_session as real_get_session
+
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock()
+        mock_session.commit = AsyncMock(side_effect=RuntimeError("insert failed"))
+        mock_session.rollback = AsyncMock()
+        app.dependency_overrides[real_get_session] = lambda: mock_session
+        try:
+            response = await client.post("/integrations/create", json={
+                "service_name": "fail", "auth_type": "basic_auth",
+                "config": {}, "is_active": True,
+            })
+            data = response.json()
+            assert data["success"] is False
+            assert "Error occurred" in data["message"]
+        finally:
+            app.dependency_overrides[real_get_session] = lambda: session
+
+    @pytest.mark.asyncio
+    async def test_delete_integration_db_error(self, admin_client):
+        """DB error during delete returns error response (lines 142-144)."""
+        client, session, uid = admin_client
+        from src.api.main import app
+        from src.api.db.session import get_session as real_get_session
+
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(side_effect=RuntimeError("delete failed"))
+        mock_session.rollback = AsyncMock()
+        app.dependency_overrides[real_get_session] = lambda: mock_session
+        try:
+            response = await client.delete(f"/integrations/delete/{uuid4()}")
+            data = response.json()
+            assert data["success"] is False
+            assert "Error occurred" in data["message"]
+        finally:
+            app.dependency_overrides[real_get_session] = lambda: session
+
+
+class TestSyncSSEDeep:
+    """Cover remaining sync SSE inner code (lines 270, 303-304, 317-323, 326-332)."""
+
+    @pytest.mark.asyncio
+    async def test_sync_ingestion_error_event(self, admin_client):
+        """Ingestion error sends SSE error event (lines 303-304, 317-320)."""
+        client, session, uid = admin_client
+        intg = Integration(
+            service_name="ServiceNow", auth_type="basic",
+            config={"instance_url": "https://test.service-now.com",
+                    "username": "admin", "password": "pass"},
+            is_active=True, user_id=uid,
+        )
+        session.add(intg)
+        await session.commit()
+        await session.refresh(intg)
+
+        incidents = [{"incident_id": f"INC{i}", "title": f"Inc {i}",
+                      "description": f"Desc {i}", "action_taken": f"Fix {i}",
+                      "opened_at": "2025-01-01", "updated_at": "2025-01-02",
+                      "resolved_at": "2025-01-03", "close_notes": "fixed"}
+                     for i in range(2)]
+
+        mock_svc = AsyncMock()
+        mock_upload = MagicMock()
+        mock_upload.id = uuid4()
+        mock_svc.create_upload_session = AsyncMock(return_value=mock_upload)
+        mock_svc.confirm_and_ingest = AsyncMock(side_effect=RuntimeError("ingest boom"))
+
+        with patch("src.api.routers.integrations.run_servicenow_ingestion",
+                   return_value={"normalized": incidents, "added": 2, "total": 2,
+                                 "last_synced": "2025-01-02"}), \
+             patch("src.api.routers.integrations.IncidentIngestionService",
+                   return_value=mock_svc):
+            response = await client.post(f"/integrations/sync/{intg.id}")
+        body = response.text
+        assert "event: error" in body

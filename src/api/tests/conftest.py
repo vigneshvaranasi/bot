@@ -30,11 +30,18 @@ def _compile_jsonb_sqlite(type_, compiler, **kw):
     return "JSON"
 
 
-# Patch PostgreSQL UUID bind_processor so string UUIDs work on SQLite.
+@compiles(PG_UUID, "sqlite")
+def _compile_uuid_sqlite(type_, compiler, **kw):
+    return "CHAR(32)"
+
+
+# Patch PostgreSQL UUID bind_processor and result_processor for SQLite.
 # The chat router passes user_id as a plain string from the JWT token,
 # which works on PostgreSQL but fails on SQLite because the default
 # processor expects a uuid.UUID object with a .hex attribute.
 _original_uuid_bind_processor = PG_UUID.bind_processor
+_original_uuid_result_processor = PG_UUID.result_processor
+
 
 def _uuid_bind_processor_sqlite_compat(self, dialect):
     if dialect.name == "sqlite":
@@ -49,7 +56,23 @@ def _uuid_bind_processor_sqlite_compat(self, dialect):
         return process
     return _original_uuid_bind_processor(self, dialect)
 
+
+def _uuid_result_processor_sqlite_compat(self, dialect, coltype):
+    if dialect.name == "sqlite":
+        def process(value):
+            if value is None:
+                return None
+            if isinstance(value, uuid_module.UUID):
+                return value
+            if isinstance(value, (int, float)):
+                return None
+            return uuid_module.UUID(str(value))
+        return process
+    return _original_uuid_result_processor(self, dialect, coltype)
+
+
 PG_UUID.bind_processor = _uuid_bind_processor_sqlite_compat
+PG_UUID.result_processor = _uuid_result_processor_sqlite_compat
 
 
 # Remove PostgreSQL partial unique indexes (postgresql_where) from metadata.

@@ -1639,3 +1639,912 @@ class TestGoldenExampleEdgeCases:
         assert data["total"] == 1
         assert data["items"][0]["source_type"] == "manual"
         assert data["items"][0]["is_active"] is True
+
+from src.api.services.feedback_service import FeedbackService
+
+async def _setup_feedback_context(session):
+    """Create user, chat, message for feedback testing. Returns (user, chat, message)."""
+    user = User(email=f"fb_{uuid4().hex[:8]}@test.com", is_active=True)
+    session.add(user)
+    await session.flush()
+    chat = Chat(user_id=user.id, title="FB Chat")
+    session.add(chat)
+    await session.flush()
+    msg = Message(chat_id=chat.id, human="Question?", bot="Answer.")
+    session.add(msg)
+    await session.commit()
+    await session.refresh(user)
+    await session.refresh(chat)
+    await session.refresh(msg)
+    return user, chat, msg
+
+
+class TestFeedbackServiceSettings:
+    """Tests for get_feedback_settings()."""
+
+    @pytest.mark.asyncio
+    async def test_defaults_when_no_settings(self, test_session):
+        svc = FeedbackService(test_session)
+        settings = await svc.get_feedback_settings()
+        assert settings["auto_approve_positive"] is True
+        assert settings["auto_approve_negative"] is False
+
+    @pytest.mark.asyncio
+    async def test_reads_from_db(self, test_session):
+        user = User(email="s@test.com", is_active=True)
+        test_session.add(user)
+        await test_session.flush()
+        setting = Setting(
+            user_id=user.id, deny_words="", langfuse_enabled=False,
+            change_type="create",
+            feedback_auto_approve_positive=False,
+            feedback_auto_approve_negative=True,
+        )
+        test_session.add(setting)
+        await test_session.commit()
+
+        svc = FeedbackService(test_session)
+        settings = await svc.get_feedback_settings()
+        assert settings["auto_approve_positive"] is False
+        assert settings["auto_approve_negative"] is True
+
+
+class TestFeedbackServiceCreate:
+    """Tests for create_feedback()."""
+
+    @pytest.mark.asyncio
+    async def test_create_positive(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        # Disable auto-approve so we don't need to mock golden example creation
+        setting = Setting(
+            user_id=user.id, deny_words="", langfuse_enabled=False,
+            change_type="create",
+            feedback_auto_approve_positive=False,
+        )
+        test_session.add(setting)
+        await test_session.commit()
+
+        svc = FeedbackService(test_session)
+        fb, ge = await svc.create_feedback(msg.id, user.id, "positive")
+        assert fb.feedback_type == "positive"
+        assert fb.status == "pending"
+        assert ge is None
+
+    @pytest.mark.asyncio
+    async def test_create_negative_pending(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+
+        fb, ge = await svc.create_feedback(msg.id, user.id, "negative")
+        assert fb.feedback_type == "negative"
+        assert fb.status == "pending"  # default auto_approve_negative=False
+        assert ge is None
+
+    @pytest.mark.asyncio
+    async def test_create_duplicate_raises(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        with pytest.raises(ValueError, match="already submitted"):
+            await svc.create_feedback(msg.id, user.id, "positive")
+
+    @pytest.mark.asyncio
+    async def test_create_message_not_found(self, test_session):
+        user, _, _ = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        with pytest.raises(ValueError, match="not found"):
+            await svc.create_feedback(uuid4(), user.id, "positive")
+
+    @pytest.mark.asyncio
+    async def test_create_wrong_user_raises(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        other_user = User(email="other@test.com", is_active=True)
+        test_session.add(other_user)
+        await test_session.commit()
+        await test_session.refresh(other_user)
+
+        svc = FeedbackService(test_session)
+        with pytest.raises(ValueError, match="not found"):
+            await svc.create_feedback(msg.id, other_user.id, "positive")
+
+
+class TestFeedbackServiceUpdate:
+    """Tests for update_feedback()."""
+
+    @pytest.mark.asyncio
+    async def test_update_pending(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+
+        updated = await svc.update_feedback(fb.id, user.id, reason="Updated reason")
+        assert updated.reason == "Updated reason"
+
+    @pytest.mark.asyncio
+    async def test_update_feedback_type(self, test_session):
+        """Updating feedback_type branch (line 159)."""
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+
+        updated = await svc.update_feedback(
+            fb.id, user.id, feedback_type="positive", reason="actually good"
+        )
+        assert updated.feedback_type == "positive"
+        assert updated.reason == "actually good"
+
+    @pytest.mark.asyncio
+    async def test_update_wrong_user_raises(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        other = User(email="other2@test.com", is_active=True)
+        test_session.add(other)
+        await test_session.commit()
+        await test_session.refresh(other)
+
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+
+        with pytest.raises(ValueError, match="your own"):
+            await svc.update_feedback(fb.id, other.id, reason="hack")
+
+    @pytest.mark.asyncio
+    async def test_update_processed_raises(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+
+        # Create negative pending, then mark as reviewed manually
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb.status = "reviewed"
+        await test_session.commit()
+        await test_session.refresh(fb)
+
+        with pytest.raises(ValueError, match="already been processed"):
+            await svc.update_feedback(fb.id, user.id, reason="too late")
+
+    @pytest.mark.asyncio
+    async def test_update_not_found(self, test_session):
+        svc = FeedbackService(test_session)
+        result = await svc.update_feedback(uuid4(), uuid4())
+        assert result is None
+
+
+class TestFeedbackServiceDismissRestore:
+    """Tests for dismiss_feedback and restore_feedback."""
+
+    @pytest.mark.asyncio
+    async def test_dismiss(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+
+        dismissed = await svc.dismiss_feedback(fb.id, user.id, reason="Not useful")
+        assert dismissed.status == "dismissed"
+        assert "[Dismissed:" in dismissed.reason
+
+    @pytest.mark.asyncio
+    async def test_dismiss_not_found(self, test_session):
+        svc = FeedbackService(test_session)
+        with pytest.raises(ValueError, match="not found"):
+            await svc.dismiss_feedback(uuid4(), uuid4())
+
+    @pytest.mark.asyncio
+    async def test_restore(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative", reason="Original")
+
+        await svc.dismiss_feedback(fb.id, user.id, reason="Nah")
+        restored = await svc.restore_feedback(fb.id)
+        assert restored.status == "pending"
+        assert restored.reviewed_by is None
+
+    @pytest.mark.asyncio
+    async def test_restore_non_dismissed_raises(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+
+        with pytest.raises(ValueError, match="Only dismissed"):
+            await svc.restore_feedback(fb.id)
+
+
+class TestFeedbackServiceDelete:
+    """Tests for delete_feedback."""
+
+    @pytest.mark.asyncio
+    async def test_delete_success(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+
+        result = await svc.delete_feedback(fb.id)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_delete_not_found(self, test_session):
+        svc = FeedbackService(test_session)
+        result = await svc.delete_feedback(uuid4())
+        assert result is False
+
+
+class TestFeedbackServiceStats:
+    """Tests for get_feedback_stats."""
+
+    @pytest.mark.asyncio
+    async def test_empty_stats(self, test_session):
+        svc = FeedbackService(test_session)
+        stats = await svc.get_feedback_stats()
+        assert stats["total_feedback"] == 0
+        assert stats["positive_count"] == 0
+        assert stats["negative_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_counts_correct(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        # Disable auto-approve so we don't need golden example creation
+        setting = Setting(
+            user_id=user.id, deny_words="", langfuse_enabled=False,
+            change_type="create",
+            feedback_auto_approve_positive=False,
+        )
+        test_session.add(setting)
+
+        msg2 = Message(chat_id=chat.id, human="Q2", bot="A2")
+        test_session.add(msg2)
+        await test_session.commit()
+        await test_session.refresh(msg2)
+
+        svc = FeedbackService(test_session)
+        await svc.create_feedback(msg.id, user.id, "negative")
+        await svc.create_feedback(msg2.id, user.id, "positive")
+
+        stats = await svc.get_feedback_stats()
+        assert stats["total_feedback"] == 2
+        assert stats["positive_count"] == 1
+        assert stats["negative_count"] == 1
+
+
+class TestFeedbackServiceListFeedback:
+    """Tests for list_feedback."""
+
+    @pytest.mark.asyncio
+    async def test_list_empty(self, test_session):
+        svc = FeedbackService(test_session)
+        items, total = await svc.list_feedback()
+        assert items == []
+        assert total == 0
+
+    @pytest.mark.asyncio
+    async def test_list_returns_items(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        setting = Setting(
+            user_id=user.id, deny_words="", langfuse_enabled=False,
+            change_type="create",
+            feedback_auto_approve_positive=False,
+        )
+        test_session.add(setting)
+        await test_session.commit()
+
+        svc = FeedbackService(test_session)
+        await svc.create_feedback(msg.id, user.id, "negative", reason="Bad answer")
+
+        items, total = await svc.list_feedback()
+        assert total == 1
+        assert len(items) == 1
+        item = items[0]
+        assert item["feedback_type"] == "negative"
+        assert item["reason"] == "Bad answer"
+        assert item["user_email"] is not None
+        assert item["original_query"] == msg.human
+
+    @pytest.mark.asyncio
+    async def test_list_with_status_filter(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        msg2 = Message(chat_id=chat.id, human="Q2", bot="A2")
+        test_session.add(msg2)
+        await test_session.commit()
+        await test_session.refresh(msg2)
+
+        svc = FeedbackService(test_session)
+        fb1, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb2, _ = await svc.create_feedback(msg2.id, user.id, "negative")
+        await svc.dismiss_feedback(fb1.id, user.id)
+
+        items, total = await svc.list_feedback(status_filter="dismissed")
+        assert total == 1
+        assert items[0]["status"] == "dismissed"
+
+    @pytest.mark.asyncio
+    async def test_list_with_type_filter(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        setting = Setting(
+            user_id=user.id, deny_words="", langfuse_enabled=False,
+            change_type="create", feedback_auto_approve_positive=False,
+        )
+        test_session.add(setting)
+        msg2 = Message(chat_id=chat.id, human="Q2", bot="A2")
+        test_session.add(msg2)
+        await test_session.commit()
+        await test_session.refresh(msg2)
+
+        svc = FeedbackService(test_session)
+        await svc.create_feedback(msg.id, user.id, "negative")
+        await svc.create_feedback(msg2.id, user.id, "positive")
+
+        items, total = await svc.list_feedback(type_filter="positive")
+        assert total == 1
+        assert items[0]["feedback_type"] == "positive"
+
+    @pytest.mark.asyncio
+    async def test_list_with_search(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        await svc.create_feedback(msg.id, user.id, "negative", reason="terrible answer")
+
+        items, total = await svc.list_feedback(search="terrible")
+        assert total == 1
+
+    @pytest.mark.asyncio
+    async def test_list_pagination(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        setting = Setting(
+            user_id=user.id, deny_words="", langfuse_enabled=False,
+            change_type="create", feedback_auto_approve_positive=False,
+        )
+        test_session.add(setting)
+        msgs = []
+        for i in range(3):
+            m = Message(chat_id=chat.id, human=f"Q{i}", bot=f"A{i}")
+            test_session.add(m)
+            msgs.append(m)
+        await test_session.commit()
+        for m in msgs:
+            await test_session.refresh(m)
+
+        svc = FeedbackService(test_session)
+        for m in msgs:
+            await svc.create_feedback(m.id, user.id, "negative")
+
+        items, total = await svc.list_feedback(limit=2, offset=0)
+        assert total == 3
+        assert len(items) == 2
+
+        items2, total2 = await svc.list_feedback(limit=2, offset=2)
+        assert total2 == 3
+        assert len(items2) == 1
+
+    @pytest.mark.asyncio
+    async def test_list_with_reviewer(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        await svc.dismiss_feedback(fb.id, user.id, reason="dismiss it")
+
+        items, total = await svc.list_feedback()
+        assert total == 1
+        assert items[0]["reviewed_by"] is not None
+        assert items[0]["reviewer_email"] is not None
+
+
+class TestFeedbackServiceGetWithContext:
+    """Tests for get_feedback_with_context."""
+
+    @pytest.mark.asyncio
+    async def test_get_with_context(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative", reason="bad")
+
+        result = await svc.get_feedback_with_context(fb.id)
+        assert result is not None
+        assert result["feedback_type"] == "negative"
+        assert result["reason"] == "bad"
+        assert result["original_query"] == msg.human
+        assert result["original_response"] == msg.bot
+        assert result["has_golden_example"] is False
+
+    @pytest.mark.asyncio
+    async def test_get_with_context_not_found(self, test_session):
+        svc = FeedbackService(test_session)
+        result = await svc.get_feedback_with_context(uuid4())
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_with_context_reviewed(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        await svc.dismiss_feedback(fb.id, user.id)
+
+        result = await svc.get_feedback_with_context(fb.id)
+        assert result["reviewed_by"] is not None
+        assert result["reviewer_email"] is not None
+
+
+class TestFeedbackServiceResolve:
+    """Tests for resolve_feedback."""
+
+    @pytest.mark.asyncio
+    async def test_resolve_positive(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        # Disable auto-approve so create_feedback doesn't try to embed
+        setting = Setting(
+            user_id=user.id, deny_words="", langfuse_enabled=False,
+            change_type="create", feedback_auto_approve_positive=False,
+        )
+        test_session.add(setting)
+        await test_session.commit()
+
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "positive")
+
+        from src.api.db.models.golden_example import GoldenExample
+        ge = GoldenExample(
+            original_query=msg.human,
+            original_response=msg.bot,
+            golden_response=msg.bot,
+            feedback_id=fb.id,
+            source_type="positive",
+            approval_type="manual",
+        )
+        test_session.add(ge)
+        await test_session.flush()
+
+        with patch.object(svc, "_create_golden_example_from_feedback", new_callable=AsyncMock, return_value=ge):
+            result_fb, result_ge = await svc.resolve_feedback(fb.id, user.id)
+
+        assert result_fb.status == "reviewed"
+        assert result_fb.reviewed_by == user.id
+
+    @pytest.mark.asyncio
+    async def test_resolve_negative_requires_golden(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+
+        with pytest.raises(ValueError, match="Golden response is required"):
+            await svc.resolve_feedback(fb.id, user.id)
+
+    @pytest.mark.asyncio
+    async def test_resolve_negative_with_golden(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+
+        from src.api.db.models.golden_example import GoldenExample
+        ge = GoldenExample(
+            original_query=msg.human,
+            original_response=msg.bot,
+            golden_response="Better answer",
+            feedback_id=fb.id,
+            source_type="negative",
+            approval_type="manual",
+        )
+        test_session.add(ge)
+        await test_session.flush()
+
+        with patch.object(svc, "_create_golden_example_from_feedback", new_callable=AsyncMock, return_value=ge):
+            result_fb, result_ge = await svc.resolve_feedback(
+                fb.id, user.id, golden_response="Better answer"
+            )
+
+        assert result_fb.status == "reviewed"
+
+    @pytest.mark.asyncio
+    async def test_resolve_not_found(self, test_session):
+        svc = FeedbackService(test_session)
+        with pytest.raises(ValueError, match="not found"):
+            await svc.resolve_feedback(uuid4(), uuid4())
+
+    @pytest.mark.asyncio
+    async def test_resolve_message_not_found(self, test_session):
+        """Resolve raises when associated message is not found (line 338)."""
+        user, chat, msg = await _setup_feedback_context(test_session)
+        # Disable auto-approve to avoid golden example creation (circular import)
+        setting = Setting(
+            user_id=user.id, deny_words="", langfuse_enabled=False,
+            change_type="create",
+            feedback_auto_approve_positive=False,
+        )
+        test_session.add(setting)
+        await test_session.commit()
+
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "positive")
+
+        with patch.object(svc, "get_message_with_context", new_callable=AsyncMock, return_value=None):
+            with pytest.raises(ValueError, match="Associated message not found"):
+                await svc.resolve_feedback(fb.id, user.id)
+
+    @pytest.mark.asyncio
+    async def test_resolve_already_processed(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb.status = "reviewed"
+        await test_session.commit()
+        await test_session.refresh(fb)
+
+        with pytest.raises(ValueError, match="already been processed"):
+            await svc.resolve_feedback(fb.id, user.id, golden_response="x")
+
+    @pytest.mark.asyncio
+    async def test_dismiss_already_processed(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb.status = "reviewed"
+        await test_session.commit()
+        await test_session.refresh(fb)
+
+        with pytest.raises(ValueError, match="already been processed"):
+            await svc.dismiss_feedback(fb.id, user.id)
+
+    @pytest.mark.asyncio
+    async def test_dismiss_without_reason(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+
+        dismissed = await svc.dismiss_feedback(fb.id, user.id)
+        assert dismissed.status == "dismissed"
+
+    @pytest.mark.asyncio
+    async def test_dismiss_no_existing_reason(self, test_session):
+        """Dismiss with reason when feedback has no existing reason."""
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+
+        dismissed = await svc.dismiss_feedback(fb.id, user.id, reason="Not useful")
+        assert "[Dismissed: Not useful]" in dismissed.reason
+
+    @pytest.mark.asyncio
+    async def test_restore_cleans_dismiss_reason(self, test_session):
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative", reason="Original text")
+
+        await svc.dismiss_feedback(fb.id, user.id, reason="Nah")
+        restored = await svc.restore_feedback(fb.id)
+        assert restored.reason == "Original text"
+        assert "[Dismissed:" not in (restored.reason or "")
+
+    @pytest.mark.asyncio
+    async def test_restore_not_found(self, test_session):
+        svc = FeedbackService(test_session)
+        with pytest.raises(ValueError, match="not found"):
+            await svc.restore_feedback(uuid4())
+
+    @pytest.mark.asyncio
+    async def test_delete_with_golden_example(self, test_session):
+        """Delete feedback that has an associated golden example."""
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+
+        from src.api.db.models.golden_example import GoldenExample
+        ge = GoldenExample(
+            original_query=msg.human,
+            original_response=msg.bot,
+            golden_response="Better",
+            feedback_id=fb.id,
+            source_type="negative",
+            approval_type="manual",
+        )
+        test_session.add(ge)
+        await test_session.commit()
+
+        result = await svc.delete_feedback(fb.id)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_delete_with_golden_and_qdrant(self, test_session):
+        """Delete feedback with golden example that has qdrant_point_id."""
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+
+        from src.api.db.models.golden_example import GoldenExample
+        ge = GoldenExample(
+            original_query=msg.human,
+            original_response=msg.bot,
+            golden_response="Better",
+            feedback_id=fb.id,
+            source_type="negative",
+            approval_type="manual",
+            qdrant_point_id="point-123",
+        )
+        test_session.add(ge)
+        await test_session.commit()
+
+        with patch(
+            "src.api.services.golden_example_service.GoldenExampleService._delete_from_qdrant",
+            new_callable=AsyncMock,
+        ):
+            result = await svc.delete_feedback(fb.id)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_delete_with_qdrant_failure(self, test_session):
+        """Qdrant deletion failure doesn't prevent feedback deletion."""
+        user, chat, msg = await _setup_feedback_context(test_session)
+        svc = FeedbackService(test_session)
+        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+
+        from src.api.db.models.golden_example import GoldenExample
+        ge = GoldenExample(
+            original_query=msg.human,
+            original_response=msg.bot,
+            golden_response="Better",
+            feedback_id=fb.id,
+            source_type="negative",
+            approval_type="manual",
+            qdrant_point_id="point-456",
+        )
+        test_session.add(ge)
+        await test_session.commit()
+
+        with patch(
+            "src.api.services.golden_example_service.GoldenExampleService._delete_from_qdrant",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("qdrant down"),
+        ):
+            result = await svc.delete_feedback(fb.id)
+        assert result is True
+
+class TestFeedbackRouterErrorPaths:
+    """Tests for exception handlers in feedback router endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_submit_invalid_message_id(self, admin_client):
+        """Invalid UUID in message_id returns 400."""
+        client, _, _ = admin_client
+        response = await client.post("/feedback/", json={
+            "message_id": "not-a-uuid",
+            "feedback_type": "positive",
+        })
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_submit_value_error(self, admin_client):
+        """ValueError in submit returns 400."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.feedback_service.FeedbackService.create_feedback",
+            new_callable=AsyncMock,
+            side_effect=ValueError("Message not found"),
+        ):
+            response = await client.post("/feedback/", json={
+                "message_id": str(uuid4()),
+                "feedback_type": "positive",
+            })
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_submit_internal_error(self, admin_client):
+        """Internal error in submit returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.feedback_service.FeedbackService.create_feedback",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("unexpected"),
+        ):
+            response = await client.post("/feedback/", json={
+                "message_id": str(uuid4()),
+                "feedback_type": "positive",
+            })
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_get_feedback_for_message_invalid_uuid(self, admin_client):
+        """Invalid UUID returns None (not an error)."""
+        client, _, _ = admin_client
+        response = await client.get("/feedback/message/not-a-uuid")
+        assert response.status_code == 200
+        assert response.json() is None
+
+    @pytest.mark.asyncio
+    async def test_get_feedback_for_message_internal_error(self, admin_client):
+        """Internal error in get_feedback_for_message returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.feedback_service.FeedbackService.get_feedback_by_message",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("db error"),
+        ):
+            response = await client.get(f"/feedback/message/{uuid4()}")
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_list_feedback_internal_error(self, admin_client):
+        """Internal error in list_feedback returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.feedback_service.FeedbackService.list_feedback",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("query error"),
+        ):
+            response = await client.get("/feedback/admin/list")
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_get_stats_internal_error(self, admin_client):
+        """Internal error in get_feedback_stats returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.feedback_service.FeedbackService.get_feedback_stats",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("stats error"),
+        ):
+            response = await client.get("/feedback/admin/stats")
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_get_settings_internal_error(self, admin_client):
+        """Internal error in get_feedback_settings returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.feedback_service.FeedbackService.get_feedback_settings",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("settings error"),
+        ):
+            response = await client.get("/feedback/admin/settings")
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_update_settings_no_settings(self, admin_client):
+        """Update settings when no settings exist returns 404."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.settings_service.SettingsService.get_latest_setting",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
+            response = await client.put("/feedback/admin/settings", json={
+                "auto_approve_positive": True,
+            })
+        # Should get 404 or 500 depending on error propagation
+        assert response.status_code in (404, 500)
+
+    @pytest.mark.asyncio
+    async def test_get_details_internal_error(self, admin_client):
+        """Internal error in get_feedback_details returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.feedback_service.FeedbackService.get_feedback_with_context",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("context error"),
+        ):
+            response = await client.get(f"/feedback/admin/{uuid4()}")
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_resolve_internal_error(self, admin_client):
+        """Internal error in resolve_feedback returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.feedback_service.FeedbackService.resolve_feedback",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("resolve error"),
+        ):
+            response = await client.post(f"/feedback/admin/{uuid4()}/resolve", json={
+                "golden_response": "better",
+            })
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_dismiss_internal_error(self, admin_client):
+        """Internal error in dismiss_feedback returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.feedback_service.FeedbackService.dismiss_feedback",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("dismiss error"),
+        ):
+            response = await client.post(f"/feedback/admin/{uuid4()}/dismiss", json={
+                "reason": "not relevant",
+            })
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_restore_internal_error(self, admin_client):
+        """Internal error in restore_feedback returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.feedback_service.FeedbackService.restore_feedback",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("restore error"),
+        ):
+            response = await client.post(f"/feedback/admin/{uuid4()}/restore")
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_delete_internal_error(self, admin_client):
+        """Internal error in delete_feedback returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.feedback_service.FeedbackService.delete_feedback",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("delete error"),
+        ):
+            response = await client.delete(f"/feedback/admin/{uuid4()}")
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_generate_response_internal_error(self, admin_client):
+        """Internal error in generate_golden_response returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.feedback_service.FeedbackService.get_feedback_with_context",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("generate error"),
+        ):
+            response = await client.post(f"/feedback/admin/{uuid4()}/generate-response")
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_list_golden_examples_internal_error(self, admin_client):
+        """Internal error in list_golden_examples returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.golden_example_service.GoldenExampleService.list_examples",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("list error"),
+        ):
+            response = await client.get("/feedback/golden-examples/")
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_get_golden_example_internal_error(self, admin_client):
+        """Internal error in get_golden_example returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.golden_example_service.GoldenExampleService.get_by_id",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("get error"),
+        ):
+            response = await client.get(f"/feedback/golden-examples/{uuid4()}")
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_create_golden_example_internal_error(self, admin_client):
+        """Internal error in create_golden_example returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.golden_example_service.GoldenExampleService.create_example",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("create error"),
+        ):
+            response = await client.post("/feedback/golden-examples/", json={
+                "original_query": "q",
+                "golden_response": "r",
+            })
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_update_golden_example_internal_error(self, admin_client):
+        """Internal error in update_golden_example returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.golden_example_service.GoldenExampleService.update_example",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("update error"),
+        ):
+            response = await client.put(f"/feedback/golden-examples/{uuid4()}", json={
+                "golden_response": "updated",
+            })
+        assert response.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_delete_golden_example_internal_error(self, admin_client):
+        """Internal error in delete_golden_example returns 500."""
+        client, _, _ = admin_client
+        with patch(
+            "src.api.services.golden_example_service.GoldenExampleService.delete_example",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("delete error"),
+        ):
+            response = await client.delete(f"/feedback/golden-examples/{uuid4()}")
+        assert response.status_code == 500
