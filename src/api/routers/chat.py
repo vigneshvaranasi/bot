@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -14,8 +15,16 @@ from scripts.cache import check_cache_for_query, store_chat_response
 from src.api.auth.dependencies import get_current_user
 from src.api.db.models import Chat, Message, Setting
 from src.api.db.session import get_session
-from src.api.schemas.chat_schema import ChatListItem, ChatRenameRequest, MessagePartialUpdate, PromptModel
-from src.api.utils.llm_provider_helper import get_provider_config_for_chat, get_provider_config_for_model
+from src.api.schemas.chat_schema import (
+    ChatListItem,
+    ChatRenameRequest,
+    MessagePartialUpdate,
+    PromptModel,
+)
+from src.api.utils.llm_provider_helper import (
+    get_provider_config_for_chat,
+    get_provider_config_for_model,
+)
 from src.api.utils.tracing import conditional_observation
 from src.copilot.graph import create_agent_graph, generate_title_from_query
 from src.copilot.guardrails.prompt_guardrails import PromptGuardrail
@@ -52,6 +61,7 @@ router = APIRouter()
 
 # / -> Get All Chats of the User (paginated)
 @router.get("/")
+@router.get("")
 async def get_user_chats(
     limit: int = 20,
     offset: int = 0,
@@ -210,6 +220,8 @@ async def prompt_stream(
     human_message = request.message
     chat_id = request.chat_id
     user_id = current_user["user_id"]
+    if not human_message or not human_message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
     try:
         is_valid, reject_msg, settings = await validate_prompt(human_message, session)
         if not is_valid:
@@ -574,6 +586,8 @@ async def prompt(
     human_message = request.message
     chat_id = request.chat_id
     user_id = current_user["user_id"]
+    if not human_message or not human_message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
     try:
         is_valid, reject_msg, settings = await validate_prompt(human_message, session)
         if not is_valid:
@@ -718,7 +732,7 @@ async def prompt(
 # /messages/{chat_id} -> Get paginated messages in a chat
 @router.get("/messages/{chat_id}")
 async def get_chat_with_messages(
-    chat_id: str,
+    chat_id: UUID,
     limit: int = 50,
     offset: int = 0,
     session: AsyncSession = Depends(get_session),
@@ -790,7 +804,7 @@ async def get_chat_with_messages(
 # /rename/{chat_id} -> Rename a chat
 @router.put("/rename/{chat_id}")
 async def rename_chat(
-    chat_id: str,
+    chat_id: UUID,
     request: ChatRenameRequest,
     session: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
@@ -815,7 +829,7 @@ async def rename_chat(
 # /archive/{chat_id} -> Archive a chat
 @router.delete("/archive/{chat_id}")
 async def archive_chat(
-    chat_id: str,
+    chat_id: UUID,
     session: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
@@ -835,6 +849,9 @@ async def archive_chat(
             "error": False,
             "message": "Chat archived successfully",
         }
+    except HTTPException:
+        await session.rollback()
+        raise
     except Exception as e:
         await session.rollback()
         return {
@@ -845,7 +862,7 @@ async def archive_chat(
 
 @router.patch("/messages/{message_id}/partial")
 async def save_partial_message(
-    message_id: str,
+    message_id: UUID,
     data: MessagePartialUpdate,
     session: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),

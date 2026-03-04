@@ -2,13 +2,12 @@
 
 This service provides functions to:
 - Resolve user permissions from roles AND direct assignments
-- Cache permissions for performance
 - CRUD operations for permissions, permission sets, and roles
 - Direct user permission and permission set assignments
 """
 
 import logging
-from typing import List, Set, Optional
+from typing import List, Optional, Set
 from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,8 +22,9 @@ from ..db.models import (
     RolePermissionSet,
     UserPermission,
     UserPermissionSet,
+    UserRole,
 )
-from .audit_service import log_rbac_change, AuditEntityType, AuditAction
+from .audit_service import AuditAction, AuditEntityType, log_rbac_change
 
 logger = logging.getLogger(__name__)
 
@@ -36,69 +36,57 @@ async def get_user_permissions(user_id: UUID, session: AsyncSession) -> Set[str]
     1. Permissions from roles (Role -> PermissionSet -> Permission)
     2. Permissions from direct permission set assignments (User -> PermissionSet -> Permission)
     3. Permissions from direct permission assignments (User -> Permission)
-
-    Args:
-        user_id: The user's UUID
-        session: Database session
-
-    Returns:
-        Set of permission code strings
     """
-    query = text("""
-        -- Source 1: Permissions from roles
-        SELECT DISTINCT p.code
-        FROM permissions p
-        JOIN permission_set_permissions psp ON p.id = psp.permission_id
-        JOIN role_permission_sets rps ON psp.permission_set_id = rps.permission_set_id
-        JOIN user_roles ur ON rps.role_id = ur.role_id
-        WHERE ur.user_id = :user_id
-        AND p.deleted_at IS NULL
+    # Source 1: Permissions via roles
+    role_query = (
+        select(Permission.code)
+        .join(PermissionSetPermission, Permission.id == PermissionSetPermission.permission_id)
+        .join(PermissionSet, PermissionSetPermission.permission_set_id == PermissionSet.id)
+        .join(RolePermissionSet, RolePermissionSet.permission_set_id == PermissionSet.id)
+        .join(UserRole, UserRole.role_id == RolePermissionSet.role_id)
+        .where(UserRole.user_id == user_id)
+        .where(Permission.deleted_at.is_(None))
+    )
+    role_result = await session.execute(role_query)
+    from_roles = {row[0] for row in role_result.all()}
 
-        UNION
+    # Source 2: Permissions via direct permission set assignments
+    direct_set_query = (
+        select(Permission.code)
+        .join(PermissionSetPermission, Permission.id == PermissionSetPermission.permission_id)
+        .join(PermissionSet, PermissionSetPermission.permission_set_id == PermissionSet.id)
+        .join(UserPermissionSet, UserPermissionSet.permission_set_id == PermissionSet.id)
+        .where(UserPermissionSet.user_id == user_id)
+        .where(Permission.deleted_at.is_(None))
+    )
+    direct_set_result = await session.execute(direct_set_query)
+    from_direct_sets = {row[0] for row in direct_set_result.all()}
 
-        -- Source 2: Permissions from direct permission set assignments
-        SELECT DISTINCT p.code
-        FROM permissions p
-        JOIN permission_set_permissions psp ON p.id = psp.permission_id
-        JOIN user_permission_sets ups ON psp.permission_set_id = ups.permission_set_id
-        WHERE ups.user_id = :user_id
-        AND p.deleted_at IS NULL
+    # Source 3: Direct permission assignments
+    direct_perm_query = (
+        select(Permission.code)
+        .join(UserPermission, Permission.id == UserPermission.permission_id)
+        .where(UserPermission.user_id == user_id)
+        .where(Permission.deleted_at.is_(None))
+    )
+    direct_perm_result = await session.execute(direct_perm_query)
+    from_direct_permissions = {row[0] for row in direct_perm_result.all()}
 
-        UNION
-
-        -- Source 3: Direct permission assignments
-        SELECT DISTINCT p.code
-        FROM permissions p
-        JOIN user_permissions up ON p.id = up.permission_id
-        WHERE up.user_id = :user_id
-        AND p.deleted_at IS NULL
-    """)
-
-    result = await session.execute(query, {"user_id": str(user_id)})
-    return {row[0] for row in result.fetchall()}
+    return from_roles | from_direct_sets | from_direct_permissions
 
 
 async def get_role_permissions(role_id: UUID, session: AsyncSession) -> Set[str]:
-    """Get all permission codes for a role.
-
-    Args:
-        role_id: The role's UUID
-        session: Database session
-
-    Returns:
-        Set of permission code strings
-    """
-    query = text("""
-        SELECT DISTINCT p.code
-        FROM permissions p
-        JOIN permission_set_permissions psp ON p.id = psp.permission_id
-        JOIN role_permission_sets rps ON psp.permission_set_id = rps.permission_set_id
-        WHERE rps.role_id = :role_id
-        AND p.deleted_at IS NULL
-    """)
-
-    result = await session.execute(query, {"role_id": str(role_id)})
-    return {row[0] for row in result.fetchall()}
+    """Get all permission codes for a role."""
+    query = (
+        select(Permission.code)
+        .join(PermissionSetPermission, Permission.id == PermissionSetPermission.permission_id)
+        .join(PermissionSet, PermissionSetPermission.permission_set_id == PermissionSet.id)
+        .join(RolePermissionSet, RolePermissionSet.permission_set_id == PermissionSet.id)
+        .where(RolePermissionSet.role_id == role_id)
+        .where(Permission.deleted_at.is_(None))
+    )
+    result = await session.execute(query)
+    return {row[0] for row in result.all()}
 
 
 # ==================== Permission CRUD ====================
@@ -669,40 +657,39 @@ async def get_user_permissions_detailed(user_id: UUID, session: AsyncSession) ->
         - effective: Set of all permission codes (union of all sources)
     """
     # Source 1: Permissions from roles
-    from_roles_query = text("""
-        SELECT DISTINCT p.code
-        FROM permissions p
-        JOIN permission_set_permissions psp ON p.id = psp.permission_id
-        JOIN role_permission_sets rps ON psp.permission_set_id = rps.permission_set_id
-        JOIN user_roles ur ON rps.role_id = ur.role_id
-        WHERE ur.user_id = :user_id
-        AND p.deleted_at IS NULL
-    """)
-    from_roles_result = await session.execute(from_roles_query, {"user_id": str(user_id)})
-    from_roles = {row[0] for row in from_roles_result.fetchall()}
+    from_roles_query = (
+        select(Permission.code)
+        .join(PermissionSetPermission, Permission.id == PermissionSetPermission.permission_id)
+        .join(PermissionSet, PermissionSetPermission.permission_set_id == PermissionSet.id)
+        .join(RolePermissionSet, RolePermissionSet.permission_set_id == PermissionSet.id)
+        .join(UserRole, UserRole.role_id == RolePermissionSet.role_id)
+        .where(UserRole.user_id == user_id)
+        .where(Permission.deleted_at.is_(None))
+    )
+    from_roles_result = await session.execute(from_roles_query)
+    from_roles = {row[0] for row in from_roles_result.all()}
 
     # Source 2: Permissions from direct permission sets
-    from_direct_sets_query = text("""
-        SELECT DISTINCT p.code
-        FROM permissions p
-        JOIN permission_set_permissions psp ON p.id = psp.permission_id
-        JOIN user_permission_sets ups ON psp.permission_set_id = ups.permission_set_id
-        WHERE ups.user_id = :user_id
-        AND p.deleted_at IS NULL
-    """)
-    from_direct_sets_result = await session.execute(from_direct_sets_query, {"user_id": str(user_id)})
-    from_direct_sets = {row[0] for row in from_direct_sets_result.fetchall()}
+    from_direct_sets_query = (
+        select(Permission.code)
+        .join(PermissionSetPermission, Permission.id == PermissionSetPermission.permission_id)
+        .join(PermissionSet, PermissionSetPermission.permission_set_id == PermissionSet.id)
+        .join(UserPermissionSet, UserPermissionSet.permission_set_id == PermissionSet.id)
+        .where(UserPermissionSet.user_id == user_id)
+        .where(Permission.deleted_at.is_(None))
+    )
+    from_direct_sets_result = await session.execute(from_direct_sets_query)
+    from_direct_sets = {row[0] for row in from_direct_sets_result.all()}
 
     # Source 3: Direct permissions
-    from_direct_perms_query = text("""
-        SELECT DISTINCT p.code
-        FROM permissions p
-        JOIN user_permissions up ON p.id = up.permission_id
-        WHERE up.user_id = :user_id
-        AND p.deleted_at IS NULL
-    """)
-    from_direct_perms_result = await session.execute(from_direct_perms_query, {"user_id": str(user_id)})
-    from_direct_permissions = {row[0] for row in from_direct_perms_result.fetchall()}
+    from_direct_perms_query = (
+        select(Permission.code)
+        .join(UserPermission, Permission.id == UserPermission.permission_id)
+        .where(UserPermission.user_id == user_id)
+        .where(Permission.deleted_at.is_(None))
+    )
+    from_direct_perms_result = await session.execute(from_direct_perms_query)
+    from_direct_permissions = {row[0] for row in from_direct_perms_result.all()}
 
     return {
         "from_roles": list(from_roles),

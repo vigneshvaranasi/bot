@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 class PromptModel(BaseModel):
     message:str
-    chat_id: str | None
+    chat_id: str | None = None
     generate_title: bool = True
     provider_id: str | None = None
     model_id: str | None = None
