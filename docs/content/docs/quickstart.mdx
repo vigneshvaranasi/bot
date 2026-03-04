@@ -1,0 +1,185 @@
+---
+title: Quickstart
+description: Get Support Bot up and running in minutes with this step-by-step guide
+icon: Zap
+---
+
+
+## Getting Started with Support Bot
+
+This guide will walk you through setting up Support Bot on your local machine. You'll have a fully functional AI-powered incident resolution system running in under 10 minutes.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Python 3.11+:** Support Bot requires Python 3.11 or higher
+- **Docker:** For running PostgreSQL, pgVector, and Qdrant
+- **Node.js 18+:** For the React frontend (with npm)
+- **uv:** Python package manager (recommended) — install via `pip install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- **Git:** To clone the repository
+
+Make sure Docker is running before proceeding with the setup steps.
+
+## Installation Steps
+
+### 1. Clone the Repository
+
+Start by cloning the Support Bot repository to your local machine:
+
+```bash
+git clone https://github.com/vigneshvaranasi/bot.git
+cd bot
+```
+
+### 2. Configure Environment Variables
+
+Copy the example environment file and configure your settings:
+
+```bash
+cp .env.example .env
+```
+
+Edit the `.env` file and set the required variables:
+
+```bash
+# Database URLs (match docker-compose defaults)
+DATABASE_URL=postgresql+asyncpg://postgres:admin@localhost:5434/bot_db
+DATABASE_URL_SYNC=postgresql://postgres:admin@localhost:5434/bot_db
+VECTOR_DATABASE_URL=postgresql://postgres:admin@localhost:5433/vector_db
+QDRANT_URL=http://localhost:6333
+
+# Security
+JWT_SECRET_KEY=your-secret-key-here
+JWT_ALGORITHM=HS256
+JWT_EXPIRY=30
+ENCRYPTION_KEY=your-encryption-key
+
+# OAuth configuration
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:5173/auth/callback/google
+
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+GITHUB_REDIRECT_URI=http://localhost:5173/auth/callback/github
+
+MICROSOFT_CLIENT_ID=your-microsoft-client-id
+MICROSOFT_CLIENT_SECRET=your-microsoft-client-secret
+MICROSOFT_REDIRECT_URI=http://localhost:5173/auth/callback/microsoft
+MICROSOFT_TENANT_ID=common
+
+# Redis configuration (optional)
+USE_REDIS_CACHE=false
+REDIS_URL=redis://localhost:6379/0
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=
+REDIS_USERNAME=
+
+CORS_ORIGINS=http://localhost:5173
+
+```
+### 3. Start Docker Services
+
+Launch the required databases using Docker Compose:
+
+```bash
+make infra
+# or: docker compose up -d
+```
+
+This starts four services:
+
+- **PostgreSQL** (port 5434): Main application database
+- **pgVector** (port 5433): Vector database for embeddings
+- **Qdrant** (ports 6333/6334): Vector search engine
+- **Adminer** (port 8080): Database management UI
+
+Verify the services are running:
+
+```bash
+docker compose ps
+```
+
+### 4. Run One-Time Setup
+
+Install dependencies, run migrations, seed the knowledge base, and install frontend packages:
+
+```bash
+make bootstrap
+```
+
+This command runs:
+
+- `uv sync` — Install Python dependencies
+- `alembic upgrade head` — Create database tables
+- `python scripts/ingestion/main.py` — Ingest sample incidents into the knowledge base
+- `npm install` — Install frontend dependencies
+
+### 5. Create an Admin User
+
+Create your first admin user to access the system:
+
+```bash
+python scripts/create_admin.py
+```
+
+Follow the prompts to set up your admin credentials. Default: `admin@gmail.com` / `admin` if no arguments provided.
+
+### 6. Start the Application
+
+Launch both backend and frontend in development mode:
+
+```bash
+make dev
+```
+
+This runs:
+
+- **Backend:** FastAPI at http://localhost:8000 (API docs at http://localhost:8000/docs)
+- **Frontend:** React/Vite at http://localhost:5173
+
+Visit http://localhost:5173 to use the application.
+
+## Your First Chat
+
+Now that everything is running:
+
+1. Open your browser to http://localhost:5173
+2. Log in with your admin credentials
+3. Navigate to the chat interface
+4. Try asking: "Show me recent incidents" or "Find issues related to payment gateway"
+
+The AI agent will search your knowledge base and provide relevant information. As you add more incidents to the system, the search becomes more powerful.
+
+## Troubleshooting
+
+### Database Connection Issues
+
+If you see database connection errors, verify that:
+
+- Docker containers are running: `docker compose ps`
+- Ports 5434 and 5433 are not in use by other services
+- Database credentials in `.env` match the `docker-compose.yml` configuration
+
+### LLM API Errors
+
+If the AI agent isn't responding:
+
+- Check that your API key is valid in the `.env` file
+
+- Configure LLM providers via Settings → AI/ML in the app (after logging in)
+
+- Review logs in the terminal running the backend
+
+### Frontend Not Loading
+
+If the frontend shows errors:
+
+- Ensure the backend is running on port 8000
+- Check browser console for CORS errors
+- Verify `VITE_BE_URL` in `frontend/.env` points to your backend (default: http://localhost:8000)
+
+Need more help? Check the full documentation or open an issue on GitHub.

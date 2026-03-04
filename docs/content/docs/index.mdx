@@ -1,13 +1,103 @@
 ---
-title: Hello World
-description: Your first document
+title: Introduction
+icon: FileText
 ---
 
-Welcome to the docs! You can start writing documents in `/content/docs`.
+import { Bot, Database, MessageCircle, Shield, Layers, Search, Zap, BookOpen, Code, ArrowRight } from 'lucide-react';
 
-## What is Next?
+Welcome to Support Bot - an AI-powered incident resolution platform that helps teams resolve issues faster with intelligent assistance.
+
+## Welcome to Support Bot
+
+Support Bot is an AI-powered incident resolution platform designed to help teams quickly resolve technical incidents by leveraging LangGraph agents, vector search, and a comprehensive knowledge base. It provides intelligent incident analysis, automated search across historical incidents, and real-time assistance.
+
+## Key Features
 
 <Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.dev" />
+  <Card
+    icon={<Bot className="size-6 text-purple-400" />}
+    title="AI Copilot"
+    description="Intelligent incident resolution assistant powered by LangGraph agents that can search, analyze, and recommend solutions based on historical data and context."
+  />
+  <Card
+    icon={<Database className="size-6 text-blue-400" />}
+    title="Knowledge Base"
+    description="Vector-powered search using Qdrant that enables semantic search across incident reports, finding similar issues and proven solutions instantly."
+  />
+  <Card
+    icon={<MessageCircle className="size-6 text-cyan-400" />}
+    title="Chat Interface"
+    description="Interactive chat experience with streaming responses, markdown support, and contextual follow-ups for natural incident investigation."
+  />
+  <Card
+    icon={<Shield className="size-6 text-emerald-400" />}
+    title="OAuth & RBAC"
+    description="Enterprise-grade authentication with OAuth 2.0 support (Google, GitHub, Microsoft) and role-based access control for secure operations."
+  />
+  <Card
+    icon={<Layers className="size-6 text-amber-400" />}
+    title="Multi-LLM Support"
+    description="Flexible LLM provider support including Anthropic Claude, OpenAI GPT, Google Gemini, and Ollama for local deployments."
+  />
+  <Card
+    icon={<Search className="size-6 text-rose-400" />}
+    title="Vector Search"
+    description="Advanced semantic search capabilities using sentence transformers and Qdrant vector database for finding relevant incidents."
+  />
 </Cards>
+
+## What Makes Support Bot Different?
+
+Support Bot combines the power of modern AI frameworks with practical incident management:
+
+- **Conversational Memory:** LangGraph with PostgreSQL checkpointing maintains context across conversations
+- **Smart Tool Selection:** The AI agent automatically selects the right search tool based on your query
+- **Golden Examples:** Learn from verified incident resolutions to provide better recommendations
+- **Real-time Streaming:** Get responses as they're generated for faster feedback
+- **Production-Ready:** Built with FastAPI, React, and enterprise-grade database systems
+
+## Quick Links
+
+<Cards>
+  <Card
+    icon={<Zap className="size-6 text-amber-400" />}
+    title="Quickstart"
+    description="Get up and running in minutes with our step-by-step guide"
+    href="/quickstart"
+  />
+  <Card
+    icon={<BookOpen className="size-6 text-blue-400" />}
+    title="Architecture"
+    description="Understand the system design and technology stack"
+    href="/architecture"
+  />
+</Cards>
+
+## Use Cases
+
+Support Bot is ideal for:
+
+- **DevOps Teams:** Quickly find solutions to deployment issues and infrastructure problems
+- **Customer Support:** Retrieve answers from past support tickets and incident reports
+- **SRE Teams:** Analyze patterns in production incidents and automate initial triage
+- **Knowledge Management:** Build a searchable repository of technical solutions
+
+## Technology Stack
+
+Support Bot is built with modern:
+* FastAPI (Python 3.11+)
+* React 19 with Vite and TailwindCSS
+* LangGraph for agentic workflows
+* Qdrant for semantic search
+* PostgreSQL with pgvector extension
+* Anthropic, OpenAI, Google, Ollama for LLM providers
+
+<Callout type="info">
+  Support Bot requires Python 3.11 or higher and uses modern async/await patterns throughout the codebase.
+</Callout>
+
+<div className="flex flex-wrap items-center justify-between gap-4 not-prose">
+  <span className="text-fd-foreground">
+    Ready to get started? Head over to the <a href="/quickstart" className="font-medium text-fd-primary underline underline-offset-4 hover:text-fd-primary/90">Quickstart guide</a> to set up your first instance.
+  </span>
+</div>
