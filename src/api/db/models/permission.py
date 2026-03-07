@@ -13,6 +13,7 @@ class Permission(Base):
               postgresql_where=text("deleted_at IS NULL")),
         Index("uq_permissions_name_active", "name", unique=True,
               postgresql_where=text("deleted_at IS NULL")),
+        Index("idx_permissions_category", "category"),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, func
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Index, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from ...db.base import Base
@@ -7,6 +7,11 @@ from ...db.base import Base
 
 class Setting(Base):
     __tablename__ = "settings"
+    __table_args__ = (
+        Index("idx_settings_change_type", "change_type"),
+        Index("idx_settings_provider_id", "provider_id"),
+        Index("idx_settings_source_version_id", "source_version_id"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)

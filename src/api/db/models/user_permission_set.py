@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, func
+from sqlalchemy import Column, DateTime, ForeignKey, Index, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from ...db.base import Base
@@ -7,6 +7,10 @@ from ...db.base import Base
 class UserPermissionSet(Base):
     """Junction table for direct user -> permission_set assignment (bypassing roles)."""
     __tablename__ = "user_permission_sets"
+    __table_args__ = (
+        Index("idx_user_permission_sets_user_id", "user_id"),
+        Index("idx_user_permission_sets_permission_set_id", "permission_set_id"),
+    )
 
     user_id = Column(
         UUID(as_uuid=True),

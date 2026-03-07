@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey, func
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Index, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from ...db.base import Base
@@ -8,14 +8,22 @@ from ...db.base import Base
 class RbacAuditLog(Base):
     """Audit log for all RBAC changes (roles, permission sets, user assignments)."""
     __tablename__ = "rbac_audit_logs"
+    __table_args__ = (
+        Index("idx_rbac_audit_action", "action"),
+        Index("idx_rbac_audit_changed_at", "changed_at"),
+        Index("idx_rbac_audit_changed_by", "changed_by"),
+        Index("idx_rbac_audit_entity_id", "entity_id"),
+        Index("idx_rbac_audit_entity_type", "entity_type"),
+        Index("idx_rbac_audit_type_time", "entity_type", "changed_at"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
 
-    # What changed
+    # What changed (comments match DB so autogenerate does not suggest changes)
     entity_type = Column(
         String(50),
         nullable=False,
-        comment="Type of entity: role, permission_set, user_role, user_permission, user_permission_set"
+        comment="Type: role, permission_set, user_role, user_permission, user_permission_set"
     )
     entity_id = Column(
         UUID(as_uuid=True),
@@ -26,7 +34,7 @@ class RbacAuditLog(Base):
     secondary_entity_id = Column(
         UUID(as_uuid=True),
         nullable=True,
-        comment="Secondary ID for junction tables (e.g., role_id for user_role)"
+        comment="Secondary ID for junction tables"
     )
 
     # What action was taken
@@ -40,12 +48,12 @@ class RbacAuditLog(Base):
     old_value = Column(
         JSONB,
         nullable=True,
-        comment="Previous state (null for create/assign)"
+        comment="Previous state"
     )
     new_value = Column(
         JSONB,
         nullable=True,
-        comment="New state (null for delete/unassign)"
+        comment="New state"
     )
 
     # Who and when

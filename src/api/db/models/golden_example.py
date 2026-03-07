@@ -1,6 +1,6 @@
 """Golden Example model for storing admin-curated ideal responses."""
 import uuid
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Boolean, func
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Boolean, Index, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from ...db.base import Base
@@ -19,6 +19,13 @@ class GoldenExample(Base):
     to enhance the AI's responses for similar queries.
     """
     __tablename__ = "golden_examples"
+    __table_args__ = (
+        Index("idx_golden_examples_created_at", "created_at"),
+        Index("idx_golden_examples_feedback_id", "feedback_id"),
+        Index("idx_golden_examples_is_active", "is_active"),
+        Index("idx_golden_examples_qdrant_point_id", "qdrant_point_id"),
+        Index("idx_golden_examples_source_type", "source_type"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
     

@@ -1,6 +1,6 @@
 """Message Feedback model for storing user feedback on AI responses."""
 import uuid
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, func
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Index, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from ...db.base import Base
@@ -21,16 +21,21 @@ class MessageFeedback(Base):
     - dismissed: Admin rejected without creating golden example
     """
     __tablename__ = "message_feedback"
+    __table_args__ = (
+        Index("idx_message_feedback_created_at", "created_at"),
+        Index("idx_message_feedback_message_id", "message_id"),
+        Index("idx_message_feedback_status", "status"),
+        Index("idx_message_feedback_status_type", "status", "feedback_type"),
+        Index("idx_message_feedback_type", "feedback_type"),
+        Index("idx_message_feedback_user_id", "user_id"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
     message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    
-    feedback_type = Column(String(20), nullable=False)
-    
-    reason = Column(Text, nullable=True)
-    
-    status = Column(String(20), default="pending", nullable=False)
+    feedback_type = Column(String(20), nullable=False, comment="positive or negative")
+    reason = Column(Text, nullable=True, comment="Optional user explanation")
+    status = Column(String(20), default="pending", nullable=False, comment="pending, auto_approved, reviewed, dismissed")
     
     reviewed_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     reviewed_at = Column(DateTime(timezone=True), nullable=True)

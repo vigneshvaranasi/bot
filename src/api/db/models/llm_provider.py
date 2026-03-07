@@ -5,8 +5,8 @@ API keys are stored encrypted using Fernet encryption.
 """
 
 import uuid
-from sqlalchemy import JSON, Boolean, Column, String, DateTime, ForeignKey, func, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, Column, String, DateTime, ForeignKey, Index, func, Text, text
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from ..base import Base
 
@@ -34,6 +34,10 @@ class LlmProvider(Base):
     """
 
     __tablename__ = "llm_providers"
+    __table_args__ = (
+        Index("idx_llm_providers_active_type", "is_active", "provider_type"),
+        Index("idx_llm_providers_default", "is_default", postgresql_where=text("is_default = true")),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
@@ -45,13 +49,13 @@ class LlmProvider(Base):
     base_url = Column(String(500), nullable=True)
     api_key_encrypted = Column(Text, nullable=True)
 
-    # Provider-specific config (JSON)
+    # Provider-specific config (JSON) - use JSONB to match PostgreSQL
     # For anthropic/openai: {"organization_id": "..."}
     # For custom: {"auth_type": "bearer|basic|api_key_header|none", "auth_header_name": "...", "custom_headers": {...}}
-    config = Column(JSON, nullable=False, default=dict)
+    config = Column(JSONB, nullable=False, default=dict)
 
     # Available models for this provider (JSON array)
-    models = Column(JSON, nullable=False, default=list)
+    models = Column(JSONB, nullable=False, default=list)
 
     # Status flags
     is_active = Column(Boolean, default=True)
