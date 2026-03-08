@@ -23,6 +23,7 @@ function ChatPage() {
   const { user } = useAuthContext();
   const navigate = useNavigate();
   const abortRef = useRef<AbortController | null>(null);
+  const mergedMetricsRef = useRef<{ timeToFirstToken?: number; totalResponseTime: number; modelId?: string | null; providerType?: string | null } | null>(null);
 
   const handleStop = () => {
     abortRef.current?.abort();
@@ -55,15 +56,20 @@ function ChatPage() {
             botMessage: "",
             statusMessage: "Thinking...",
             streaming: true,
+            sentAt: new Date().toISOString(),
           },
         ],
       }));
       setIsLoading(true);
 
       // streamer
+      mergedMetricsRef.current = null;
       const streamer = createMessageStreamer({
         setCurrentChat,
         messageId: newMessageId,
+        onComplete: (m) => {
+          mergedMetricsRef.current = m;
+        },
       });
       streamer.markStart();
 
@@ -91,7 +97,7 @@ function ChatPage() {
         modelOverride,
         controller.signal
       );
-      const metrics = streamer.getMetrics();
+      const metrics = mergedMetricsRef.current ?? streamer.getMetrics();
       if (currChatId === "") {
         if (res?.chat_id) {
           saveChatMetrics(res.chat_id, metrics);

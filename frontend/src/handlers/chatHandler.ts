@@ -124,6 +124,11 @@ export type PaginatedMessagesResponse = {
     human: string;
     bot: string;
     created_at: string | null;
+    responded_at: string | null;
+    time_to_first_token_ms: number | null;
+    total_response_time_ms: number | null;
+    model_id: string | null;
+    provider_type: string | null;
   }[];
   total: number;
   limit: number;

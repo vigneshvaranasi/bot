@@ -1,6 +1,12 @@
 import asyncio
 import json
 import logging
+import time
+from datetime import datetime, timezone
+
+def _utcnow_naive() -> datetime:
+    """Return current UTC time as a timezone-naive datetime (for TIMESTAMP WITHOUT TIME ZONE columns)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 from typing import Any
 from uuid import UUID
 
@@ -369,6 +375,9 @@ async def prompt_stream(
                     msg_to_update = msg_result.scalar_one_or_none()
                     if msg_to_update:
                         msg_to_update.bot = cached_response
+                        msg_to_update.responded_at = _utcnow_naive()
+                        msg_to_update.model_id = llm_config.get("model_id") or "default"
+                        msg_to_update.provider_type = llm_config.get("provider_type") or "ollama"
                         await session.commit()
                 except Exception as e:
                     await session.rollback()
@@ -403,7 +412,15 @@ async def prompt_stream(
                         logger.debug("[PARALLEL TITLE] Timeout waiting for title")
 
                 # Send completion event with full answer
-                final_data = {"answer": cached_response, "chat_id": str(actual_chat_id), "message_id": str(pre_saved_message.id)}
+                final_data = {
+                    "answer": cached_response,
+                    "chat_id": str(actual_chat_id),
+                    "message_id": str(pre_saved_message.id),
+                    "time_to_first_token_ms": None,
+                    "total_response_time_ms": None,
+                    "model_id": llm_config.get("model_id") or "default",
+                    "provider_type": llm_config.get("provider_type") or "ollama",
+                }
                 yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
                 logger.debug(f"[CACHE STREAM] Stream completed successfully")
                 return
@@ -417,6 +434,8 @@ async def prompt_stream(
             answer = ""
             memory_saved = False
             generated_title = current_title
+            t_start: float | None = None
+            t_first: float | None = None
 
             workflow_observation = conditional_observation(
                 enabled=langfuse_enabled,
@@ -435,6 +454,7 @@ async def prompt_stream(
                         sync_stream = get_support_bot_graph().stream(
                             config=thread_config, input=inputs, stream_mode=["custom", "messages"]
                         )
+                        t_start = time.perf_counter()
                         async for mode, chunk in async_stream_wrapper(sync_stream):
                             
                             title_result = await check_and_emit_title()
@@ -479,21 +499,41 @@ async def prompt_stream(
                                         except Exception as e:
                                             logger.debug(f"[CACHE ERROR] Error storing response in cache: {e}")
 
-                                        # Update the pre-saved message with the full answer
+                                        # Update the pre-saved message with the full answer and metrics
+                                        t_end = time.perf_counter()
+                                        time_to_first_token_ms = (
+                                            round((t_first - t_start) * 1000) if t_start is not None and t_first is not None else None
+                                        )
+                                        total_response_time_ms = (
+                                            round((t_end - t_start) * 1000) if t_start is not None else None
+                                        )
                                         try:
-                                            # Re-fetch the message to ensure we have a fresh object attached to the session
                                             msg_result = await session.execute(
                                                 select(Message).where(Message.id == pre_saved_message.id)
                                             )
                                             msg_to_update = msg_result.scalar_one_or_none()
                                             if msg_to_update:
                                                 msg_to_update.bot = answer
-                                                memory_saved = True
+                                                msg_to_update.responded_at = _utcnow_naive()
+                                                msg_to_update.time_to_first_token_ms = time_to_first_token_ms
+                                                msg_to_update.total_response_time_ms = total_response_time_ms
+                                                msg_to_update.model_id = llm_config.get("model_id") or "default"
+                                                msg_to_update.provider_type = llm_config.get("provider_type") or "ollama"
                                                 await session.commit()
+                                                memory_saved = True
                                         except Exception as e:
+                                            logger.error(f"[METRICS SAVE] Failed to save message metrics: {e}", exc_info=True)
                                             await session.rollback()
 
-                                        final_data = {"answer": answer, "chat_id": str(actual_chat_id), "message_id": str(pre_saved_message.id)}
+                                        final_data = {
+                                            "answer": answer,
+                                            "chat_id": str(actual_chat_id),
+                                            "message_id": str(pre_saved_message.id),
+                                            "time_to_first_token_ms": time_to_first_token_ms,
+                                            "total_response_time_ms": total_response_time_ms,
+                                            "model_id": llm_config.get("model_id") or "default",
+                                            "provider_type": llm_config.get("provider_type") or "ollama",
+                                        }
                                         yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
 
                             elif mode == "messages":
@@ -503,6 +543,8 @@ async def prompt_stream(
                                     and isinstance(token_chunk, AIMessageChunk)
                                     and token_chunk.content
                                 ):
+                                    if t_first is None:
+                                        t_first = time.perf_counter()
                                     chunk_text = _message_content_to_str(token_chunk.content)
                                     answer += chunk_text
                                     chunk_payload = {"chunk": chunk_text}
@@ -518,10 +560,21 @@ async def prompt_stream(
                 error_payload = {"message": "An error occurred while generating the response. Please try again."}
                 yield f"event: error\ndata: {json.dumps(error_payload)}\n\n"
                 # Also send a complete event so frontend can finalize
+                t_end_err = time.perf_counter() if t_start is not None else None
+                time_to_first_token_ms_err = (
+                    round((t_first - t_start) * 1000) if t_start is not None and t_first is not None else None
+                )
+                total_response_time_ms_err = (
+                    round((t_end_err - t_start) * 1000) if t_start is not None and t_end_err is not None else None
+                )
                 final_data = {
                     "answer": answer or "",
                     "chat_id": str(actual_chat_id),
                     "message_id": str(pre_saved_message.id),
+                    "time_to_first_token_ms": time_to_first_token_ms_err,
+                    "total_response_time_ms": total_response_time_ms_err,
+                    "model_id": llm_config.get("model_id") or "default",
+                    "provider_type": llm_config.get("provider_type") or "ollama",
                 }
                 yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
             finally:
@@ -532,15 +585,25 @@ async def prompt_stream(
                 logger.debug(f"[STREAM FINALLY] memory_saved={memory_saved}, answer_len={len(answer) if answer else 0}")
                 if not memory_saved and answer:
                     try:
-                        # Re-fetch the message to ensure we have a fresh object attached to the session
+                        t_end_finally = time.perf_counter()
                         msg_result = await session.execute(
                             select(Message).where(Message.id == pre_saved_message.id)
                         )
                         msg_to_update = msg_result.scalar_one_or_none()
                         if msg_to_update:
                             msg_to_update.bot = answer
+                            msg_to_update.responded_at = _utcnow_naive()
+                            msg_to_update.time_to_first_token_ms = (
+                                round((t_first - t_start) * 1000) if t_start is not None and t_first is not None else None
+                            )
+                            msg_to_update.total_response_time_ms = (
+                                round((t_end_finally - t_start) * 1000) if t_start is not None else None
+                            )
+                            msg_to_update.model_id = llm_config.get("model_id") or "default"
+                            msg_to_update.provider_type = llm_config.get("provider_type") or "ollama"
                             await session.commit()
                     except Exception as save_err:
+                        logger.error(f"[STREAM FINALLY] Failed to save message in finally: {save_err}", exc_info=True)
                         await session.rollback()
 
         return StreamingResponse(
@@ -605,12 +668,19 @@ async def prompt(
         
         if cached_response:
             logger.debug(f"[CACHE HIT] Found cached response, returning from cache")
-            # Save cached response to database
+            provider_config = await get_provider_config_for_model(
+                session, request.provider_id, request.model_id
+            ) if (request.provider_id and request.model_id) else await get_provider_config_for_chat(
+                session, str(user_id)
+            )
             try:
                 new_message = Message(
                     chat_id=actual_chat_id,
                     human=human_message,
                     bot=cached_response,
+                    responded_at=_utcnow_naive(),
+                    model_id=provider_config.get("model_id") or "default",
+                    provider_type=provider_config.get("provider_type") or "ollama",
                 )
                 session.add(new_message)
                 await session.commit()
@@ -716,7 +786,14 @@ async def prompt(
         except Exception as e:
             logger.debug(f"[CACHE ERROR] Error storing response in cache: {e}")
         
-        message = Message(chat_id=actual_chat_id, human=human_message, bot=answer)
+        message = Message(
+            chat_id=actual_chat_id,
+            human=human_message,
+            bot=answer,
+            responded_at=_utcnow_naive(),
+            model_id=llm_config.get("model_id") or "default",
+            provider_type=llm_config.get("provider_type") or "ollama",
+        )
         session.add(message)
         await session.commit()
         return {"answer": answer, "chat_id": actual_chat_id}
@@ -774,7 +851,12 @@ async def get_chat_with_messages(
                 "chat_id": str(msg.chat_id),
                 "human": msg.human,
                 "bot": msg.bot,
-                "created_at": msg.created_at.isoformat() if msg.created_at else None
+                "created_at": msg.created_at.isoformat() if msg.created_at else None,
+                "responded_at": msg.responded_at.isoformat() if msg.responded_at else None,
+                "time_to_first_token_ms": msg.time_to_first_token_ms,
+                "total_response_time_ms": msg.total_response_time_ms,
+                "model_id": msg.model_id,
+                "provider_type": msg.provider_type,
             }
             for msg in messages
         ]

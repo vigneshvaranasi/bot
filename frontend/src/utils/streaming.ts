@@ -90,6 +90,17 @@ export function createMessageStreamer(params: {
     } else if (evt.event === "error") {
       endAt = performance.now();
       const metrics = computeMetrics();
+      const serverTtft = evt.data?.time_to_first_token_ms as number | undefined;
+      const serverTotal = evt.data?.total_response_time_ms as number | undefined;
+      const serverModelId = evt.data?.model_id as string | undefined;
+      const serverProviderType = evt.data?.provider_type as string | undefined;
+      const mergedMetrics: StreamMetrics = {
+        ...metrics,
+        ...(serverTtft != null && { timeToFirstToken: serverTtft }),
+        ...(serverTotal != null && { totalResponseTime: serverTotal }),
+        ...(serverModelId != null && { modelId: serverModelId }),
+        ...(serverProviderType != null && { providerType: serverProviderType }),
+      };
       setCurrentChat((prevChat: CurrentChatType | null) => {
         if (!prevChat) return prevChat;
         return {
@@ -102,16 +113,30 @@ export function createMessageStreamer(params: {
               statusMessage: undefined,
               streaming: false,
               _finalAnswerDone: true,
-              responseMetrics: metrics,
+              responseMetrics: mergedMetrics,
+              respondedAt: new Date().toISOString(),
+              ...(serverModelId != null && { modelId: serverModelId }),
+              ...(serverProviderType != null && { providerType: serverProviderType }),
             };
           }),
         };
       });
-      onComplete?.(metrics);
+      onComplete?.(mergedMetrics);
     } else if (evt.event === "complete") {
       endAt = performance.now();
       const metrics = computeMetrics();
       const realMessageId = evt.data?.message_id as string | undefined;
+      const serverTtft = evt.data?.time_to_first_token_ms as number | undefined;
+      const serverTotal = evt.data?.total_response_time_ms as number | undefined;
+      const serverModelId = evt.data?.model_id as string | undefined;
+      const serverProviderType = evt.data?.provider_type as string | undefined;
+      const mergedMetrics: StreamMetrics = {
+        ...metrics,
+        ...(serverTtft != null && { timeToFirstToken: serverTtft }),
+        ...(serverTotal != null && { totalResponseTime: serverTotal }),
+        ...(serverModelId != null && { modelId: serverModelId }),
+        ...(serverProviderType != null && { providerType: serverProviderType }),
+      };
       setCurrentChat((prevChat: CurrentChatType | null) => {
         if (!prevChat) return prevChat;
         return {
@@ -123,12 +148,15 @@ export function createMessageStreamer(params: {
               id: realMessageId || m.id,
               streaming: false,
               _finalAnswerDone: true,
-              responseMetrics: metrics,
+              responseMetrics: mergedMetrics,
+              respondedAt: new Date().toISOString(),
+              ...(serverModelId != null && { modelId: serverModelId }),
+              ...(serverProviderType != null && { providerType: serverProviderType }),
             };
           }),
         };
       });
-      onComplete?.(metrics);
+      onComplete?.(mergedMetrics);
     }
   };
 

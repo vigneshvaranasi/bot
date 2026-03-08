@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, DateTime, ForeignKey, func
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from ...db.base import Base
@@ -25,5 +25,10 @@ class Message(Base):
     human = Column(String, nullable=False)
     bot = Column(String, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
-    
+    responded_at = Column(DateTime, nullable=True)
+    time_to_first_token_ms = Column(Integer, nullable=True)
+    total_response_time_ms = Column(Integer, nullable=True)
+    model_id = Column(String, nullable=True)
+    provider_type = Column(String, nullable=True)
+
     chat = relationship("Chat", back_populates="messages")

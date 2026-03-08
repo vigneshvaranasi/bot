@@ -7,7 +7,7 @@ import { submitFeedback, getFeedbackForMessages } from "../handlers/feedbackHand
 import { readChatMetrics, removeChatMetrics } from "../utils/metrics";
 import { useSidebarContext } from "../hooks/useSidebarContext";
 import { useSpeechSynthesis } from "../hooks/useSpeechSynthesis";
-import { loadChatFromCache, saveChatToCache, messagesEqual, mergeOlderMessages } from "../utils/chatCache";
+import { loadChatFromCache, saveChatToCache, mergeOlderMessages } from "../utils/chatCache";
 import { ChatAction } from "../components/ui/ChatAction";
 import { InlineFeedback } from "../components/ui/InlineFeedback";
 import { logger } from "../utils/logger";
@@ -21,9 +21,33 @@ interface ApiChatMessage {
   id: string;
   human: string;
   bot: string;
+  created_at?: string | null;
+  responded_at?: string | null;
+  time_to_first_token_ms?: number | null;
+  total_response_time_ms?: number | null;
+  model_id?: string | null;
+  provider_type?: string | null;
 }
 
 const MESSAGES_PAGE_SIZE = 50;
+
+function formatMessageTime(iso: string | undefined | null): string {
+  if (!iso) return "—";
+  try {
+    const utcIso = iso.endsWith("Z") || iso.includes("+") || iso.includes("-", 10) ? iso : iso + "Z";
+    const d = new Date(utcIso);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return "—";
+  }
+}
 
 const ChatView = () => {
   const { chatId } = useParams<{ chatId: string }>();
@@ -89,46 +113,64 @@ const ChatView = () => {
         if (!token) return;
         const res: PaginatedMessagesResponse = await getChatMessagesById(token, chatId, MESSAGES_PAGE_SIZE, 0);
         let freshMessages: ChatMessage[] = [];
-        // Handle new paginated response format - messages are in res.messages
         const messageData = res && res.messages ? res.messages : [];
-        if (Array.isArray(messageData)) {
-          freshMessages = (messageData as ApiChatMessage[]).map((message: ApiChatMessage) => ({
-            id: message.id,
-            userMessage: message.human || "",
-            botMessage: message.bot || "",
-          }));
-          // get and attach metrics to the last message
+        const success = res && res.error !== true && Array.isArray(messageData);
+
+        if (success) {
+          freshMessages = (messageData as ApiChatMessage[]).map((message: ApiChatMessage) => {
+            const ttft = message.time_to_first_token_ms;
+            const totalMs = message.total_response_time_ms;
+            const modelId = message.model_id != null && String(message.model_id).trim() !== "" ? message.model_id : undefined;
+            const providerType = message.provider_type != null && String(message.provider_type).trim() !== "" ? message.provider_type : undefined;
+            const hasTiming = ttft != null && totalMs != null;
+            const hasModelOrProvider = modelId != null || providerType != null;
+            const hasAnyMetrics = hasTiming || hasModelOrProvider;
+
+            return {
+              id: message.id,
+              userMessage: message.human || "",
+              botMessage: message.bot || "",
+              sentAt: message.created_at ?? undefined,
+              respondedAt: message.responded_at ?? undefined,
+              modelId: modelId ?? undefined,
+              providerType: providerType ?? undefined,
+              responseMetrics: hasAnyMetrics
+                ? {
+                    timeToFirstToken: ttft ?? undefined,
+                    totalResponseTime: totalMs ?? 0,
+                    modelId: modelId ?? undefined,
+                    providerType: providerType ?? undefined,
+                  }
+                : undefined,
+            };
+          });
+
           const metrics = readChatMetrics(chatId);
           if (metrics && freshMessages.length > 0) {
             const lastIdx = freshMessages.length - 1;
-            freshMessages[lastIdx] = {
-              ...freshMessages[lastIdx],
-              responseMetrics: metrics,
-            };
+            const last = freshMessages[lastIdx];
+            if (!last.responseMetrics?.totalResponseTime) {
+              freshMessages[lastIdx] = {
+                ...last,
+                responseMetrics: { ...last.responseMetrics, ...metrics },
+              };
+            }
             removeChatMetrics(chatId);
           }
         }
 
-        // Update pagination state from API response
-        setHasOlderMessages(res.has_more ?? false);
+        setHasOlderMessages(success ? (res.has_more ?? false) : false);
 
-        // Update UI only if changed vs cached
-        const cachedMessages = cached?.messages || [];
-        if (!messagesEqual(cachedMessages, freshMessages)) {
+        if (success) {
           setCurrentChat({ chatId, allMessages: freshMessages });
+          await saveChatToCache(chatId, freshMessages, 20, userKey, {
+            hasMore: res.has_more ?? false,
+            total: res.total ?? freshMessages.length,
+            offset: freshMessages.length,
+          });
         }
-        // Save refreshed messages to cache with pagination info
-        await saveChatToCache(chatId, freshMessages, 20, userKey, {
-          hasMore: res.has_more ?? false,
-          total: res.total ?? freshMessages.length,
-          offset: freshMessages.length,
-        });
       } catch (err) {
         logger.error("Failed to fetch messages:", err);
-        setCurrentChat({
-          chatId: chatId,
-          allMessages: [],
-        });
       } finally {
         setLoading(false);
       }
@@ -341,11 +383,31 @@ const ChatView = () => {
       );
 
       if (res && Array.isArray(res.messages)) {
-        const olderMessages: ChatMessage[] = res.messages.map((message) => ({
-          id: message.id,
-          userMessage: message.human || "",
-          botMessage: message.bot || "",
-        }));
+        const olderMessages: ChatMessage[] = res.messages.map((message) => {
+          const ttft = message.time_to_first_token_ms;
+          const totalMs = message.total_response_time_ms;
+          const modelId = message.model_id != null && String(message.model_id).trim() !== "" ? message.model_id : undefined;
+          const providerType = message.provider_type != null && String(message.provider_type).trim() !== "" ? message.provider_type : undefined;
+          const hasAnyMetrics = ttft != null || totalMs != null || modelId != null || providerType != null;
+
+          return {
+            id: message.id,
+            userMessage: message.human || "",
+            botMessage: message.bot || "",
+            sentAt: message.created_at ?? undefined,
+            respondedAt: message.responded_at ?? undefined,
+            modelId: modelId ?? undefined,
+            providerType: providerType ?? undefined,
+            responseMetrics: hasAnyMetrics
+              ? {
+                  timeToFirstToken: ttft ?? undefined,
+                  totalResponseTime: totalMs ?? 0,
+                  modelId: modelId ?? undefined,
+                  providerType: providerType ?? undefined,
+                }
+              : undefined,
+          };
+        });
 
         // Merge older messages with existing ones (prepend)
         const mergedMessages = mergeOlderMessages(currentMessages, olderMessages);
@@ -443,14 +505,28 @@ const ChatView = () => {
         ) : (
           currentChat?.allMessages.map((message) => (
           <div key={message.id}>
-            <Bubble variant="user" content={message.userMessage} />
-            <Bubble
-              variant="bot"
-              content={message.botMessage}
-              streaming={message.streaming}
-              stopped={message.stopped}
-              statusMessage={message.statusMessage}
-            />
+            <div>
+              <Bubble variant="user" content={message.userMessage} />
+              {message.sentAt && (
+                <p className="text-xs text-text-tertiary mt-0.5 mr-1 text-right">
+                  {formatMessageTime(message.sentAt)}
+                </p>
+              )}
+            </div>
+            <div>
+              <Bubble
+                variant="bot"
+                content={message.botMessage}
+                streaming={message.streaming}
+                stopped={message.stopped}
+                statusMessage={message.statusMessage}
+              />
+              {message.respondedAt && (
+                <p className="text-xs text-text-tertiary mt-0.5 ml-1">
+                  {formatMessageTime(message.respondedAt)}
+                </p>
+              )}
+            </div>
             {/* chat Actions */}
             {
               !message.streaming &&

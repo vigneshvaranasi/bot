@@ -2,6 +2,8 @@ export type ResponseMetrics = {
   timeToFirstChunk?: number;
   timeToFirstToken?: number;
   totalResponseTime: number;
+  modelId?: string | null;
+  providerType?: string | null;
 };
 
 // Display helper for durations: ms (<1s), s (<60s), min+sec (>=60s)

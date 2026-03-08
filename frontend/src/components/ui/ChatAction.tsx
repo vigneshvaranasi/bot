@@ -121,25 +121,47 @@ export const ChatAction: React.FC<ChatActionButtonProps> = ({
         <div
           className='absolute left-full ml-2 top-1/2 -translate-y-1/2
              opacity-0 group-hover:opacity-100 pointer-events-none
-             bg-black text-white text-xs rounded px-2 py-1
+             bg-black/70 text-white text-xs rounded px-2 py-1
              transition-opacity duration-200 whitespace-nowrap'
         >
           {responseMetrics &&
-          responseMetrics.timeToFirstToken !== undefined &&
-          responseMetrics.totalResponseTime !== undefined ? (
+          (responseMetrics.timeToFirstToken !== undefined ||
+            responseMetrics.totalResponseTime !== undefined ||
+            responseMetrics.modelId ||
+            responseMetrics.providerType) ? (
             <div className='flex flex-col gap-1'>
-              <p>
-                Time To First Token:{' '}
-                <span className='opacity-75 font-semibold'>
-                  {formatDuration(responseMetrics.timeToFirstToken)}
-                </span>
-              </p>
-              <p>
-                Response Time:{' '}
-                <span className='opacity-75 font-semibold'>
-                  {formatDuration(responseMetrics.totalResponseTime)}
-                </span>
-              </p>
+              {responseMetrics.timeToFirstToken !== undefined && (
+                <p>
+                  Time To First Token:{' '}
+                  <span className='opacity-75 font-semibold'>
+                    {formatDuration(responseMetrics.timeToFirstToken)}
+                  </span>
+                </p>
+              )}
+              {responseMetrics.totalResponseTime !== undefined && (
+                <p>
+                  Response Time:{' '}
+                  <span className='opacity-75 font-semibold'>
+                    {formatDuration(responseMetrics.totalResponseTime)}
+                  </span>
+                </p>
+              )}
+              {responseMetrics.providerType && (
+                <p>
+                  Provider:{' '}
+                  <span className='opacity-75 font-semibold capitalize'>
+                    {responseMetrics.providerType}
+                  </span>
+                </p>
+              )}
+              {responseMetrics.modelId && (
+                <p>
+                  Model:{' '}
+                  <span className='opacity-75 font-semibold'>
+                    {responseMetrics.modelId}
+                  </span>
+                </p>
+              )}
             </div>
           ) : (
             'No metrics available'

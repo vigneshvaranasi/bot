@@ -25,6 +25,10 @@ export interface ChatMessage {
   responseMetrics?: StreamMetrics;
   feedback?: 'positive' | 'negative' | null;
   feedbackId?: string;
+  sentAt?: string | null;
+  respondedAt?: string | null;
+  modelId?: string | null;
+  providerType?: string | null;
 }
 
 // ============================================================================
@@ -37,6 +41,8 @@ export interface ChatMessage {
 export interface StreamMetrics {
   timeToFirstToken?: number;
   totalResponseTime: number;
+  modelId?: string | null;
+  providerType?: string | null;
 }
 
 // ============================================================================
