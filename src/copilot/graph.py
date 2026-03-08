@@ -62,10 +62,6 @@ _connection_kwargs = {
     "autocommit": True,
 }
 
-# Lazy-initialized Langfuse handler (avoid network connections at import time)
-_langfuse_handler = None
-
-
 def _get_model_with_tools(state: Optional[Dict[str, Any]] = None) -> BaseChatModel:
     """Get the configured LLM bound with tools.
 
@@ -79,26 +75,40 @@ def _get_model_with_tools(state: Optional[Dict[str, Any]] = None) -> BaseChatMod
     return llm.bind_tools(available_tools)
 
 
-def _get_langfuse_handler() -> CallbackHandler:
-    """Get or create the Langfuse callback handler with lazy initialization."""
-    global _langfuse_handler
-    if _langfuse_handler is None:
-        _langfuse_handler = CallbackHandler()
-    return _langfuse_handler
+def _create_langfuse_handler(langfuse_config: Optional[Dict[str, str]] = None) -> CallbackHandler:
+    """Create a Langfuse callback handler with explicit credentials.
+
+    In Langfuse v3, the CallbackHandler uses get_client() internally.
+    We must first ensure a Langfuse client is initialized with the right
+    credentials so get_client() returns the correct instance.
+
+    Args:
+        langfuse_config: Dict with secret_key, public_key, host. If None, uses env vars.
+    """
+    if langfuse_config:
+        from langfuse import Langfuse
+        # Initialize a client with DB credentials — registers as singleton
+        Langfuse(
+            secret_key=langfuse_config.get("secret_key"),
+            public_key=langfuse_config.get("public_key"),
+            host=langfuse_config.get("host"),
+        )
+        return CallbackHandler(public_key=langfuse_config.get("public_key"))
+    return CallbackHandler()
 
 
 def _get_callbacks(state: dict) -> list:
     """Get callbacks based on state configuration.
 
     Args:
-        state: Agent state containing langfuse_enabled flag
+        state: Agent state containing langfuse_enabled flag and langfuse_config
 
     Returns:
         List of callbacks to use for LLM invocations
     """
     # Default to False for privacy - tracking requires explicit opt-in
     if state.get("langfuse_enabled", False):
-        return [_get_langfuse_handler()]
+        return [_create_langfuse_handler(state.get("langfuse_config"))]
     return []
 
 
@@ -109,6 +119,7 @@ class AgentState(TypedDict):
     session_id: Optional[str]
     user_id: Optional[str]
     langfuse_enabled: Optional[bool]
+    langfuse_config: Optional[Dict[str, str]]
     generate_title: Optional[bool]
     llm_config: Optional[Dict[str, Any]]
 
@@ -417,6 +428,7 @@ def generate_title_from_query(
     user_id: Optional[str] = None,
     langfuse_enabled: bool = False,
     llm_config: Optional[Dict[str, Any]] = None,
+    langfuse_config: Optional[Dict[str, str]] = None,
 ) -> str:
     """Generate a title from user query (standalone, for parallel execution).
 
@@ -430,6 +442,7 @@ def generate_title_from_query(
         user_id: Optional user ID for tracing
         langfuse_enabled: Whether Langfuse tracing is enabled
         llm_config: Optional LLM config for per-request model selection
+        langfuse_config: Optional Langfuse credentials dict
 
     Returns:
         Generated title string
@@ -447,7 +460,7 @@ def generate_title_from_query(
 
     callbacks = []
     if langfuse_enabled:
-        callbacks = [_get_langfuse_handler()]
+        callbacks = [_create_langfuse_handler(langfuse_config)]
 
     with propagate_attributes(session_id=session_id, user_id=user_id):
         response = llm.invoke(

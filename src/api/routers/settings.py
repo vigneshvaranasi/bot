@@ -21,6 +21,7 @@ from src.api.schemas.setting_schemas import (
     RollbackRequest,
 )
 from src.api.services.settings_service import SettingsService
+from src.api.services.encryption_service import encrypt_value, decrypt_value
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -74,6 +75,12 @@ async def update_aiml_settings(
 
     # Convert Pydantic model to dict, excluding None values
     update_dict = update_data.model_dump(exclude_none=True)
+
+    # Encrypt langfuse_secret_key before storage
+    if "langfuse_secret_key" in update_dict:
+        raw_key = update_dict.pop("langfuse_secret_key")
+        if raw_key:
+            update_dict["langfuse_secret_key_encrypted"] = encrypt_value(raw_key)
 
     # Convert provider_id string to UUID for DB compatibility
     if "provider_id" in update_dict and update_dict["provider_id"] is not None:
@@ -170,6 +177,9 @@ async def get_settings_history(
             temperature=item["setting"].temperature,
             deny_words=item["setting"].deny_words,
             langfuse_enabled=item["setting"].langfuse_enabled,
+            langfuse_public_key=item["setting"].langfuse_public_key,
+            langfuse_base_url=item["setting"].langfuse_base_url,
+            has_langfuse_secret_key=bool(item["setting"].langfuse_secret_key_encrypted),
             allow_user_model_selection=item["setting"].allow_user_model_selection,
             auth_google_enabled=item["setting"].auth_google_enabled,
             auth_github_enabled=item["setting"].auth_github_enabled,
@@ -213,4 +223,21 @@ async def rollback_to_version(
         )
 
     logger.info(f"Admin {current_user.get('email')} rolled back to version {version_id}")
-    return SettingResponse.model_validate(new_setting)
+    return SettingResponse(
+        id=new_setting.id,
+        user_id=new_setting.user_id,
+        deny_words=new_setting.deny_words,
+        model=new_setting.model,
+        temperature=new_setting.temperature,
+        langfuse_enabled=new_setting.langfuse_enabled,
+        langfuse_public_key=new_setting.langfuse_public_key,
+        langfuse_base_url=new_setting.langfuse_base_url,
+        has_langfuse_secret_key=bool(new_setting.langfuse_secret_key_encrypted),
+        allow_user_model_selection=new_setting.allow_user_model_selection,
+        auth_google_enabled=new_setting.auth_google_enabled,
+        auth_github_enabled=new_setting.auth_github_enabled,
+        auth_microsoft_enabled=new_setting.auth_microsoft_enabled,
+        auth_local_enabled=new_setting.auth_local_enabled,
+        created_at=new_setting.created_at,
+        updated_at=new_setting.updated_at,
+    )

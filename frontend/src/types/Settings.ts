@@ -37,6 +37,10 @@ export type AiMlSettings = {
   temperature: string;
   deny_words: string;
   langfuse_enabled: boolean;
+  langfuse_secret_key?: string;
+  langfuse_public_key?: string | null;
+  langfuse_base_url?: string | null;
+  has_langfuse_secret_key?: boolean;
   allow_user_model_selection: boolean;
   provider_id?: string | null;  // LLM provider selection
 }
@@ -73,6 +77,9 @@ export type SettingHistoryItem = {
   temperature: string;
   deny_words: string;
   langfuse_enabled: boolean;
+  langfuse_public_key?: string | null;
+  langfuse_base_url?: string | null;
+  has_langfuse_secret_key?: boolean;
   allow_user_model_selection: boolean;
   auth_google_enabled: boolean;
   auth_github_enabled: boolean;

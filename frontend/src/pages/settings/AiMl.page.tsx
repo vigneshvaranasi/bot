@@ -44,6 +44,10 @@ const AiMlConfigPage = () => {
   const [providerId, setProviderId] = useState<string | null>(null);
   const [temperature, setTemperature] = useState("0.2");
   const [langfuseEnabled, setLangfuseEnabled] = useState<boolean | undefined>(undefined);
+  const [langfuseSecretKey, setLangfuseSecretKey] = useState("");
+  const [langfusePublicKey, setLangfusePublicKey] = useState("");
+  const [langfuseBaseUrl, setLangfuseBaseUrl] = useState("");
+  const [hasLangfuseSecretKey, setHasLangfuseSecretKey] = useState(false);
   const [allowUserModelSelection, setAllowUserModelSelection] = useState<boolean | undefined>(undefined);
 
   const [denyWordsArray, setDenyWordsArray] = useState<DenyWordRecord[]>([]);
@@ -111,7 +115,10 @@ const AiMlConfigPage = () => {
           setModel(settings.model);
           setProviderId(settings.provider_id ?? null);
           setTemperature(settings.temperature);
-          setLangfuseEnabled(settings.langfuse_enabled ?? true);
+          setLangfuseEnabled(settings.langfuse_enabled ?? false);
+          setLangfusePublicKey(settings.langfuse_public_key ?? "");
+          setLangfuseBaseUrl(settings.langfuse_base_url ?? "");
+          setHasLangfuseSecretKey(settings.has_langfuse_secret_key ?? false);
           setAllowUserModelSelection(settings.allow_user_model_selection ?? false);
         }
       } catch (err) {
@@ -342,9 +349,14 @@ const AiMlConfigPage = () => {
       setError(null);
       const safetyPayload: Partial<AiMlSettings> = {
         deny_words: wordsArrayToString(denyWordsArray),
-        langfuse_enabled: langfuseEnabled ?? true,
+        langfuse_enabled: langfuseEnabled ?? false,
+        langfuse_public_key: langfusePublicKey || undefined,
+        langfuse_base_url: langfuseBaseUrl || undefined,
+        ...(langfuseSecretKey ? { langfuse_secret_key: langfuseSecretKey } : {}),
       };
       await updateAiMlSettings(safetyPayload);
+      if (langfuseSecretKey) setHasLangfuseSecretKey(true);
+      setLangfuseSecretKey("");
       toast.success("Safety settings saved");
     } catch (err) {
       logger.error("Error saving safety settings", err);
@@ -634,6 +646,64 @@ const AiMlConfigPage = () => {
             <div className="w-11 h-6 bg-gray-200 rounded-full animate-pulse" />
           )}
         </div>
+
+        {langfuseEnabled ? (
+          <div className="mt-3 space-y-3 border border-gray-200 rounded-lg p-3 bg-gray-50">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-700">Base URL</label>
+              <InputBox
+                value={langfuseBaseUrl}
+                onChange={setLangfuseBaseUrl}
+                placeholder="e.g. http://localhost:3000"
+                variant="primary"
+                className="w-full rounded-[5px] border-gray-400 border-b-1"
+                disabled={!canEditAiMl}
+              />
+            </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700">Public Key</label>
+                <InputBox
+                  value={langfusePublicKey}
+                  onChange={setLangfusePublicKey}
+                  placeholder="pk-lf-..."
+                  variant="primary"
+                  className="w-full rounded-[5px] border-gray-400 border-b-1"
+                  disabled={!canEditAiMl}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700">
+                  Secret Key
+                  {hasLangfuseSecretKey && (
+                    <span className="text-gray-400 ml-1">(keep existing)</span>
+                  )}
+                </label>
+                <InputBox
+                  value={langfuseSecretKey}
+                  onChange={setLangfuseSecretKey}
+                  placeholder={hasLangfuseSecretKey ? "••••••••••••••••" : "sk-lf-..."}
+                  variant="primary"
+                  type="password"
+                  className="w-full rounded-[5px] border-gray-400 border-b-1"
+                  disabled={!canEditAiMl}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              {langfuseBaseUrl ? (
+                <a
+                  href={langfuseBaseUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center font-semibold shrink-0 text-xs px-3 py-1.5 rounded-md transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 bg-gray-600 hover:bg-gray-700 text-white border border-gray-600"
+                >
+                  View Traces
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </section>
     </div>
   );

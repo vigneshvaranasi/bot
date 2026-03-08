@@ -18,7 +18,11 @@ logger = logging.getLogger(__name__)
 
 # Define which fields belong to each segment
 SEGMENT_FIELDS = {
-    SettingSegment.AIML: ["model", "temperature", "deny_words", "langfuse_enabled", "provider_id", "allow_user_model_selection"],
+    SettingSegment.AIML: [
+        "model", "temperature", "deny_words", "langfuse_enabled",
+        "langfuse_public_key", "langfuse_base_url", "langfuse_secret_key_encrypted",
+        "provider_id", "allow_user_model_selection",
+    ],
     SettingSegment.AUTH: ["auth_google_enabled", "auth_github_enabled", "auth_microsoft_enabled", "auth_local_enabled"],
 }
 
@@ -28,6 +32,9 @@ FIELD_LABELS = {
     "temperature": "Temperature",
     "deny_words": "Deny Words",
     "langfuse_enabled": "Langfuse Enabled",
+    "langfuse_public_key": "Langfuse Public Key",
+    "langfuse_base_url": "Langfuse Base URL",
+    "langfuse_secret_key_encrypted": "Langfuse Secret Key",
     "allow_user_model_selection": "User Model Selection",
     "provider_id": "LLM Provider",
     "auth_google_enabled": "Google Auth",
@@ -45,6 +52,9 @@ DEFAULT_SETTINGS = {
     "temperature": "0.33",
     "deny_words": "",
     "langfuse_enabled": False,
+    "langfuse_public_key": None,
+    "langfuse_base_url": None,
+    "langfuse_secret_key_encrypted": None,
     "allow_user_model_selection": False,
     "provider_id": None,
     "auth_google_enabled": True,
@@ -67,6 +77,8 @@ def format_value_for_display(field: str, value: Any) -> str:
         return "None"
     if isinstance(value, bool):
         return "On" if value else "Off"
+    if field == "langfuse_secret_key_encrypted":
+        return "••••••••" if value else "None"
     if field == "deny_words":
         if not value:
             return "(empty)"
@@ -193,6 +205,9 @@ class SettingsService:
         fields = SEGMENT_FIELDS.get(segment, [])
         result = {}
         for field in fields:
+            if field == "langfuse_secret_key_encrypted":
+                result["has_langfuse_secret_key"] = bool(getattr(setting, field, None))
+                continue
             value = getattr(setting, field)
             # Convert UUID to string for JSON serialization
             if hasattr(value, 'hex') and hasattr(value, 'int'):
@@ -297,6 +312,9 @@ class SettingsService:
             temperature=target_setting.temperature,
             deny_words=target_setting.deny_words,
             langfuse_enabled=target_setting.langfuse_enabled,
+            langfuse_secret_key_encrypted=target_setting.langfuse_secret_key_encrypted,
+            langfuse_public_key=target_setting.langfuse_public_key,
+            langfuse_base_url=target_setting.langfuse_base_url,
             allow_user_model_selection=target_setting.allow_user_model_selection,
             auth_google_enabled=target_setting.auth_google_enabled,
             auth_github_enabled=target_setting.auth_github_enabled,

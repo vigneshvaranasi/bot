@@ -13,7 +13,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessageChunk
-from langfuse import get_client, propagate_attributes
+from langfuse import propagate_attributes
 from sqlalchemy import asc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,13 +31,12 @@ from src.api.utils.llm_provider_helper import (
     get_provider_config_for_chat,
     get_provider_config_for_model,
 )
-from src.api.utils.tracing import conditional_observation
+from src.api.utils.tracing import conditional_observation, resolve_langfuse_config
 from src.copilot.graph import create_agent_graph, generate_title_from_query
 from src.copilot.guardrails.prompt_guardrails import PromptGuardrail
 from src.copilot.utils import should_ask_clarification
 
 logger = logging.getLogger(__name__)
-langfuse = get_client()
 
 
 def _message_content_to_str(content: Any) -> str:
@@ -266,7 +265,8 @@ async def prompt_stream(
         )
         current_title = result.scalar_one_or_none()
         
-        langfuse_enabled = settings.langfuse_enabled if settings else True
+        langfuse_enabled = settings.langfuse_enabled if settings else False
+        langfuse_config = resolve_langfuse_config(settings)
 
         # Fetch and configure LLM provider (per-prompt override or default)
         if request.provider_id and request.model_id:
@@ -294,6 +294,7 @@ async def prompt_stream(
             "session_id": actual_chat_id,
             "user_id": str(user_id),
             "langfuse_enabled": langfuse_enabled,
+            "langfuse_config": langfuse_config,
             "generate_title": not needs_title,
             "llm_config": llm_config,
         }
@@ -322,6 +323,7 @@ async def prompt_stream(
                         str(user_id),
                         langfuse_enabled,
                         llm_config,
+                        langfuse_config,
                     )
                     await title_queue.put({"title": title})
                     logger.debug(f"[PARALLEL TITLE] Generated: {title}")
@@ -439,6 +441,7 @@ async def prompt_stream(
 
             workflow_observation = conditional_observation(
                 enabled=langfuse_enabled,
+                langfuse_config=langfuse_config,
                 as_type="agent",
                 name="copilot-chat",
                 input=human_message,
@@ -722,13 +725,15 @@ async def prompt(
             request.generate_title
             and (not current_title or current_title.strip() in ("", "New Chat"))
         )
-        langfuse_enabled = settings.langfuse_enabled if settings else True
+        langfuse_enabled = settings.langfuse_enabled if settings else False
+        langfuse_config = resolve_langfuse_config(settings)
 
         inputs = {
             "messages": [("user", human_message)],
             "session_id": str(actual_chat_id),
             "user_id": str(user_id),
             "langfuse_enabled": langfuse_enabled,
+            "langfuse_config": langfuse_config,
             "generate_title": not needs_title,  # False = API handles title in parallel
             "llm_config": llm_config,
         }
@@ -744,6 +749,7 @@ async def prompt(
                     str(user_id),
                     langfuse_enabled,
                     llm_config,
+                    langfuse_config,
                 )
             )
             logger.debug("[PARALLEL TITLE] Non-stream: Task started")

@@ -28,6 +28,9 @@ class AiMlSettingsUpdate(BaseModel):
     temperature: Optional[str] = None
     deny_words: Optional[str] = None
     langfuse_enabled: Optional[bool] = None
+    langfuse_secret_key: Optional[str] = None
+    langfuse_public_key: Optional[str] = None
+    langfuse_base_url: Optional[str] = None
     provider_id: Optional[str] = None
     allow_user_model_selection: Optional[bool] = None
 
@@ -38,6 +41,9 @@ class AiMlSettingsResponse(BaseModel):
     temperature: str
     deny_words: str
     langfuse_enabled: bool
+    langfuse_public_key: Optional[str] = None
+    langfuse_base_url: Optional[str] = None
+    has_langfuse_secret_key: bool = False
     provider_id: Optional[str] = None
     allow_user_model_selection: bool
 
@@ -69,6 +75,9 @@ class SettingResponse(BaseModel):
     model: str
     temperature: str
     langfuse_enabled: bool
+    langfuse_public_key: Optional[str] = None
+    langfuse_base_url: Optional[str] = None
+    has_langfuse_secret_key: bool = False
     allow_user_model_selection: bool
     auth_google_enabled: bool
     auth_github_enabled: bool
@@ -115,6 +124,9 @@ class SettingHistoryItem(BaseModel):
     temperature: str
     deny_words: str
     langfuse_enabled: bool
+    langfuse_public_key: Optional[str] = None
+    langfuse_base_url: Optional[str] = None
+    has_langfuse_secret_key: bool = False
     allow_user_model_selection: bool
     auth_google_enabled: bool
     auth_github_enabled: bool
