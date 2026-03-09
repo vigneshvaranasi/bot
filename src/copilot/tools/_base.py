@@ -5,6 +5,7 @@ including lazy-initialized clients, embeddings, and formatting utilities.
 """
 
 import logging
+import os
 from typing import List, Optional
 
 from langchain.chains.query_constructor.base import (
@@ -14,6 +15,7 @@ from langchain.chains.query_constructor.base import (
 from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain.schema import Document
 from langchain_community.query_constructors.qdrant import QdrantTranslator
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import ChatOllama
 from langchain_qdrant import QdrantVectorStore
@@ -82,7 +84,7 @@ DOCUMENT_CONTENT_DESCRIPTION = (
 )
 
 # Lazy-initialized components
-_llm: Optional[ChatOllama] = None
+_llm: Optional[BaseChatModel] = None
 _embeddings: Optional[HuggingFaceEmbeddings] = None
 _qdrant_client: Optional[QdrantClient] = None
 _vector_store: Optional[QdrantVectorStore] = None
@@ -90,10 +92,123 @@ _retriever: Optional[SelfQueryRetriever] = None
 _initialization_error: Optional[str] = None
 
 
-def _get_llm() -> ChatOllama:
-    """Get or create the LLM instance for query processing."""
+def _get_provider_config_sync() -> dict:
+    """Fetch LLM provider config from the DB using a sync connection.
+
+    Returns a dict with provider_type, model_id, api_key, base_url,
+    provider_config, and temperature.  Returns empty-ish config when
+    the DB is unreachable or no provider is configured.
+    """
+    empty: dict = {"provider_type": None, "model_id": None, "api_key": None,
+                    "base_url": None, "provider_config": {}, "temperature": 0}
+    try:
+        from sqlalchemy import create_engine, text
+
+        db_url = os.getenv("DATABASE_URL", "")
+        if not db_url:
+            return empty
+
+        sync_url = (db_url
+                    .replace("postgresql+asyncpg", "postgresql")
+                    .replace("postgresql+aiopg", "postgresql"))
+        engine = create_engine(sync_url)
+
+        with engine.connect() as conn:
+            # Get settings
+            row = conn.execute(
+                text("SELECT provider_id, model, temperature FROM settings ORDER BY updated_at DESC LIMIT 1")
+            ).fetchone()
+            if not row:
+                return empty
+
+            provider_id = row[0]
+            model_id = row[1]
+            temperature = float(row[2]) if row[2] is not None else 0
+
+            # Resolve provider
+            if provider_id:
+                prov = conn.execute(
+                    text("SELECT provider_type, base_url, api_key_encrypted, config, models "
+                         "FROM llm_providers WHERE id = :pid AND is_active = true"),
+                    {"pid": str(provider_id)},
+                ).fetchone()
+            else:
+                prov = conn.execute(
+                    text("SELECT provider_type, base_url, api_key_encrypted, config, models "
+                         "FROM llm_providers WHERE is_default = true AND is_active = true LIMIT 1")
+                ).fetchone()
+
+            if not prov:
+                return empty
+
+            # Decrypt api key
+            api_key = None
+            if prov[2]:
+                try:
+                    from src.api.services.encryption_service import decrypt_value
+                    api_key = decrypt_value(prov[2])
+                except Exception as e:
+                    logger.error(f"Failed to decrypt API key for SelfQueryRetriever LLM: {e}")
+                    return empty
+
+            import json
+            provider_config = prov[3] if isinstance(prov[3], dict) else (
+                json.loads(prov[3]) if prov[3] else {}
+            )
+            models_list = prov[4] if isinstance(prov[4], list) else (
+                json.loads(prov[4]) if prov[4] else []
+            )
+
+            # Validate model_id against provider's models
+            if model_id and model_id in models_list:
+                pass
+            elif models_list:
+                model_id = models_list[0]
+            else:
+                return empty
+
+            return {
+                "provider_type": prov[0],
+                "model_id": model_id,
+                "api_key": api_key,
+                "base_url": prov[1],
+                "provider_config": provider_config,
+                "temperature": temperature,
+            }
+    except Exception as e:
+        logger.warning(f"Could not fetch provider config for SelfQueryRetriever: {e}")
+        return empty
+
+
+def _get_llm() -> BaseChatModel:
+    """Get or create the LLM instance for query processing.
+
+    Uses the admin-configured provider from the database.
+    Falls back to Ollama if no provider is configured.
+    """
     global _llm
     if _llm is None:
+        provider_cfg = _get_provider_config_sync()
+        if provider_cfg.get("provider_type") and provider_cfg.get("model_id"):
+            from src.copilot.llm_factory import create_llm_from_provider
+            try:
+                _llm = create_llm_from_provider(
+                    provider_type=provider_cfg["provider_type"],
+                    model_id=provider_cfg["model_id"],
+                    api_key=provider_cfg.get("api_key"),
+                    base_url=provider_cfg.get("base_url"),
+                    provider_config=provider_cfg.get("provider_config", {}),
+                    temperature=provider_cfg.get("temperature", 0),
+                )
+                logger.info(
+                    f"SelfQueryRetriever using configured LLM: "
+                    f"{provider_cfg['provider_type']}/{provider_cfg['model_id']}"
+                )
+                return _llm
+            except Exception as e:
+                logger.warning(f"Failed to create configured LLM for SelfQueryRetriever, "
+                               f"falling back to Ollama: {e}")
+
         _llm = ChatOllama(
             model=config.DEFAULT_OLLAMA_MODEL,
             temperature=0,
