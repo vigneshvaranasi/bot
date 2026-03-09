@@ -28,6 +28,7 @@ from src.api.schemas.feedback_schemas import (
 )
 from src.api.services.feedback_service import FeedbackService
 from src.api.services.golden_response_generator import get_golden_response_generator
+from src.api.utils.llm_provider_helper import get_provider_config_for_chat
 
 logger = logging.getLogger(__name__)
 
@@ -440,12 +441,14 @@ async def generate_golden_response(
             )
         
         
+        llm_config = await get_provider_config_for_chat(db)
         generator = get_golden_response_generator()
         result = await generator.generate(
             original_query=feedback_data["original_query"],
             original_response=feedback_data["original_response"],
             feedback_reason=feedback_data.get("reason"),
             feedback_type=feedback_data["feedback_type"],
+            llm_config=llm_config,
         )
         
         if not result.success:

@@ -104,14 +104,27 @@ class GoldenResponseGenerator:
     def __init__(self):
         """Initialize the generator."""
         self._tools = None
-        self._llm = None
-    
-    def _get_llm(self) -> BaseChatModel:
-        """Get the configured LLM instance."""
-        if self._llm is None:
-            from src.copilot.graph import get_configured_llm
-            self._llm = get_configured_llm()
-        return self._llm
+
+    def _get_llm(self, llm_config: Optional[dict] = None) -> BaseChatModel:
+        """Get the LLM instance based on provider config.
+
+        Args:
+            llm_config: Provider configuration from get_provider_config_for_chat().
+                        If provided and contains a valid provider, uses that provider.
+                        Otherwise falls back to default Ollama.
+        """
+        from src.copilot.graph import create_llm_for_request
+        if llm_config and llm_config.get("provider_type") and llm_config.get("model_id"):
+            return create_llm_for_request(
+                provider_type=llm_config["provider_type"],
+                model_id=llm_config["model_id"],
+                api_key=llm_config.get("api_key"),
+                base_url=llm_config.get("base_url"),
+                provider_config=llm_config.get("provider_config"),
+                temperature=llm_config.get("temperature"),
+            )
+        from src.copilot.llm_factory import get_default_llm
+        return get_default_llm()
     
     def _get_tools(self) -> list:
         """Get the available RAG tools."""
@@ -120,9 +133,9 @@ class GoldenResponseGenerator:
             self._tools = available_tools
         return self._tools
     
-    def _get_llm_with_tools(self) -> BaseChatModel:
+    def _get_llm_with_tools(self, llm_config: Optional[dict] = None) -> BaseChatModel:
         """Get LLM with tools bound."""
-        llm = self._get_llm()
+        llm = self._get_llm(llm_config)
         tools = self._get_tools()
         return llm.bind_tools(tools)
     
@@ -132,6 +145,7 @@ class GoldenResponseGenerator:
         original_response: str,
         feedback_reason: Optional[str],
         feedback_type: str,
+        llm_config: Optional[dict] = None,
     ) -> GenerationResult:
         """
         Generate an improved response based on feedback.
@@ -145,7 +159,8 @@ class GoldenResponseGenerator:
             original_response: The AI's original response
             feedback_reason: Why the user gave feedback (optional)
             feedback_type: 'positive' or 'negative'
-            
+            llm_config: Provider configuration dict from get_provider_config_for_chat().
+
         Returns:
             GenerationResult with the generated response and metadata
         """
@@ -162,6 +177,7 @@ class GoldenResponseGenerator:
                         original_response=original_response,
                         feedback_reason=feedback_reason,
                         feedback_type=feedback_type,
+                        llm_config=llm_config,
                     ),
                     timeout=self.GENERATION_TIMEOUT
                 )
@@ -203,6 +219,7 @@ class GoldenResponseGenerator:
         original_response: str,
         feedback_reason: Optional[str],
         feedback_type: str,
+        llm_config: Optional[dict] = None,
     ) -> GenerationResult:
         """
         Internal generation logic with tool loop.
@@ -230,8 +247,7 @@ class GoldenResponseGenerator:
             SystemMessage(content=GOLDEN_RESPONSE_SYSTEM_PROMPT),
             HumanMessage(content=user_message),
         ]
-        
-        llm_with_tools = self._get_llm_with_tools()
+        llm_with_tools = self._get_llm_with_tools(llm_config)
         
         response, tool_calls_made = await self._execute_with_tools(
             messages=messages,

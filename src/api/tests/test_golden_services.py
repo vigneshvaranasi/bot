@@ -675,15 +675,48 @@ class TestGoldenResponseGenerator:
         assert "Error executing tool" in result.content
 
     @pytest.mark.asyncio
-    async def test_get_llm_lazy_init(self):
-        """_get_llm lazily imports and caches LLM instance (lines 111-114)."""
+    async def test_get_llm_with_provider_config(self):
+        """_get_llm uses provider config when llm_config is provided."""
         gen = GoldenResponseGenerator()
         mock_llm = MagicMock()
-        with patch("src.copilot.graph.get_configured_llm", return_value=mock_llm):
+        llm_config = {
+            "provider_type": "openai",
+            "model_id": "gpt-4o-mini",
+            "api_key": "test-key",
+            "base_url": None,
+            "provider_config": {},
+            "temperature": 0.33,
+        }
+        with patch("src.copilot.graph.create_llm_for_request", return_value=mock_llm) as mock_create:
+            result = gen._get_llm(llm_config)
+        assert result is mock_llm
+        mock_create.assert_called_once_with(
+            provider_type="openai",
+            model_id="gpt-4o-mini",
+            api_key="test-key",
+            base_url=None,
+            provider_config={},
+            temperature=0.33,
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_llm_falls_back_to_default(self):
+        """_get_llm falls back to default Ollama when no llm_config provided."""
+        gen = GoldenResponseGenerator()
+        mock_llm = MagicMock()
+        with patch("src.copilot.llm_factory.get_default_llm", return_value=mock_llm):
             result = gen._get_llm()
         assert result is mock_llm
-        # Second call returns cached
-        assert gen._get_llm() is mock_llm
+
+    @pytest.mark.asyncio
+    async def test_get_llm_falls_back_when_config_incomplete(self):
+        """_get_llm falls back to default when llm_config has no provider_type."""
+        gen = GoldenResponseGenerator()
+        mock_llm = MagicMock()
+        incomplete_config = {"provider_type": None, "model_id": None}
+        with patch("src.copilot.llm_factory.get_default_llm", return_value=mock_llm):
+            result = gen._get_llm(incomplete_config)
+        assert result is mock_llm
 
     @pytest.mark.asyncio
     async def test_get_tools_lazy_init(self):
