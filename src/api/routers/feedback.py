@@ -27,6 +27,7 @@ from src.api.schemas.feedback_schemas import (
     GenerateResponseResult,
 )
 from src.api.services.feedback_service import FeedbackService
+from src.api.services.golden_example_service import GoldenExampleService
 from src.api.services.golden_response_generator import get_golden_response_generator
 from src.api.utils.llm_provider_helper import get_provider_config_for_chat
 
@@ -442,6 +443,23 @@ async def generate_golden_response(
         
         
         llm_config = await get_provider_config_for_chat(db)
+
+        # Bypass golden example search: fetch existing golden responses for this
+        # query so the generator can explicitly avoid reproducing them.
+        existing_golden_responses = []
+        try:
+            ge_service = GoldenExampleService(db)
+            similar = await ge_service.search_similar_examples(
+                query=feedback_data["original_query"],
+                top_k=3,
+                score_threshold=0.6,
+            )
+            existing_golden_responses = [
+                ex["golden_response"] for ex in similar if ex.get("golden_response")
+            ]
+        except Exception as e:
+            logger.warning(f"Could not fetch existing golden examples: {e}")
+
         generator = get_golden_response_generator()
         result = await generator.generate(
             original_query=feedback_data["original_query"],
@@ -449,6 +467,7 @@ async def generate_golden_response(
             feedback_reason=feedback_data.get("reason"),
             feedback_type=feedback_data["feedback_type"],
             llm_config=llm_config,
+            existing_golden_responses=existing_golden_responses or None,
         )
         
         if not result.success:

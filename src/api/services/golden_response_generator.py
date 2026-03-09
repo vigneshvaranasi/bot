@@ -9,6 +9,7 @@ Features:
 - Full RAG tool access (LLM decides when to use)
 - Configurable limits for scalability (timeout, max iterations, concurrency)
 - Async with timeout protection
+- Bypasses golden example search to ensure fresh generation
 """
 
 import asyncio
@@ -81,7 +82,11 @@ class GoldenResponseGenerator:
     This service uses the configured LLM with tool access to generate
     better responses based on user feedback. The LLM decides autonomously
     whether to use RAG tools for additional context.
-    
+
+    Important: This generator deliberately bypasses golden example search
+    to ensure fresh generation. Existing golden responses are only passed
+    in so the LLM can avoid reproducing them.
+
     Scalability features:
     - Semaphore to limit concurrent generations
     - Timeout protection for hung requests
@@ -146,10 +151,14 @@ class GoldenResponseGenerator:
         feedback_reason: Optional[str],
         feedback_type: str,
         llm_config: Optional[dict] = None,
+        existing_golden_responses: Optional[List[str]] = None,
     ) -> GenerationResult:
         """
         Generate an improved response based on feedback.
-        
+
+        This method bypasses golden example search -- existing golden responses
+        are passed in only so the LLM can avoid reproducing them.
+
         This method is protected by:
         - Semaphore for concurrency control
         - Timeout for hung requests
@@ -160,6 +169,8 @@ class GoldenResponseGenerator:
             feedback_reason: Why the user gave feedback (optional)
             feedback_type: 'positive' or 'negative'
             llm_config: Provider configuration dict from get_provider_config_for_chat().
+            existing_golden_responses: Previously approved golden responses for this
+                query that should NOT be reproduced -- ensures fresh generation.
 
         Returns:
             GenerationResult with the generated response and metadata
@@ -220,11 +231,14 @@ class GoldenResponseGenerator:
         feedback_reason: Optional[str],
         feedback_type: str,
         llm_config: Optional[dict] = None,
+        existing_golden_responses: Optional[List[str]] = None,
     ) -> GenerationResult:
         """
         Internal generation logic with tool loop.
-        
-        The LLM decides whether to use tools based on the context.
+
+        Bypasses golden example search -- does NOT pull from golden examples.
+        If existing golden responses are provided, they are included only so
+        the LLM avoids reproducing them.
         """
         feedback_text = feedback_reason or "User was not satisfied with the response"
         if feedback_type == "positive":
@@ -239,9 +253,24 @@ class GoldenResponseGenerator:
 
         ## User Feedback ({feedback_type})
         {feedback_text}
-        ---
-        Please generate an improved response that addresses the user's original question while fixing the issues identified in the feedback. 
-        Use the available tools if you need to look up incident information or verify details."""
+"""
+
+        # If golden responses already exist for this query, instruct the LLM to
+        # generate something genuinely new -- not a rehash of existing answers.
+        if existing_golden_responses:
+            user_message += "\n## Existing Approved Responses (DO NOT REPRODUCE)\n"
+            user_message += (
+                "The following responses have already been approved for this query. "
+                "You MUST generate a genuinely DIFFERENT and IMPROVED response. "
+                "Do NOT copy, paraphrase, or closely mirror these:\n"
+            )
+            for i, resp in enumerate(existing_golden_responses, 1):
+                user_message += f"\n### Existing Response {i}:\n{resp}\n"
+
+        user_message += """
+---
+Please generate an improved response that addresses the user's original question while fixing the issues identified in the feedback.
+Use the available tools if you need to look up incident information or verify details."""
 
         messages: List[BaseMessage] = [
             SystemMessage(content=GOLDEN_RESPONSE_SYSTEM_PROMPT),
