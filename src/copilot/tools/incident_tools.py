@@ -5,19 +5,21 @@ improving LLM tool selection accuracy and maintainability.
 """
 
 import logging
-import re
 from datetime import datetime, timedelta
 from typing import List, Callable
 
 from langchain.schema import Document
 from langchain_core.tools import tool
 from langgraph.config import get_stream_writer
-from qdrant_client.http.models import FieldCondition, Filter, MatchValue
+from collections import defaultdict
+
+from qdrant_client.http.models import DatetimeRange, FieldCondition, Filter, MatchValue
 
 from src.copilot.tools._base import (
     _get_metadata_value,
     _get_retriever,
     _get_vector_store,
+    _scroll_all_incidents,
     format_incidents_response,
 )
 
@@ -301,106 +303,244 @@ def get_recent_incidents(days: int = 7, limit: int = 10) -> str:
     writer({"status": f"Searching incidents from the last {days} days..."})
 
     try:
-        # Calculate the cutoff date
-        cutoff_date = datetime.now() - timedelta(days=days)
-        cutoff_str = cutoff_date.strftime("%Y-%m-%d")
+        now = datetime.now()
+        cutoff_date = (now - timedelta(days=days)).strftime("%Y-%m-%dT00:00:00")
+        today_end = now.strftime("%Y-%m-%dT23:59:59")
 
-        # Get all incidents and filter by date parsed from incident_id
-        # Incident ID format: INC-YYYY-MM-DD-NNN
-        # We'll use a broad filter first, then filter in Python
+        # Filter by opened_at metadata with both lower and upper bounds
+        qdrant_filter = Filter(
+            must=[
+                FieldCondition(
+                    key="metadata.opened_at",
+                    range=DatetimeRange(gte=cutoff_date),
+                ),
+                FieldCondition(
+                    key="metadata.opened_at",
+                    range=DatetimeRange(lte=today_end),
+                ),
+            ]
+        )
 
-        vector_store = _get_vector_store()
-        all_docs: List[Document] = []
-        next_page = None
-        seen_points = set()
+        docs = _scroll_qdrant_with_filter(qdrant_filter, limit=limit * 3)
 
-        # Scroll through all incidents (no filter - we'll filter by date in Python)
-        while len(all_docs) < 1000:  # Safety limit
-            points, next_page = vector_store.client.scroll(
-                collection_name=vector_store.collection_name,
-                with_payload=True,
-                with_vectors=False,
-                limit=64,
-                offset=next_page,
-            )
-
-            if not points:
-                break
-
-            for point in points:
-                if point.id in seen_points:
-                    continue
-                seen_points.add(point.id)
-
-                payload = point.payload or {}
-                metadata = payload.get("metadata", {})
-                page_content = payload.get("page_content", "")
-                all_docs.append(
-                    Document(
-                        page_content=page_content,
-                        metadata=metadata,
-                    )
-                )
-
-            if next_page is None:
-                break
-
-        # Filter by date from incident_id (format: INC-YYYY-MM-DD-NNN)
-        date_pattern = r"INC-(\d{4}-\d{2}-\d{2})-\d+"
-        recent_docs = []
-        seen_incidents = set()
-
-        for doc in all_docs:
+        # Deduplicate by incident_id
+        seen: set = set()
+        unique_docs: List[Document] = []
+        for doc in docs:
             inc_id = _get_metadata_value(doc.metadata, "incident_id")
-            if not inc_id or inc_id in seen_incidents:
-                continue
+            if inc_id and inc_id not in seen:
+                seen.add(inc_id)
+                unique_docs.append(doc)
+                if len(unique_docs) >= limit:
+                    break
 
-            match = re.match(date_pattern, inc_id)
-            if match:
-                incident_date_str = match.group(1)
-                try:
-                    incident_date = datetime.strptime(incident_date_str, "%Y-%m-%d")
-                    if incident_date >= cutoff_date:
-                        seen_incidents.add(inc_id)
-                        recent_docs.append(doc)
-                        if len(recent_docs) >= limit:
-                            break
-                except ValueError:
-                    continue
+        if unique_docs:
+            writer({"status": f"Found {len(unique_docs)} incidents from the last {days} days"})
+            return format_incidents_response(unique_docs)
 
-        # Sort by date (most recent first)
-        def get_incident_date(doc):
-            inc_id = _get_metadata_value(doc.metadata, "incident_id") or ""
-            match = re.match(date_pattern, inc_id)
-            if match:
-                try:
-                    return datetime.strptime(match.group(1), "%Y-%m-%d")
-                except ValueError:
-                    pass
-            return datetime.min
-
-        recent_docs.sort(key=get_incident_date, reverse=True)
-
-        if recent_docs:
-            incident_ids = set()
-            for doc in recent_docs:
-                inc_id = _get_metadata_value(doc.metadata, "incident_id")
-                if inc_id:
-                    incident_ids.add(inc_id)
-            writer({"status": f"Found {len(incident_ids)} incidents from the last {days} days..."})
-        elif all_docs:
-            # No date-formatted IDs matched — return latest documents as fallback
-            fallback = all_docs[:limit]
-            writer({"status": f"No date-filtered incidents found, returning {len(fallback)} latest incidents"})
-            return format_incidents_response(fallback)
-        else:
-            writer({"status": f"No incidents found in the last {days} days"})
-
-        return format_incidents_response(recent_docs)
+        # Fallback: no opened_at data matched — return latest by scroll order
+        writer({"status": "No date-filtered incidents found, returning latest incidents"})
+        fallback_docs = _scroll_qdrant_with_filter(Filter(must=[]), limit=limit * 3)
+        seen_fb: set = set()
+        unique_fb: List[Document] = []
+        for doc in fallback_docs:
+            inc_id = _get_metadata_value(doc.metadata, "incident_id")
+            if inc_id and inc_id not in seen_fb:
+                seen_fb.add(inc_id)
+                unique_fb.append(doc)
+                if len(unique_fb) >= limit:
+                    break
+        return format_incidents_response(unique_fb)
 
     except Exception as e:
         logger.error(f"Error in get_recent_incidents: {e}")
         return (
-            f"An error occurred while searching for recent incidents. "
+            "An error occurred while searching for recent incidents. "
             "Please try again or contact support if the issue persists."
         )
+
+
+@tool
+def get_incident_statistics(
+    start_date: str,
+    end_date: str,
+    group_by: str = "month",
+) -> str:
+    """Get incident counts grouped by time period or category.
+
+    Use this for reports, counts, and trends:
+    - "Monthly report of incidents from last 2 years"
+    - "How many incidents this week?"
+    - "Incidents grouped by month for last 6 months"
+    - "Incidents by application this year"
+
+    Args:
+        start_date: Start date in ISO format (YYYY-MM-DD).
+        end_date: End date in ISO format (YYYY-MM-DD).
+        group_by: How to group results. Options: "day", "week", "month", "year", "application".
+
+    Returns:
+        Formatted markdown table with grouped counts.
+    """
+    writer = _get_safe_stream_writer()
+    writer({"status": f"Generating incident report ({start_date} to {end_date}, grouped by {group_by})..."})
+
+    try:
+        # Build Qdrant range filter on opened_at
+        qdrant_filter = Filter(
+            must=[
+                FieldCondition(key="metadata.opened_at", range=DatetimeRange(gte=start_date)),
+                FieldCondition(key="metadata.opened_at", range=DatetimeRange(lt=end_date)),
+            ]
+        )
+
+        # Scroll all matching incidents (deduplicated)
+        incidents = _scroll_all_incidents(qdrant_filter=qdrant_filter, limit=10000)
+
+        if not incidents:
+            return f"No incidents found between {start_date} and {end_date}."
+
+        # Group by the requested dimension
+        groups: dict = defaultdict(int)
+
+        for inc in incidents:
+            opened = inc.get("opened_at") or ""
+
+            if group_by == "application":
+                key = inc.get("impacted_application") or "Unknown"
+            elif group_by == "day":
+                key = opened[:10] if len(opened) >= 10 else "Unknown"
+            elif group_by == "week":
+                if len(opened) >= 10:
+                    try:
+                        dt = datetime.fromisoformat(opened[:19])
+                        key = f"{dt.year}-W{dt.isocalendar()[1]:02d}"
+                    except (ValueError, TypeError):
+                        key = "Unknown"
+                else:
+                    key = "Unknown"
+            elif group_by == "year":
+                key = opened[:4] if len(opened) >= 4 else "Unknown"
+            else:  # month (default)
+                key = opened[:7] if len(opened) >= 7 else "Unknown"
+
+            groups[key] += 1
+
+        # Sort groups
+        if group_by == "application":
+            sorted_groups = sorted(groups.items(), key=lambda x: x[1], reverse=True)
+        else:
+            sorted_groups = sorted(groups.items(), key=lambda x: x[0])
+
+        total = sum(groups.values())
+
+        # Format as markdown table
+        if group_by == "application":
+            header = "| Application | Count |"
+            separator = "|-------------|-------|"
+        else:
+            header = "| Period | Count |"
+            separator = "|--------|-------|"
+
+        lines = [
+            f"Incident Report ({start_date} to {end_date}) — Grouped by {group_by}",
+            "",
+            header,
+            separator,
+        ]
+        for key, count in sorted_groups:
+            lines.append(f"| {key} | {count} |")
+        lines.append(f"| **Total** | **{total}** |")
+
+        writer({"status": f"Found {total} incidents in {len(groups)} groups"})
+        return "\n".join(lines)
+
+    except Exception as e:
+        logger.error(f"Error in get_incident_statistics: {e}")
+        return "An error occurred while generating incident statistics."
+
+
+@tool
+def get_recurring_incidents(
+    start_date: str,
+    end_date: str,
+    limit: int = 10,
+) -> str:
+    """Find the most frequently recurring incidents.
+
+    Use this for questions like:
+    - "What are the most recurring incidents?"
+    - "Top repeated issues in the last 6 months"
+    - "Which incidents keep happening?"
+
+    Args:
+        start_date: Start date in ISO format (YYYY-MM-DD).
+        end_date: End date in ISO format (YYYY-MM-DD).
+        limit: Max number of results to return (default: 10).
+
+    Returns:
+        Formatted table of recurring incidents ranked by frequency.
+    """
+    writer = _get_safe_stream_writer()
+    writer({"status": f"Analyzing recurring incidents ({start_date} to {end_date})..."})
+
+    try:
+        qdrant_filter = Filter(
+            must=[
+                FieldCondition(key="metadata.opened_at", range=DatetimeRange(gte=start_date)),
+                FieldCondition(key="metadata.opened_at", range=DatetimeRange(lt=end_date)),
+            ]
+        )
+
+        incidents = _scroll_all_incidents(qdrant_filter=qdrant_filter, limit=10000)
+
+        if not incidents:
+            return f"No incidents found between {start_date} and {end_date}."
+
+        # Group by title (normalized) to find repeats
+        title_groups: dict = defaultdict(list)
+        for inc in incidents:
+            title_key = (inc.get("title") or "Unknown").strip().lower()
+            title_groups[title_key].append(inc)
+
+        # Filter to recurring (2+ occurrences), sort by count
+        recurring = [
+            (title, incs)
+            for title, incs in title_groups.items()
+            if len(incs) >= 2
+        ]
+        recurring.sort(key=lambda x: len(x[1]), reverse=True)
+        recurring = recurring[:limit]
+
+        if not recurring:
+            return f"No recurring incidents found between {start_date} and {end_date}. All incidents were unique."
+
+        total_recurring = sum(len(incs) for _, incs in recurring)
+
+        lines = [
+            f"Recurring Incidents ({start_date} to {end_date})",
+            "",
+            "| Title | App | Count | First Seen | Last Seen |",
+            "|-------|-----|-------|------------|-----------|",
+        ]
+
+        for _, incs in recurring:
+            rep = incs[0]
+            title = rep.get("title", "Unknown")
+            app = rep.get("impacted_application") or "—"
+            count = len(incs)
+            dates = sorted(i.get("opened_at") or "" for i in incs)
+            first = dates[0][:10] if dates[0] else "—"
+            last = dates[-1][:10] if dates[-1] else "—"
+            if len(title) > 50:
+                title = title[:47] + "..."
+            lines.append(f"| {title} | {app} | {count} | {first} | {last} |")
+
+        lines.append(f"\n**Total:** {total_recurring} incidents across {len(recurring)} recurring patterns")
+
+        writer({"status": f"Found {len(recurring)} recurring patterns"})
+        return "\n".join(lines)
+
+    except Exception as e:
+        logger.error(f"Error in get_recurring_incidents: {e}")
+        return "An error occurred while analyzing recurring incidents."

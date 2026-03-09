@@ -84,7 +84,7 @@ def create_documents_from_incidents(
                 "accountable_party": desc_metadata.get('accountableParty', 'N/A'),
                 "source_system": desc_metadata.get('sourceSystem', 'N/A'),
                 "repeat_incident": desc_metadata.get('repeatIncident', 'False'),
-                "source_file": "data/tmp.json"
+                "source_file": "data/incidents_2y.json"
             }
 
             chunks = text_splitter.split_text(source_text)
@@ -102,7 +102,7 @@ def main():
     """Main function to run the ingestion pipeline using settings from config.py."""
     
     # 1. Load data
-    incidents = load_incidents("data/tmp.json")
+    incidents = load_incidents("data/incidents_2y.json")
 
     # 2. Create documents
     logging.info("Creating documents and chunks...")

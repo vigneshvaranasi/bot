@@ -5,6 +5,7 @@ searches the knowledge base, and generates responses.
 """
 
 import logging
+from datetime import datetime
 from typing import Annotated, Any, Dict, Optional, Sequence, TypedDict
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -210,9 +211,9 @@ def get_configured_llm(state: Optional[Dict[str, Any]] = None) -> BaseChatModel:
     return get_default_llm()
 
 
-SYSTEM_MESSAGE_PROMPT = SystemMessage(
-    """
+SYSTEM_MESSAGE_PROMPT_TEMPLATE = """
     You are an expert incident resolution assistant with perfect memory of this conversation.
+    Today's date is {current_date}. Use this to calculate date ranges for user queries.
 
     Your primary goal is to answer user questions about incidents. Follow this logic:
 
@@ -233,7 +234,19 @@ SYSTEM_MESSAGE_PROMPT = SystemMessage(
        - `lookup_incident_by_id`: When user mentions a specific ID (e.g., INC-2025-08-24-001)
        - `search_similar_incidents`: When user describes a problem/error without an ID
        - `get_incidents_by_application`: When asking about a specific app/system
-       - `get_recent_incidents`: When asking about recent incidents or timeframes
+       - `get_recent_incidents`: When asking about recent incidents or timeframes (last N days)
+       - `get_incident_statistics`: When user asks for counts, reports, trends, or grouped data
+         Examples: "monthly report", "how many incidents today", "incidents grouped by month",
+         "incidents by application this year"
+       - `get_recurring_incidents`: When user asks about repeated/recurring/frequent incidents
+         Examples: "most common incidents", "what keeps happening", "top recurring issues"
+
+    **Date Handling for tools:**
+       - "today" → start_date = {current_date}, end_date = day after {current_date}
+       - "yesterday" → calculate the previous day from {current_date}
+       - "last 6 months" → start_date = 6 months before {current_date}
+       - "last 2 years" → start_date = 2 years before {current_date}
+       - Always pass dates as YYYY-MM-DD to tools
 
     4. **Query Rewriting for Tools:**
        Before calling any tool, you MUST rewrite the user's conversational query into a
@@ -261,7 +274,6 @@ SYSTEM_MESSAGE_PROMPT = SystemMessage(
         * If data requires more columns, split into multiple smaller tables
         * Prioritize the most important columns (ID, Title, Status, Action)
     """
-)
 
 
 def call_model(state: AgentState) -> dict:
@@ -286,18 +298,22 @@ def call_model(state: AgentState) -> dict:
     user_messages = [m for m in state["messages"] if hasattr(m, 'type') and m.type == 'human']
     latest_query = _extract_text_content(user_messages[-1].content) if user_messages else ""
 
-    enhanced_system_prompt = SYSTEM_MESSAGE_PROMPT
+    # Inject current date into system prompt
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    base_prompt_content = SYSTEM_MESSAGE_PROMPT_TEMPLATE.format(current_date=current_date)
+    enhanced_system_prompt = SystemMessage(base_prompt_content)
+
     if latest_query:
         try:
             golden_examples = search_golden_examples_sync(
                 query=latest_query,
                 top_k=2,
                 score_threshold=0.6,
-            )            
+            )
             if golden_examples:
                 logger.debug(f"Found {len(golden_examples)} golden examples for query")
                 enhanced_content = build_prompt_with_golden_examples(
-                    base_prompt=SYSTEM_MESSAGE_PROMPT.content,
+                    base_prompt=base_prompt_content,
                     golden_examples=golden_examples,
                 )
                 enhanced_system_prompt = SystemMessage(enhanced_content)

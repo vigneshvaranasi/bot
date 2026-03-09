@@ -65,6 +65,16 @@ METADATA_FIELD_INFO = [
         description="A boolean (as a string) indicating if this was a repeat incident, e.g., 'True.' or 'False.'",
         type="string",
     ),
+    AttributeInfo(
+        name="opened_at",
+        description="Date/time when the incident was opened, in ISO 8601 format (e.g. '2025-01-15T10:30:00'). Use for filtering incidents by date range.",
+        type="string",
+    ),
+    AttributeInfo(
+        name="updated_at",
+        description="Date/time when the incident was last updated, in ISO 8601 format.",
+        type="string",
+    ),
 ]
 
 DOCUMENT_CONTENT_DESCRIPTION = (
@@ -264,3 +274,64 @@ def format_incidents_response(docs: List[Document]) -> str:
     if not docs:
         return "No relevant incident reports found in the knowledge base."
     return "\n\n".join(format_incident_context(doc) for doc in docs)
+
+
+def _scroll_all_incidents(
+    qdrant_filter=None,
+    limit: int = 5000,
+) -> List[dict]:
+    """Scroll Qdrant and return deduplicated incidents as dicts.
+
+    Each incident appears once (deduped by incident_id), with structured
+    metadata fields extracted.
+
+    Args:
+        qdrant_filter: Optional Qdrant Filter for server-side filtering.
+        limit: Max unique incidents to return.
+
+    Returns:
+        List of incident dicts, sorted by opened_at descending.
+    """
+    vector_store = _get_vector_store()
+    seen_ids: set = set()
+    incidents: List[dict] = []
+    next_page = None
+
+    while len(incidents) < limit:
+        points, next_page = vector_store.client.scroll(
+            collection_name=vector_store.collection_name,
+            scroll_filter=qdrant_filter,
+            with_payload=True,
+            with_vectors=False,
+            limit=64,
+            offset=next_page,
+        )
+        if not points:
+            break
+
+        for point in points:
+            payload = point.payload or {}
+            metadata = payload.get("metadata", {})
+            inc_id = metadata.get("incident_id")
+            if not inc_id or inc_id in seen_ids:
+                continue
+            seen_ids.add(inc_id)
+
+            incidents.append({
+                "incident_id": inc_id,
+                "title": metadata.get("incident_title", "Unknown"),
+                "opened_at": metadata.get("opened_at"),
+                "updated_at": metadata.get("updated_at"),
+                "impacted_application": metadata.get("impacted_application"),
+                "root_cause": metadata.get("root_cause"),
+                "accountable_party": metadata.get("accountable_party"),
+                "repeat_incident": metadata.get("repeat_incident"),
+            })
+
+            if len(incidents) >= limit:
+                break
+
+        if next_page is None:
+            break
+    incidents.sort(key=lambda x: x.get("opened_at") or "", reverse=True)
+    return incidents

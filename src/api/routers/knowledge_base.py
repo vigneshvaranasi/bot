@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+from datetime import datetime
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -115,6 +116,54 @@ def _parse_description_metadata(description: str) -> Dict[str, str]:
             except ValueError:
                 pass
     return metadata
+
+
+def _extract_date_from_text(text: str) -> Optional[str]:
+    """Try to extract a date from incident text using common patterns.
+
+    Checks for YYYY-MM-DD patterns in timelines and descriptions,
+    as well as natural language dates like "On January 1, 2025".
+
+    Returns ISO 8601 datetime string if found, None otherwise.
+    """
+    if not text:
+        return None
+
+    # Pattern 1: YYYY-MM-DD (with optional time HH:MM)
+    match = re.search(r"(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?", text)
+    if match:
+        try:
+            date_str = match.group(1)
+            time_str = match.group(2)
+            if time_str:
+                dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+            else:
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+            return dt.isoformat()
+        except ValueError:
+            pass
+
+    # Pattern 2: "On Month Day, Year" (e.g., "On January 1, 2025")
+    match = re.search(r"[Oo]n\s+(\w+\s+\d{1,2},?\s+\d{4})", text)
+    if match:
+        date_str = match.group(1).replace(",", "")
+        for fmt in ("%B %d %Y", "%b %d %Y"):
+            try:
+                dt = datetime.strptime(date_str, fmt)
+                return dt.isoformat()
+            except ValueError:
+                continue
+
+    # Pattern 3: DD/MM/YYYY or MM/DD/YYYY
+    match = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", text)
+    if match:
+        try:
+            dt = datetime.strptime(match.group(0), "%m/%d/%Y")
+            return dt.isoformat()
+        except ValueError:
+            pass
+
+    return None
 
 def get_qdrant_client():
     """Get Qdrant client with authentication if configured."""
@@ -335,6 +384,16 @@ def _prepare_documents(incidents: List[dict]) -> List:
 
         desc_metadata = _parse_description_metadata(description)
 
+        # Resolve opened_at: explicit field → timeline → description → incident_id
+        opened_at = incident.get("opened_at")
+        if not opened_at:
+            timeline = desc_metadata.get("timeline", "")
+            opened_at = _extract_date_from_text(timeline)
+        if not opened_at:
+            opened_at = _extract_date_from_text(description)
+        if not opened_at:
+            opened_at = _extract_date_from_text(incident.get("incident_id", ""))
+
         doc_metadata = {
             "incident_id": incident.get("incident_id", "N/A"),
             "incident_title": title,
@@ -344,8 +403,8 @@ def _prepare_documents(incidents: List[dict]) -> List:
             "accountable_party": desc_metadata.get("accountableParty", "N/A"),
             "source_system": "ServiceNow",
             "repeat_incident": desc_metadata.get("repeatIncident", "False"),
-            "opened_at": incident.get("opened_at"),
-            "updated_at": incident.get("updated_at"),
+            "opened_at": opened_at,
+            "updated_at": incident.get("updated_at") or opened_at,
         }
 
         chunks = text_splitter.split_text(source_text)
