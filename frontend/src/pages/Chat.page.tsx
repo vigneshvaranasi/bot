@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import PromptBar from "../components/PromptBar";
@@ -24,6 +24,42 @@ function ChatPage() {
   const navigate = useNavigate();
   const abortRef = useRef<AbortController | null>(null);
   const mergedMetricsRef = useRef<{ timeToFirstToken?: number; totalResponseTime: number; modelId?: string | null; providerType?: string | null } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    if (!isMobile) return;
+
+    document.body.classList.add("chat-scroll-lock");
+
+    return () => {
+      document.body.classList.remove("chat-scroll-lock");
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const vv = (window as any).visualViewport as VisualViewport | undefined;
+    if (!vv) return;
+
+    const updateViewportOffset = () => {
+      const viewport = (window as any).visualViewport as VisualViewport | undefined;
+      if (!viewport) return;
+      const extra = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      document.body.style.setProperty("--chat-extra-bottom", `${extra}px`);
+    };
+
+    updateViewportOffset();
+    vv.addEventListener("resize", updateViewportOffset);
+    vv.addEventListener("scroll", updateViewportOffset);
+
+    return () => {
+      vv.removeEventListener("resize", updateViewportOffset);
+      vv.removeEventListener("scroll", updateViewportOffset);
+      document.body.style.removeProperty("--chat-extra-bottom");
+    };
+  }, []);
 
   const handleStop = () => {
     abortRef.current?.abort();
@@ -182,20 +218,24 @@ function ChatPage() {
   };
 
   return (
-    <div className={`flex h-screen`}>
+    <div className="flex h-[100dvh] md:h-screen fixed inset-0 md:static md:inset-auto">
       <Sidebar />
       <div className={`flex-1 min-w-0 ${isSidebarOpen && "hidden md:block"}`}>
-        <div className="flex flex-col h-screen">
+        <div className="flex flex-col h-[100dvh] md:h-screen safe-area-top">
           <Navbar />
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <Outlet />
           </div>
-          <PromptBar
-            onSend={handlePromptSendStream}
-            onStop={handleStop}
-            isLoading={isLoading}
-            canStop={isLoading && (currentChat?.allMessages.some((m: ChatMessage) => m.streaming) ?? false)}
-          />
+          <div
+            className="flex-shrink-0 safe-area-bottom"
+          >
+            <PromptBar
+              onSend={handlePromptSendStream}
+              onStop={handleStop}
+              isLoading={isLoading}
+              canStop={isLoading && (currentChat?.allMessages.some((m: ChatMessage) => m.streaming) ?? false)}
+            />
+          </div>
         </div>
       </div>
     </div>

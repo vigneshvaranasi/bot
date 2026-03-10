@@ -73,6 +73,7 @@ const ChatView = () => {
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const topSentinelRef = useRef<HTMLDivElement | null>(null);
 
   const scrollToBottom = useCallback((smooth: boolean = true) => {
@@ -194,6 +195,18 @@ const ChatView = () => {
     const t2 = setTimeout(() => scrollToBottom(false), 120);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [currentChat?.allMessages?.length, loading, scrollToBottom]);
+
+  const wasStreamingRef = useRef(false);
+  useEffect(() => {
+    const isStreaming = currentChat?.allMessages?.some(m => m.streaming) ?? false;
+    if (wasStreamingRef.current && !isStreaming) {
+      scrollToBottom(false);
+      const t1 = setTimeout(() => scrollToBottom(false), 50);
+      const t2 = setTimeout(() => scrollToBottom(false), 200);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+    wasStreamingRef.current = isStreaming;
+  }, [currentChat?.allMessages, scrollToBottom]);
 
   const handleSpeechToggle = useCallback((messageId: string, content: string) => {
     if (isSpeaking && speakingMessageId === messageId) {
@@ -322,32 +335,17 @@ const ChatView = () => {
   }, [isSpeaking]);
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
+    const container = containerRef.current;
+    const content = contentRef.current;
+    if (!container || !content) return;
     if (typeof ResizeObserver !== "undefined") {
-      const getScrollParent = (element: HTMLElement): HTMLElement | null => {
-        let parent = element.parentElement;
-        while (parent) {
-          const style = getComputedStyle(parent);
-          if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-            return parent;
-          }
-          parent = parent.parentElement;
-        }
-        return null;
-      };
-      
-      const scrollParent = getScrollParent(el);
-      
       const ro = new ResizeObserver(() => {
-        if (scrollParent) {
-          const isNearBottom = scrollParent.scrollHeight - scrollParent.scrollTop - scrollParent.clientHeight < 300;
-          if (isNearBottom) {
-            scrollToBottom(false);
-          }
+        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 300;
+        if (isNearBottom) {
+          scrollToBottom(false);
         }
       });
-      ro.observe(el);
+      ro.observe(content);
       return () => ro.disconnect();
     }
   }, [scrollToBottom]);
@@ -476,8 +474,12 @@ const ChatView = () => {
   }
 
   return (
-    <div ref={containerRef} className="flex-1 px-3 relative" style={{ WebkitOverflowScrolling: "touch" }}>
-      <div className=" mx-auto space-y-5">
+    <div
+      ref={containerRef}
+      className="h-full w-full px-3 overflow-y-auto"
+      style={{ WebkitOverflowScrolling: "touch" }}
+    >
+      <div ref={contentRef} className="mx-auto space-y-5 pt-4 pb-4">
         {/* Top sentinel for loading older messages */}
         {hasOlderMessages && currentChat?.allMessages?.length ? (
           <div ref={topSentinelRef} className="h-1" data-top-sentinel />
@@ -568,8 +570,8 @@ const ChatView = () => {
       <div ref={bottomRef} data-bottom-marker />
       {
         chatId == undefined && currentChat == null && (
-          <div className="flex items-center justify-center h-full py-10">
-            <p className="text-lg md:text-2xl">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <p className="text-lg md:text-2xl text-text-secondary">
               How can I help you today?
             </p>
           </div>

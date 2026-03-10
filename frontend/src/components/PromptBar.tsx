@@ -86,6 +86,7 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop }: Prompt
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputFocusedRef = useRef(false);
 
   // Check speech support
   useEffect(() => {
@@ -153,6 +154,14 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop }: Prompt
     setChatInput("");
   };
 
+  const handleInputFocus: React.FocusEventHandler<HTMLInputElement | HTMLTextAreaElement> = () => {
+    if (typeof window === "undefined") return;
+    inputFocusedRef.current = true;
+    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    if (!isMobile) return;
+    window.scrollTo({ top: 0, left: 0 });
+  };
+
   // Speech recognition
   const toggleDictation = () => {
     if (!hasSpeechSupport) return;
@@ -206,7 +215,7 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop }: Prompt
   };
 
   return (
-    <div className="bg-transparent w-full px-4 py-3">
+    <div className="w-full px-4 py-2 md:py-3 prompt-bar-safe">
       {/* Model selector pill */}
       {models.length > 0 && showModelPicker && (
         <div className="relative mb-1.5" ref={dropdownRef}>
@@ -257,6 +266,7 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop }: Prompt
         <InputBox
           className="flex-1"
           onChange={(value) => setChatInput(value)}
+          onFocus={handleInputFocus}
           value={chatInput}
           placeholder={isRecording ? "Listening... release mic to edit" : "Type your message..."}
           variant="multiline"

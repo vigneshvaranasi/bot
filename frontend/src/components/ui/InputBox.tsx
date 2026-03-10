@@ -5,6 +5,7 @@ type InputBoxProps = {
   placeholder?: string
   onChange: (value: string) => void
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void
+  onFocus?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void
   icon?: string | React.ReactNode
   className?: string
   variant: 'primary' | 'multiline'
@@ -22,7 +23,7 @@ type InputBoxProps = {
 
 const variantClasses: Record<'primary' | 'multiline', string> = {
   primary: 'border-b border-gray-300',
-  multiline:'border border-gray-200 rounded-xl bg-white shadow-sm focus:ring-2 focus:ring-accent/30 focus:border-accent/50'
+  multiline:'border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-accent/30 focus:border-accent/50'
 }
 
 const InputBox = ({
@@ -30,6 +31,7 @@ const InputBox = ({
   placeholder = '',
   onChange,
   onKeyDown,
+  onFocus,
   icon,
   className = '',
   variant = 'primary',
@@ -93,6 +95,7 @@ const InputBox = ({
           placeholder={placeholder}
           onChange={e => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={onFocus as React.FocusEventHandler<HTMLTextAreaElement>}
           rows={rows}
           readOnly={readOnly}
           disabled={disabled}
@@ -113,6 +116,7 @@ const InputBox = ({
           placeholder={placeholder}
           onChange={e => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={onFocus as React.FocusEventHandler<HTMLInputElement>}
           step={step}
           min={min}
           max={max}

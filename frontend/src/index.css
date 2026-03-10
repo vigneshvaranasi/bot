@@ -1,11 +1,17 @@
 @import "tailwindcss";
 
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   color: var(--color-appblack);
   background-color: var(--color-appgray);
-  height: 100%;
   width: 100%;
+  margin: 0;
 }
 
 @theme {
@@ -191,4 +197,29 @@ body {
   border: 1px solid var(--color-border-default);
   padding: 0.25rem 0.5rem;
   text-align: left;
+}
+
+@media (max-width: 767px) {
+  body.chat-scroll-lock {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+    padding-top: -webkit-env(safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: -webkit-env(safe-area-inset-bottom);
+  }
+
+  .prompt-bar-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: -webkit-env(safe-area-inset-bottom, 0px);
+  }
 }
