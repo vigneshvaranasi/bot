@@ -17,7 +17,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod
       args:
-        - VITE_BE_URL=${BACKEND_URL}
+        - VITE_BE_URL=https://copilot-api.xendev.in
     ports:
       - "3000:80"
     depends_on:

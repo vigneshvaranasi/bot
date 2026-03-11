@@ -1,15 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.core.config import CORS_ORIGINS
+from src.api.core.config import CORS_ORIGINS, CORS_ORIGIN_REGEX
 
 app = FastAPI(title="Support Bot", version="1.0.0")
 
-origins = CORS_ORIGINS
+origins = "https://copilot.xendev.in"
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
     allow_headers=[

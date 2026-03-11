@@ -52,5 +52,10 @@ if FRONTEND_URL not in CORS_ORIGINS_LIST:
 
 CORS_ORIGINS = CORS_ORIGINS_LIST
 
+CORS_ORIGIN_REGEX = os.getenv(
+    "CORS_ORIGIN_REGEX",
+    r"https://.*\.devtunnel\.ms"
+)
+
 # Password validation toggle (enterprise default: enabled)
 ENABLE_PASSWORD_VALIDATION = os.getenv("ENABLE_PASSWORD_VALIDATION", "true").lower() == "true"
