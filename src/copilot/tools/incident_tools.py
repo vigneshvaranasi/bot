@@ -338,19 +338,8 @@ def get_recent_incidents(days: int = 7, limit: int = 10) -> str:
             writer({"status": f"Found {len(unique_docs)} incidents from the last {days} days"})
             return format_incidents_response(unique_docs)
 
-        # Fallback: no opened_at data matched — return latest by scroll order
-        writer({"status": "No date-filtered incidents found, returning latest incidents"})
-        fallback_docs = _scroll_qdrant_with_filter(Filter(must=[]), limit=limit * 3)
-        seen_fb: set = set()
-        unique_fb: List[Document] = []
-        for doc in fallback_docs:
-            inc_id = _get_metadata_value(doc.metadata, "incident_id")
-            if inc_id and inc_id not in seen_fb:
-                seen_fb.add(inc_id)
-                unique_fb.append(doc)
-                if len(unique_fb) >= limit:
-                    break
-        return format_incidents_response(unique_fb)
+        writer({"status": f"No incidents found in the last {days} days"})
+        return f"No incidents found in the last {days} days."
 
     except Exception as e:
         logger.error(f"Error in get_recent_incidents: {e}")

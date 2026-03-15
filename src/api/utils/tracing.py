@@ -1,7 +1,8 @@
 import os
 import logging
-from contextlib import contextmanager
-from typing import Optional, Dict, Any
+import uuid
+from datetime import datetime, timezone
+from typing import Optional, Dict, Any, Tuple
 
 from src.api.services.encryption_service import decrypt_value
 
@@ -49,45 +50,108 @@ def resolve_langfuse_config(settings) -> Optional[Dict[str, str]]:
         return {"secret_key": secret_key, "public_key": public_key, "host": host}
     return None
 
-def get_langfuse_client(langfuse_config: Dict[str, str]):
-    """Create a Langfuse client from explicit credentials."""
-    from langfuse import Langfuse
-    return Langfuse(
-        secret_key=langfuse_config["secret_key"],
-        public_key=langfuse_config["public_key"],
-        host=langfuse_config["host"],
-    )
-
-def _get_observation_context(enabled: bool, langfuse_config: Optional[Dict[str, str]] = None, **kwargs):
-    """Try to create a Langfuse observation context, return None on failure."""
-    if not enabled:
-        return None
-
-    try:
-        if langfuse_config:
-            client = get_langfuse_client(langfuse_config)
-        else:
-            from langfuse import get_client
-            client = get_client()
-        return client.start_as_current_observation(**kwargs)
-    except Exception as e:
-        source = "config" if langfuse_config else "env"
-        logger.warning(f"Failed to create Langfuse observation from {source}: {e}")
-        return None
+_LANGFUSE_INITIALIZED = False
+_LANGFUSE_CONFIG_SIGNATURE: Optional[Tuple[str, str, str]] = None
 
 
-@contextmanager
-def conditional_observation(enabled: bool, langfuse_config: Optional[Dict[str, str]] = None, **kwargs):
-    """Context manager that creates a Langfuse observation span if enabled.
+def get_langfuse_client(langfuse_config: Optional[Dict[str, str]] = None):
+    """
+    Get a Langfuse client that is shared between observations and LangChain callbacks.
+
+    If explicit credentials are provided, we initialize the global client once via
+    Langfuse(...). Subsequent calls (including those from CallbackHandler which uses
+    get_client()) will reuse the same client instance.
+
+    If no config is provided, this falls back to env-based configuration.
+    """
+    from langfuse import Langfuse, get_client
+
+    global _LANGFUSE_INITIALIZED, _LANGFUSE_CONFIG_SIGNATURE
+
+    if langfuse_config:
+        cfg_sig = (
+            langfuse_config.get("secret_key"),
+            langfuse_config.get("public_key"),
+            langfuse_config.get("host"),
+        )
+        if not _LANGFUSE_INITIALIZED or _LANGFUSE_CONFIG_SIGNATURE != cfg_sig:
+            Langfuse(
+                secret_key=langfuse_config.get("secret_key"),
+                public_key=langfuse_config.get("public_key"),
+                host=langfuse_config.get("host"),
+            )
+            _LANGFUSE_INITIALIZED = True
+            _LANGFUSE_CONFIG_SIGNATURE = cfg_sig
+
+    return get_client()
+
+def create_langfuse_trace(
+    enabled: bool,
+    langfuse_config: Optional[Dict[str, str]] = None,
+    **kwargs,
+) -> Tuple[Any, Optional[Dict[str, str]]]:
+    """Create a Langfuse trace and return (span, trace_context).
+
+    Creates a top-level span whose trace_context dict can be passed to
+    CallbackHandler(trace_context=...) so that all LangChain observations
+    are grouped under a single Langfuse trace as children of this span.
 
     Args:
         enabled: Whether tracing is enabled.
-        langfuse_config: Dict with secret_key, public_key, host. If None, falls back to env-based client.
-        **kwargs: Passed to langfuse.start_as_current_observation().
+        langfuse_config: Dict with secret_key, public_key, host.
+        **kwargs: Passed to client.start_span() (name, input, metadata, …).
+
+    Returns:
+        (span, trace_context) when tracing is enabled and succeeds,
+        (None, None) otherwise.
+        trace_context is {"trace_id": ..., "parent_span_id": ...}.
     """
-    ctx = _get_observation_context(enabled, langfuse_config, **kwargs)
-    if ctx is not None:
-        with ctx as obs:
-            yield obs
-    else:
-        yield DummyObservation()
+    if not enabled:
+        return None, None
+
+    try:
+        client = get_langfuse_client(langfuse_config)
+        span = client.start_span(**kwargs)
+        trace_context = {
+            "trace_id": span.trace_id,
+            "parent_span_id": span.id,
+        }
+        return span, trace_context
+    except Exception as e:
+        source = "config" if langfuse_config else "env"
+        logger.warning(f"Failed to create Langfuse trace from {source}: {e}")
+        return None, None
+
+
+def update_langfuse_trace_name(
+    trace_id: str,
+    name: str,
+    langfuse_config: Optional[Dict[str, str]] = None,
+) -> None:
+    """Update a Langfuse trace's name via the v2 ingestion API.
+
+    The OTel-based SDK sets AS_ROOT on every observation created with
+    trace_context, so multiple spans compete for the trace name. This
+    function sends a v2 trace-create ingestion event (upsert) to
+    explicitly set the trace name after all OTel spans are exported.
+    """
+    try:
+        from langfuse.api.resources.ingestion.types import (
+            IngestionEvent_TraceCreate,
+        )
+        from langfuse.api.resources.ingestion.types.trace_body import TraceBody
+
+        client = get_langfuse_client(langfuse_config)
+        client.flush()
+
+        client.api.ingestion.batch(
+            batch=[
+                IngestionEvent_TraceCreate(
+                    body=TraceBody(id=trace_id, name=name),
+                    id=str(uuid.uuid4()),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                )
+            ]
+        )
+    except Exception as e:
+        logger.warning(f"Failed to update Langfuse trace name: {e}")

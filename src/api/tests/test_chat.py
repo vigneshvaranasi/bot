@@ -949,7 +949,7 @@ def _prompt_context(**overrides):
         "get_provider_config_for_model": AsyncMock(return_value=_PROVIDER_CONFIG),
         "generate_title_from_query": MagicMock(return_value="Generated Title"),
         "should_ask_clarification": MagicMock(return_value=(False, "")),
-        "conditional_observation": MagicMock(),
+        "create_langfuse_callback": MagicMock(return_value=MagicMock()),
     }
     defaults.update(overrides)
 
@@ -1830,10 +1830,9 @@ class TestChatErrorPaths:
                                  "temperature": 0.7}), \
              patch("src.api.routers.chat.get_support_bot_graph", return_value=mock_graph), \
              patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
-             patch("src.api.routers.chat.conditional_observation") as mock_obs, \
+             patch("src.api.routers.chat.create_langfuse_trace", return_value=(None, None)) as mock_obs, \
              patch("src.api.routers.chat.generate_title_from_query", return_value="Title"):
-            mock_obs.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_obs.return_value.__exit__ = MagicMock(return_value=False)
+            pass  # create_langfuse_trace returns (None, None) — no context manager setup needed
             response = await client.post("/chats/prompt/stream", json={
                 "message": "Hello bot", "chat_id": None,
             })
@@ -1936,10 +1935,9 @@ class TestStreamGraphPath:
                                  "temperature": 0.7}), \
              patch("src.api.routers.chat.get_support_bot_graph", return_value=mock_graph), \
              patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
-             patch("src.api.routers.chat.conditional_observation") as mock_obs, \
+             patch("src.api.routers.chat.create_langfuse_trace", return_value=(None, None)) as mock_obs, \
              patch("src.api.routers.chat.generate_title_from_query", return_value="Title"):
-            mock_obs.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_obs.return_value.__exit__ = MagicMock(return_value=False)
+            pass  # create_langfuse_trace returns (None, None) — no context manager setup needed
             response = await client.post("/chats/prompt/stream", json={
                 "message": "Tell me about incidents", "chat_id": str(chat.id),
             })
@@ -1980,10 +1978,9 @@ class TestStreamGraphPath:
                                  "temperature": 0.7}), \
              patch("src.api.routers.chat.get_support_bot_graph", return_value=mock_graph), \
              patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
-             patch("src.api.routers.chat.conditional_observation") as mock_obs, \
+             patch("src.api.routers.chat.create_langfuse_trace", return_value=(None, None)) as mock_obs, \
              patch("src.api.routers.chat.AIMessageChunk", new=type(mock_chunk)):
-            mock_obs.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_obs.return_value.__exit__ = MagicMock(return_value=False)
+            pass  # create_langfuse_trace returns (None, None) — no context manager setup needed
             response = await client.post("/chats/prompt/stream", json={
                 "message": "stream msg mode", "chat_id": str(chat.id),
             })
@@ -2012,9 +2009,8 @@ class TestStreamGraphPath:
                                  "temperature": 0.7}), \
              patch("src.api.routers.chat.get_support_bot_graph", return_value=mock_graph), \
              patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
-             patch("src.api.routers.chat.conditional_observation") as mock_obs:
-            mock_obs.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_obs.return_value.__exit__ = MagicMock(return_value=False)
+             patch("src.api.routers.chat.create_langfuse_trace", return_value=(None, None)) as mock_obs:
+            pass  # create_langfuse_trace returns (None, None) — no context manager setup needed
             response = await client.post("/chats/prompt/stream", json={
                 "message": "crash test", "chat_id": str(chat.id),
             })
@@ -2247,10 +2243,9 @@ class TestStreamProviderOverride:
                                  "temperature": 0.5}), \
              patch("src.api.routers.chat.get_support_bot_graph", return_value=mock_graph), \
              patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
-             patch("src.api.routers.chat.conditional_observation") as mock_obs, \
+             patch("src.api.routers.chat.create_langfuse_trace", return_value=(None, None)) as mock_obs, \
              patch("src.api.routers.chat.generate_title_from_query", return_value="T"):
-            mock_obs.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_obs.return_value.__exit__ = MagicMock(return_value=False)
+            pass  # create_langfuse_trace returns (None, None) — no context manager setup needed
             response = await client.post("/chats/prompt/stream", json={
                 "message": "override stream",
                 "chat_id": str(chat.id),

@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 import json
 import logging
 import time
@@ -31,8 +32,8 @@ from src.api.utils.llm_provider_helper import (
     get_provider_config_for_chat,
     get_provider_config_for_model,
 )
-from src.api.utils.tracing import conditional_observation, resolve_langfuse_config
-from src.copilot.graph import create_agent_graph, generate_title_from_query
+from src.api.utils.tracing import resolve_langfuse_config, create_langfuse_trace, update_langfuse_trace_name
+from src.copilot.graph import create_agent_graph, create_langfuse_callback, generate_title_from_query
 from src.copilot.guardrails.prompt_guardrails import PromptGuardrail
 from src.copilot.utils import should_ask_clarification
 
@@ -316,14 +317,20 @@ async def prompt_stream(
                 """Generate title in parallel with main response."""
                 try:
                     logger.debug("[PARALLEL TITLE] Starting parallel title generation")
-                    title = await asyncio.to_thread(
+                    title_callbacks = []
+                    ctx = contextvars.Context()
+                    title = await asyncio.get_running_loop().run_in_executor(
+                        None,
+                        ctx.run,
                         generate_title_from_query,
                         human_message,
                         str(actual_chat_id),
                         str(user_id),
-                        langfuse_enabled,
+                        False,
                         llm_config,
-                        langfuse_config,
+                        None,
+                        None,
+                        title_callbacks,
                     )
                     await title_queue.put({"title": title})
                     logger.debug(f"[PARALLEL TITLE] Generated: {title}")
@@ -429,131 +436,136 @@ async def prompt_stream(
 
             logger.debug(f"[CACHE MISS] No cached response found, processing with LangGraph")
 
-            if needs_title:
-                title_task = asyncio.create_task(parallel_title_generator())
-                logger.debug("[PARALLEL TITLE] Task started")
-
             answer = ""
             memory_saved = False
             generated_title = current_title
             t_start: float | None = None
             t_first: float | None = None
 
-            workflow_observation = conditional_observation(
-                enabled=langfuse_enabled,
-                langfuse_config=langfuse_config,
-                as_type="agent",
-                name="copilot-chat",
-                input=human_message,
-                metadata={"type": "streaming", "chat_id": str(actual_chat_id)}
-            )
             try:
-                with workflow_observation as observation:
-                    with propagate_attributes(
-                        session_id=str(actual_chat_id),
-                        user_id=str(user_id)
-                    ):
-                        # Streaming mode - wrap sync iterator to avoid blocking event loop
-                        sync_stream = get_support_bot_graph().stream(
-                            config=thread_config, input=inputs, stream_mode=["custom", "messages"]
-                        )
-                        t_start = time.perf_counter()
-                        async for mode, chunk in async_stream_wrapper(sync_stream):
-                            
-                            title_result = await check_and_emit_title()
-                            if title_result:
-                                generated_title = title_result
-                                yield f"event: title\ndata: {json.dumps({'title': title_result})}\n\n"
-                                await save_title_to_db(title_result)
+                root_span = None
+                trace_ctx = None
+                if langfuse_enabled:
+                    # Use existing chat title for continuation, placeholder for new chats
+                    trace_name = current_title if current_title and current_title.strip() not in ("", "New Chat") else "copilot-chat"
+                    root_span, trace_ctx = create_langfuse_trace(
+                        enabled=True,
+                        langfuse_config=langfuse_config,
+                        name=trace_name,
+                        input=human_message,
+                    )
+                    handler = create_langfuse_callback(langfuse_config, trace_context=trace_ctx)
+                    thread_config["callbacks"] = [handler]
 
-                            if mode == "custom":
-                                if isinstance(chunk, dict) and "title" in chunk and not title_sent:
-                                    generated_title = chunk["title"]
-                                    title_sent = True
-                                    yield f"event: title\ndata: {json.dumps({'title': generated_title})}\n\n"
-                                    await save_title_to_db(generated_title)
+                if needs_title:
+                    title_task = asyncio.create_task(parallel_title_generator())
+                    logger.debug("[PARALLEL TITLE] Task started")
 
-                                # Status event
-                                if isinstance(chunk, dict) and "status" in chunk:
-                                    status_payload = {"message": chunk["status"]}
-                                    yield f"event: status\ndata: {json.dumps(status_payload)}\n\n"
+                with propagate_attributes(
+                    session_id=str(actual_chat_id),
+                    user_id=str(user_id)
+                ):
+                    # Streaming mode - wrap sync iterator to avoid blocking event loop
+                    sync_stream = get_support_bot_graph().stream(
+                        config=thread_config, input=inputs, stream_mode=["custom", "messages"]
+                    )
+                    t_start = time.perf_counter()
+                    async for mode, chunk in async_stream_wrapper(sync_stream):
 
-                                    if (
-                                        "Almost done, wrapping up the details" in chunk["status"]
-                                        and not memory_saved
-                                    ):
-                                        # Wait for title if not yet received (with timeout)
-                                        if needs_title and not title_sent and title_task:
-                                            try:
-                                                result = await asyncio.wait_for(title_queue.get(), timeout=5.0)
-                                                if "title" in result:
-                                                    generated_title = result["title"]
-                                                    title_sent = True
-                                                    yield f"event: title\ndata: {json.dumps({'title': generated_title})}\n\n"
-                                                    await save_title_to_db(generated_title)
-                                            except asyncio.TimeoutError:
-                                                logger.debug("[PARALLEL TITLE] Timeout at completion")
+                        title_result = await check_and_emit_title()
+                        if title_result:
+                            generated_title = title_result
+                            yield f"event: title\ndata: {json.dumps({'title': title_result})}\n\n"
+                            await save_title_to_db(title_result)
 
-                                        # Store response in cache for future use
-                                        try:
-                                            logger.debug(f"[CACHE STORE] Storing response in cache for query: '{human_message[:50]}...'")
-                                            store_chat_response(human_message, answer)
-                                            logger.debug(f"[CACHE STORE] Successfully cached response")
-                                        except Exception as e:
-                                            logger.debug(f"[CACHE ERROR] Error storing response in cache: {e}")
+                        if mode == "custom":
+                            if isinstance(chunk, dict) and "title" in chunk and not title_sent:
+                                generated_title = chunk["title"]
+                                title_sent = True
+                                yield f"event: title\ndata: {json.dumps({'title': generated_title})}\n\n"
+                                await save_title_to_db(generated_title)
 
-                                        # Update the pre-saved message with the full answer and metrics
-                                        t_end = time.perf_counter()
-                                        time_to_first_token_ms = (
-                                            round((t_first - t_start) * 1000) if t_start is not None and t_first is not None else None
-                                        )
-                                        total_response_time_ms = (
-                                            round((t_end - t_start) * 1000) if t_start is not None else None
-                                        )
-                                        try:
-                                            msg_result = await session.execute(
-                                                select(Message).where(Message.id == pre_saved_message.id)
-                                            )
-                                            msg_to_update = msg_result.scalar_one_or_none()
-                                            if msg_to_update:
-                                                msg_to_update.bot = answer
-                                                msg_to_update.responded_at = _utcnow_naive()
-                                                msg_to_update.time_to_first_token_ms = time_to_first_token_ms
-                                                msg_to_update.total_response_time_ms = total_response_time_ms
-                                                msg_to_update.model_id = llm_config.get("model_id") or "default"
-                                                msg_to_update.provider_type = llm_config.get("provider_type") or "ollama"
-                                                await session.commit()
-                                                memory_saved = True
-                                        except Exception as e:
-                                            logger.error(f"[METRICS SAVE] Failed to save message metrics: {e}", exc_info=True)
-                                            await session.rollback()
+                            # Status event
+                            if isinstance(chunk, dict) and "status" in chunk:
+                                status_payload = {"message": chunk["status"]}
+                                yield f"event: status\ndata: {json.dumps(status_payload)}\n\n"
 
-                                        final_data = {
-                                            "answer": answer,
-                                            "chat_id": str(actual_chat_id),
-                                            "message_id": str(pre_saved_message.id),
-                                            "time_to_first_token_ms": time_to_first_token_ms,
-                                            "total_response_time_ms": total_response_time_ms,
-                                            "model_id": llm_config.get("model_id") or "default",
-                                            "provider_type": llm_config.get("provider_type") or "ollama",
-                                        }
-                                        yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
-
-                            elif mode == "messages":
-                                token_chunk, metadata = chunk
                                 if (
-                                    metadata.get('langgraph_node') != 'incident_tools'
-                                    and isinstance(token_chunk, AIMessageChunk)
-                                    and token_chunk.content
+                                    "Almost done, wrapping up the details" in chunk["status"]
+                                    and not memory_saved
                                 ):
-                                    if t_first is None:
-                                        t_first = time.perf_counter()
-                                    chunk_text = _message_content_to_str(token_chunk.content)
-                                    answer += chunk_text
-                                    chunk_payload = {"chunk": chunk_text}
-                                    yield f"event: final_answer\ndata: {json.dumps(chunk_payload)}\n\n"
+                                    # Wait for title if not yet received (with timeout)
+                                    if needs_title and not title_sent and title_task:
+                                        try:
+                                            result = await asyncio.wait_for(title_queue.get(), timeout=5.0)
+                                            if "title" in result:
+                                                generated_title = result["title"]
+                                                title_sent = True
+                                                yield f"event: title\ndata: {json.dumps({'title': generated_title})}\n\n"
+                                                await save_title_to_db(generated_title)
+                                        except asyncio.TimeoutError:
+                                            logger.debug("[PARALLEL TITLE] Timeout at completion")
 
-                        observation.update(output=answer, name=generated_title)
+                                    # Store response in cache for future use
+                                    try:
+                                        logger.debug(f"[CACHE STORE] Storing response in cache for query: '{human_message[:50]}...'")
+                                        store_chat_response(human_message, answer)
+                                        logger.debug(f"[CACHE STORE] Successfully cached response")
+                                    except Exception as e:
+                                        logger.debug(f"[CACHE ERROR] Error storing response in cache: {e}")
+
+                                    # Update the pre-saved message with the full answer and metrics
+                                    t_end = time.perf_counter()
+                                    time_to_first_token_ms = (
+                                        round((t_first - t_start) * 1000) if t_start is not None and t_first is not None else None
+                                    )
+                                    total_response_time_ms = (
+                                        round((t_end - t_start) * 1000) if t_start is not None else None
+                                    )
+                                    try:
+                                        msg_result = await session.execute(
+                                            select(Message).where(Message.id == pre_saved_message.id)
+                                        )
+                                        msg_to_update = msg_result.scalar_one_or_none()
+                                        if msg_to_update:
+                                            msg_to_update.bot = answer
+                                            msg_to_update.responded_at = _utcnow_naive()
+                                            msg_to_update.time_to_first_token_ms = time_to_first_token_ms
+                                            msg_to_update.total_response_time_ms = total_response_time_ms
+                                            msg_to_update.model_id = llm_config.get("model_id") or "default"
+                                            msg_to_update.provider_type = llm_config.get("provider_type") or "ollama"
+                                            await session.commit()
+                                            memory_saved = True
+                                    except Exception as e:
+                                        logger.error(f"[METRICS SAVE] Failed to save message metrics: {e}", exc_info=True)
+                                        await session.rollback()
+
+                                    final_data = {
+                                        "answer": answer,
+                                        "chat_id": str(actual_chat_id),
+                                        "message_id": str(pre_saved_message.id),
+                                        "time_to_first_token_ms": time_to_first_token_ms,
+                                        "total_response_time_ms": total_response_time_ms,
+                                        "model_id": llm_config.get("model_id") or "default",
+                                        "provider_type": llm_config.get("provider_type") or "ollama",
+                                    }
+                                    yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
+
+                        elif mode == "messages":
+                            token_chunk, metadata = chunk
+                            if (
+                                metadata.get('langgraph_node') != 'incident_tools'
+                                and isinstance(token_chunk, AIMessageChunk)
+                                and token_chunk.content
+                            ):
+                                if t_first is None:
+                                    t_first = time.perf_counter()
+                                chunk_text = _message_content_to_str(token_chunk.content)
+                                answer += chunk_text
+                                chunk_payload = {"chunk": chunk_text}
+                                yield f"event: final_answer\ndata: {json.dumps(chunk_payload)}\n\n"
+
+                    pass
             except Exception as e:
                 logger.error(f"Error during streaming response: {e}", exc_info=True)
                 # Cancel title task if still running
@@ -584,6 +596,28 @@ async def prompt_stream(
                 # Ensure title task is cleaned up
                 if title_task and not title_task.done():
                     title_task.cancel()
+                    try:
+                        await asyncio.shield(title_task)
+                    except asyncio.CancelledError:
+                        pass
+                    except Exception as e:
+                        logger.debug(f"Error awaiting cancelled title task: {e}")
+
+                if root_span:
+                    try:
+                        root_span.update(output=answer or "")
+                        trace_title = None
+                        if generated_title and generated_title.strip() not in ("", "New Chat"):
+                            trace_title = generated_title
+                        elif current_title and current_title.strip() not in ("", "New Chat"):
+                            trace_title = current_title
+                        else:
+                            trace_title = "copilot-chat"
+
+                        if trace_title and trace_ctx:
+                            update_langfuse_trace_name(trace_ctx["trace_id"], trace_title, langfuse_config)
+                    except Exception as e:
+                        logger.debug(f"Failed to finalize Langfuse trace: {e}")
                 # Update pre-saved message with partial answer on disconnect
                 logger.debug(f"[STREAM FINALLY] memory_saved={memory_saved}, answer_len={len(answer) if answer else 0}")
                 if not memory_saved and answer:
@@ -734,22 +768,39 @@ async def prompt(
             "user_id": str(user_id),
             "langfuse_enabled": langfuse_enabled,
             "langfuse_config": langfuse_config,
-            "generate_title": not needs_title,  # False = API handles title in parallel
+            "generate_title": not needs_title,
             "llm_config": llm_config,
         }
+
+        # Create a root Langfuse span so both graph + title gen nest under one trace
+        ns_root_span = None
+        ns_trace_ctx = None
+        if langfuse_enabled:
+            ns_trace_name = current_title if current_title and current_title.strip() not in ("", "New Chat") else "copilot-chat"
+            ns_root_span, ns_trace_ctx = create_langfuse_trace(
+                enabled=True,
+                langfuse_config=langfuse_config,
+                name=ns_trace_name,
+                input=human_message,
+            )
+            ns_handler = create_langfuse_callback(langfuse_config, trace_context=ns_trace_ctx)
+            thread_config["callbacks"] = [ns_handler]
 
         # Run main response and title generation in parallel
         title_task = None
         if needs_title:
+            ns_title_callbacks = []
             title_task = asyncio.create_task(
                 asyncio.to_thread(
                     generate_title_from_query,
                     human_message,
                     str(actual_chat_id),
                     str(user_id),
-                    langfuse_enabled,
+                    False,
                     llm_config,
-                    langfuse_config,
+                    None,
+                    None,
+                    ns_title_callbacks,
                 )
             )
             logger.debug("[PARALLEL TITLE] Non-stream: Task started")
@@ -792,6 +843,24 @@ async def prompt(
         except Exception as e:
             logger.debug(f"[CACHE ERROR] Error storing response in cache: {e}")
         
+        if title_task and not title_task.done():
+            title_task.cancel()
+            try:
+                await asyncio.shield(title_task)
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.debug(f"Error awaiting cancelled title task (non-stream): {e}")
+
+        if ns_root_span:
+            try:
+                ns_root_span.update(output=answer or "")
+                ns_trace_title = title or current_title
+                if ns_trace_title and ns_trace_title.strip() not in ("", "New Chat") and ns_trace_ctx:
+                    update_langfuse_trace_name(ns_trace_ctx["trace_id"], ns_trace_title, langfuse_config)
+            except Exception as e:
+                logger.debug(f"Failed to finalize Langfuse trace: {e}")
+
         message = Message(
             chat_id=actual_chat_id,
             human=human_message,

@@ -10,6 +10,7 @@ from typing import Annotated, Any, Dict, Optional, Sequence, TypedDict
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableLambda
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
@@ -22,6 +23,7 @@ from psycopg import Connection
 import src.copilot.config as config
 # LLM factory imports are done lazily in create_llm_for_request and get_configured_llm
 from src.copilot.tools import available_tools
+from src.api.utils.tracing import get_langfuse_client
 from src.api.services.golden_example_service import (
     search_golden_examples_sync,
     build_prompt_with_golden_examples,
@@ -76,41 +78,31 @@ def _get_model_with_tools(state: Optional[Dict[str, Any]] = None) -> BaseChatMod
     return llm.bind_tools(available_tools)
 
 
-def _create_langfuse_handler(langfuse_config: Optional[Dict[str, str]] = None) -> CallbackHandler:
-    """Create a Langfuse callback handler with explicit credentials.
+def create_langfuse_callback(
+    langfuse_config: Optional[Dict[str, str]] = None,
+    trace_context: Optional[Dict[str, str]] = None,
+) -> CallbackHandler:
+    """Create a Langfuse callback handler, optionally nesting under a trace.
 
-    In Langfuse v3, the CallbackHandler uses get_client() internally.
-    We must first ensure a Langfuse client is initialized with the right
-    credentials so get_client() returns the correct instance.
+    This handler should be created ONCE per request and passed via the graph's
+    config (not per-node) so that the entire LangGraph execution tree appears
+    as one unified trace in Langfuse.
 
     Args:
         langfuse_config: Dict with secret_key, public_key, host. If None, uses env vars.
+        trace_context: Dict with trace_id and parent_span_id from the parent trace.
     """
-    if langfuse_config:
-        from langfuse import Langfuse
-        # Initialize a client with DB credentials — registers as singleton
-        Langfuse(
-            secret_key=langfuse_config.get("secret_key"),
-            public_key=langfuse_config.get("public_key"),
-            host=langfuse_config.get("host"),
-        )
-        return CallbackHandler(public_key=langfuse_config.get("public_key"))
-    return CallbackHandler()
+    try:
+        get_langfuse_client(langfuse_config)
+    except Exception as e:
+        logger.warning(f"Failed to initialize Langfuse client for callbacks: {e}")
 
-
-def _get_callbacks(state: dict) -> list:
-    """Get callbacks based on state configuration.
-
-    Args:
-        state: Agent state containing langfuse_enabled flag and langfuse_config
-
-    Returns:
-        List of callbacks to use for LLM invocations
-    """
-    # Default to False for privacy - tracking requires explicit opt-in
-    if state.get("langfuse_enabled", False):
-        return [_create_langfuse_handler(state.get("langfuse_config"))]
-    return []
+    kwargs: Dict[str, Any] = {}
+    if langfuse_config and langfuse_config.get("public_key"):
+        kwargs["public_key"] = langfuse_config["public_key"]
+    if trace_context:
+        kwargs["trace_context"] = trace_context
+    return CallbackHandler(**kwargs)
 
 
 class AgentState(TypedDict):
@@ -320,16 +312,11 @@ def call_model(state: AgentState) -> dict:
         except Exception as e:
             logger.warning(f"Error searching golden examples: {e}")
     messages = [enhanced_system_prompt] + list(state["messages"])
-    callbacks = _get_callbacks(state)
 
-    with propagate_attributes(
-        session_id=state.get("session_id"),
-        user_id=state.get("user_id")
-    ):
-        response = model_with_tools.invoke(
-            messages,
-            config={"callbacks": callbacks, "run_name": "Support Bot LLM"},
-        )
+    response = model_with_tools.invoke(
+        messages,
+        config={"run_name": "Support Bot LLM"},
+    )
     return {"messages": [response]}
 
 
@@ -345,15 +332,10 @@ def tool_wrapper(state: AgentState) -> dict:
     Returns:
         Tool execution results
     """
-    callbacks = _get_callbacks(state)
-    with propagate_attributes(
-        session_id=state.get("session_id"),
-        user_id=state.get("user_id")
-    ):
-        return _qdrant_tool_node.invoke(
-            state,
-            config={"callbacks": callbacks, "run_name": "Incident Report Qdrant Tool"},
-        )
+    return _qdrant_tool_node.invoke(
+        state,
+        config={"run_name": "Incident Report Qdrant Tool"},
+    )
 
 
 def wants_qdrant_tool(state: AgentState) -> str:
@@ -417,15 +399,10 @@ def title_generation_node(state: AgentState) -> dict:
         "Generate a short title."
     )
 
-    callbacks = _get_callbacks(state)
-    with propagate_attributes(
-        session_id=state.get("session_id"),
-        user_id=state.get("user_id")
-    ):
-        response = llm.invoke(
-            [system, human],
-            config={"callbacks": callbacks, "run_name": "Title Generator LLM"},
-        )
+    response = llm.invoke(
+        [system, human],
+        config={"run_name": "Title Generator LLM"},
+    )
 
     title_text = _extract_text_content(response.content)
     if not title_text:
@@ -445,6 +422,8 @@ def generate_title_from_query(
     langfuse_enabled: bool = False,
     llm_config: Optional[Dict[str, Any]] = None,
     langfuse_config: Optional[Dict[str, str]] = None,
+    langfuse_trace_context: Optional[Dict[str, str]] = None,
+    callbacks: Optional[list] = None,
 ) -> str:
     """Generate a title from user query (standalone, for parallel execution).
 
@@ -459,6 +438,8 @@ def generate_title_from_query(
         langfuse_enabled: Whether Langfuse tracing is enabled
         llm_config: Optional LLM config for per-request model selection
         langfuse_config: Optional Langfuse credentials dict
+        langfuse_trace_context: Optional trace context to nest under the parent trace
+        callbacks: Optional list of pre-created callback handlers to reuse
 
     Returns:
         Generated title string
@@ -474,14 +455,18 @@ def generate_title_from_query(
     )
     human = HumanMessage(f"{query}")
 
-    callbacks = []
-    if langfuse_enabled:
-        callbacks = [_create_langfuse_handler(langfuse_config)]
+    if callbacks is None:
+        callbacks = []
+        if langfuse_enabled:
+            callbacks = [create_langfuse_callback(langfuse_config, trace_context=langfuse_trace_context)]
+    title_chain = RunnableLambda(lambda _: llm.invoke([system, human])).with_config(
+        {"run_name": "Parallel Title Generator"}
+    )
 
     with propagate_attributes(session_id=session_id, user_id=user_id):
-        response = llm.invoke(
-            [system, human],
-            config={"callbacks": callbacks, "run_name": "Parallel Title Generator"},
+        response = title_chain.invoke(
+            None,
+            config={"callbacks": callbacks},
         )
 
     title_text = _extract_text_content(response.content)
