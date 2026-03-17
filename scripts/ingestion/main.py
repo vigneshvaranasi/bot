@@ -74,7 +74,7 @@ def create_documents_from_incidents(
             """
             
             desc_metadata = parse_description_metadata(incident.get('incident_description', ''))
-            
+
             doc_metadata = {
                 "incident_id": incident.get('incident_id', 'N/A'),
                 "incident_title": incident.get('incident_title', 'N/A'),
@@ -84,7 +84,9 @@ def create_documents_from_incidents(
                 "accountable_party": desc_metadata.get('accountableParty', 'N/A'),
                 "source_system": desc_metadata.get('sourceSystem', 'N/A'),
                 "repeat_incident": desc_metadata.get('repeatIncident', 'False'),
-                "source_file": "data/incidents_2y.json"
+                "opened_at": incident.get('opened_at'),
+                "updated_at": incident.get('updated_at'),
+                "source_file": "data/incidents_2y.json",
             }
 
             chunks = text_splitter.split_text(source_text)
