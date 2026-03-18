@@ -72,13 +72,15 @@ interface PromptBarProps {
   onStop?: () => void;
   isLoading: boolean;
   canStop?: boolean;
+  focusKey?: string | number;
 }
 
-export default function PromptBar({ onSend, onStop, isLoading, canStop }: PromptBarProps) {
+export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey }: PromptBarProps) {
   const [chatInput, setChatInput] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
   // Model selector state
   const [models, setModels] = useState<AvailableModel[]>([]);
@@ -137,6 +139,18 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop }: Prompt
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const active = document.activeElement as HTMLElement | null;
+    const activeTag = active?.tagName?.toLowerCase();
+    const isTypingElsewhere =
+      activeTag === "input" ||
+      activeTag === "textarea" ||
+      activeTag === "select" ||
+      active?.isContentEditable;
+    if (isTypingElsewhere && active !== inputRef.current) return;
+    setTimeout(() => inputRef.current?.focus?.(), 0);
+  }, [focusKey]);
 
   // Group models by provider
   const grouped = models.reduce<Record<string, AvailableModel[]>>((acc, m) => {
@@ -274,6 +288,7 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop }: Prompt
           rows={1}
           maxHeight={180}
           readOnly={isRecording}
+          inputRef={inputRef}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();

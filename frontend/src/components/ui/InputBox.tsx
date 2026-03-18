@@ -6,6 +6,7 @@ type InputBoxProps = {
   onChange: (value: string) => void
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void
   onFocus?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void
+  inputRef?: React.RefObject<HTMLInputElement | HTMLTextAreaElement | null>
   icon?: string | React.ReactNode
   className?: string
   variant: 'primary' | 'multiline'
@@ -23,7 +24,7 @@ type InputBoxProps = {
 
 const variantClasses: Record<'primary' | 'multiline', string> = {
   primary: 'border-b border-gray-300',
-  multiline:'border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-accent/30 focus:border-accent/50'
+  multiline:'border border-gray-200 rounded-xl shadow-sm'
 }
 
 const InputBox = ({
@@ -32,6 +33,7 @@ const InputBox = ({
   onChange,
   onKeyDown,
   onFocus,
+  inputRef,
   icon,
   className = '',
   variant = 'primary',
@@ -90,7 +92,10 @@ const InputBox = ({
       )}
     {variant === 'multiline' ? (
         <textarea
-          ref={textAreaRef}
+          ref={(node) => {
+            textAreaRef.current = node
+            if (inputRef) inputRef.current = node
+          }}
           value={value}
           placeholder={placeholder}
           onChange={e => onChange(e.target.value)}
@@ -111,6 +116,9 @@ const InputBox = ({
         />
       ) : (
         <input
+          ref={(node) => {
+            if (inputRef) inputRef.current = node
+          }}
           type={type}
           value={value}
           placeholder={placeholder}

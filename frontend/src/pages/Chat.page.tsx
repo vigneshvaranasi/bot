@@ -234,6 +234,7 @@ function ChatPage() {
               onStop={handleStop}
               isLoading={isLoading}
               canStop={isLoading && (currentChat?.allMessages.some((m: ChatMessage) => m.streaming) ?? false)}
+              focusKey={chatId ?? "new-chat"}
             />
           </div>
         </div>
