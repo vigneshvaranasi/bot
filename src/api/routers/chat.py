@@ -35,7 +35,7 @@ from src.api.utils.llm_provider_helper import (
 from src.api.utils.tracing import resolve_langfuse_config, create_langfuse_trace, update_langfuse_trace_name
 from src.copilot.graph import create_agent_graph, create_langfuse_callback, generate_title_from_query
 from src.copilot.guardrails.prompt_guardrails import PromptGuardrail
-from src.copilot.utils import should_ask_clarification
+# from src.copilot.utils import should_ask_clarification
 
 logger = logging.getLogger(__name__)
 
@@ -239,26 +239,26 @@ async def prompt_stream(
             chat_id, user_id, session
         )
         
-        # Check if there's conversation history in this chat
-        has_conversation_history = False
-        if chat_id is not None and str(chat_id).strip():
-            # Check if there are existing messages in this chat
-            message_count_result = await session.execute(
-                select(func.count(Message.id)).where(Message.chat_id == actual_chat_id)
-            )
-            message_count = message_count_result.scalar()
-            has_conversation_history = message_count > 0
-            logger.debug(f"[CONVERSATION CHECK] Chat {actual_chat_id} has {message_count} messages")
+        # # Check if there's conversation history in this chat
+        # has_conversation_history = False
+        # if chat_id is not None and str(chat_id).strip():
+        #     # Check if there are existing messages in this chat
+        #     message_count_result = await session.execute(
+        #         select(func.count(Message.id)).where(Message.chat_id == actual_chat_id)
+        #     )
+        #     message_count = message_count_result.scalar()
+        #     has_conversation_history = message_count > 0
+        #     logger.debug(f"[CONVERSATION CHECK] Chat {actual_chat_id} has {message_count} messages")
         
-        # Check if we should ask for clarification on context-dependent queries
-        should_clarify, clarification_message = should_ask_clarification(human_message, has_conversation_history)
-        if should_clarify:
-            logger.debug(f"[CLARIFICATION NEEDED] Query requires clarification: '{human_message[:50]}...'")
-            return {
-                "success": False,
-                "message": clarification_message,
-                "needs_clarification": True
-            }
+        # # Check if we should ask for clarification on context-dependent queries
+        # should_clarify, clarification_message = should_ask_clarification(human_message, has_conversation_history)
+        # if should_clarify:
+        #     logger.debug(f"[CLARIFICATION NEEDED] Query requires clarification: '{human_message[:50]}...'")
+        #     return {
+        #         "success": False,
+        #         "message": clarification_message,
+        #         "needs_clarification": True
+        #     }
 
         # Fetch current title for the chat
         result = await session.execute(

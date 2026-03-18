@@ -948,7 +948,6 @@ def _prompt_context(**overrides):
         "get_provider_config_for_chat": AsyncMock(return_value=_PROVIDER_CONFIG),
         "get_provider_config_for_model": AsyncMock(return_value=_PROVIDER_CONFIG),
         "generate_title_from_query": MagicMock(return_value="Generated Title"),
-        "should_ask_clarification": MagicMock(return_value=(False, "")),
         "create_langfuse_callback": MagicMock(return_value=MagicMock()),
     }
     defaults.update(overrides)
@@ -1088,18 +1087,15 @@ class TestPromptNonStream:
 
     @pytest.mark.asyncio
     async def test_prompt_clarification_needed(self, admin_client):
-        """Clarification check returns needs_clarification response."""
+        """Contexty wording should not short-circuit streaming."""
         client, session, user_id = admin_client
-        with prompt_mocks(should_ask_clarification=MagicMock(
-            return_value=(True, "Could you be more specific?")
-        )):
+        with prompt_mocks():
             response = await client.post(
                 "/chats/prompt/stream",
                 json={"message": "update it"},
             )
-        data = response.json()
-        assert data.get("success") is False
-        assert data.get("needs_clarification") is True
+        assert response.status_code == 200
+        assert response.headers.get("content-type", "").startswith("text/event-stream")
 
 class TestPromptStream:
     """Tests for POST /chats/prompt/stream (SSE streaming)."""
@@ -1569,7 +1565,7 @@ class TestPromptStream:
              patch("src.api.routers.chat.get_provider_config_for_chat", new_callable=AsyncMock,
                    return_value={"provider_type": "anthropic", "model_id": "claude", "api_key": "k",
                                  "base_url": None, "provider_config": {}, "temperature": 0.5}), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, None)):
+             patch("src.api.routers.chat.get_support_bot_graph", return_value=MagicMock(stream=MagicMock(return_value=iter([])))):
             response = await client.post("/chats/prompt/stream", json={
                 "message": "Hello from test",
                 "chat_id": None,
@@ -1758,7 +1754,7 @@ class TestChatErrorPaths:
 
     @pytest.mark.asyncio
     async def test_prompt_clarification_needed(self, admin_client):
-        """Clarification check returns needs_clarification."""
+        """Contexty wording should not short-circuit streaming."""
         client, session, user_id = admin_client
         chat = _make_chat(user_id)
         session.add(chat)
@@ -1770,16 +1766,12 @@ class TestChatErrorPaths:
         session.add(msg)
         await session.commit()
 
-        with patch("src.api.routers.chat.validate_prompt", new_callable=AsyncMock,
-                   return_value=(True, None, MagicMock(langfuse_enabled=False))), \
-             patch("src.api.routers.chat.should_ask_clarification",
-                   return_value=(True, "Could you be more specific?")):
+        with prompt_mocks():
             response = await client.post("/chats/prompt/stream", json={
                 "message": "update it", "chat_id": str(chat.id),
             })
-        data = response.json()
-        assert data["success"] is False
-        assert data.get("needs_clarification") is True
+        assert response.status_code == 200
+        assert response.headers.get("content-type", "").startswith("text/event-stream")
 
     @pytest.mark.asyncio
     async def test_prompt_non_stream_full_graph_path(self, admin_client):
@@ -1829,7 +1821,6 @@ class TestChatErrorPaths:
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
              patch("src.api.routers.chat.get_support_bot_graph", return_value=mock_graph), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
              patch("src.api.routers.chat.create_langfuse_trace", return_value=(None, None)) as mock_obs, \
              patch("src.api.routers.chat.generate_title_from_query", return_value="Title"):
             pass  # create_langfuse_trace returns (None, None) — no context manager setup needed
@@ -1867,7 +1858,6 @@ class TestStreamCacheHitPath:
                    return_value={"provider_type": "openai", "model_id": "gpt-4",
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
              patch("src.api.routers.chat.generate_title_from_query", return_value="Generated Title"):
             response = await client.post("/chats/prompt/stream", json={
                 "message": "cached query", "chat_id": str(chat.id),
@@ -1895,7 +1885,7 @@ class TestStreamCacheHitPath:
                    return_value={"provider_type": "openai", "model_id": "gpt-4",
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")):
+             patch("src.api.routers.chat.store_chat_response"):
             response = await client.post("/chats/prompt/stream", json={
                 "message": "q", "chat_id": str(chat.id),
             })
@@ -1934,7 +1924,6 @@ class TestStreamGraphPath:
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
              patch("src.api.routers.chat.get_support_bot_graph", return_value=mock_graph), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
              patch("src.api.routers.chat.create_langfuse_trace", return_value=(None, None)) as mock_obs, \
              patch("src.api.routers.chat.generate_title_from_query", return_value="Title"):
             pass  # create_langfuse_trace returns (None, None) — no context manager setup needed
@@ -1977,7 +1966,6 @@ class TestStreamGraphPath:
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
              patch("src.api.routers.chat.get_support_bot_graph", return_value=mock_graph), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
              patch("src.api.routers.chat.create_langfuse_trace", return_value=(None, None)) as mock_obs, \
              patch("src.api.routers.chat.AIMessageChunk", new=type(mock_chunk)):
             pass  # create_langfuse_trace returns (None, None) — no context manager setup needed
@@ -2008,7 +1996,6 @@ class TestStreamGraphPath:
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
              patch("src.api.routers.chat.get_support_bot_graph", return_value=mock_graph), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
              patch("src.api.routers.chat.create_langfuse_trace", return_value=(None, None)) as mock_obs:
             pass  # create_langfuse_trace returns (None, None) — no context manager setup needed
             response = await client.post("/chats/prompt/stream", json={
@@ -2039,7 +2026,6 @@ class TestPromptNonStreamDeep:
                    return_value={"provider_type": "openai", "model_id": "gpt-4",
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
              patch.object(session, "commit", side_effect=[Exception("save err"), None]):
             response = await client.post("/chats/prompt", json={
                 "message": "cached q", "chat_id": str(chat.id),
@@ -2064,7 +2050,6 @@ class TestPromptNonStreamDeep:
                    return_value={"provider_type": "anthropic", "model_id": "claude-3",
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.5}), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
              patch("src.api.routers.chat.get_graph_response_non_stream", new_callable=AsyncMock,
                    return_value=("answer here", "Generated")), \
              patch("src.api.routers.chat.generate_title_from_query", return_value="Title"):
@@ -2100,7 +2085,6 @@ class TestPromptNonStreamDeep:
                    return_value={"provider_type": "openai", "model_id": "gpt-4",
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
              patch("src.api.routers.chat.get_graph_response_non_stream", new_callable=AsyncMock,
                    return_value=("answer", None)), \
              patch("src.api.routers.chat.generate_title_from_query", side_effect=slow_title), \
@@ -2128,7 +2112,6 @@ class TestPromptNonStreamDeep:
                    return_value={"provider_type": "openai", "model_id": "gpt-4",
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
              patch("src.api.routers.chat.get_graph_response_non_stream", new_callable=AsyncMock,
                    return_value=("answer", "Graph Title")):
             response = await client.post("/chats/prompt", json={
@@ -2154,7 +2137,6 @@ class TestPromptNonStreamDeep:
                    return_value={"provider_type": "openai", "model_id": "gpt-4",
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
              patch("src.api.routers.chat.get_graph_response_non_stream", new_callable=AsyncMock,
                    return_value=("answer", "Fresh Title")):
             response = await client.post("/chats/prompt", json={
@@ -2180,7 +2162,6 @@ class TestPromptNonStreamDeep:
                    return_value={"provider_type": "openai", "model_id": "gpt-4",
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
              patch("src.api.routers.chat.get_graph_response_non_stream", new_callable=AsyncMock,
                    return_value=("the answer", None)):
             response = await client.post("/chats/prompt", json={
@@ -2205,7 +2186,6 @@ class TestGetOrCreateChatError:
                    return_value={"provider_type": "openai", "model_id": "gpt-4",
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
              patch("src.api.routers.chat.get_graph_response_non_stream", new_callable=AsyncMock,
                    return_value=("answer", None)):
             # Use chat_id=None to trigger new chat creation, and pass "" to trigger new path
@@ -2242,7 +2222,6 @@ class TestStreamProviderOverride:
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.5}), \
              patch("src.api.routers.chat.get_support_bot_graph", return_value=mock_graph), \
-             patch("src.api.routers.chat.should_ask_clarification", return_value=(False, "")), \
              patch("src.api.routers.chat.create_langfuse_trace", return_value=(None, None)) as mock_obs, \
              patch("src.api.routers.chat.generate_title_from_query", return_value="T"):
             pass  # create_langfuse_trace returns (None, None) — no context manager setup needed
