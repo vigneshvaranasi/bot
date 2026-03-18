@@ -62,7 +62,12 @@ const Bubble = ({ variant = "bot", content, streaming = false, stopped = false, 
         ],
         ADD_ATTR: ['class','href','target','rel'],
       });
-      setRenderedContent(sanitizedContent);
+      const enhancedContent = sanitizedContent.replace(
+        /<table[\s\S]*?<\/table>/g,
+        (tableHtml) => `<div class="chat-table-scroll">${tableHtml}</div>`
+      );
+
+      setRenderedContent(enhancedContent);
     } catch (error) {
       console.error('Markdown parsing error:', error);
       setRenderedContent(content);
