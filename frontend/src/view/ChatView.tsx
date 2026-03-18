@@ -476,7 +476,7 @@ const ChatView = () => {
   return (
     <div
       ref={containerRef}
-      className="h-full w-full px-3 overflow-y-auto"
+      className="h-full w-full px-3 overflow-y-auto overflow-x-hidden"
       style={{ WebkitOverflowScrolling: "touch" }}
     >
       <div ref={contentRef} className="mx-auto space-y-5 pt-4 pb-4">
