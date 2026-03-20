@@ -342,13 +342,16 @@ class IncidentIngestionService:
                 vectors_config=q["VectorParams"](size=384, distance=q["Distance"].COSINE),
             )
 
-            # Copy existing data from source collection
+            # Copy existing data from source collection, excluding incidents
+            # that are being re-ingested (so updated versions replace old ones)
+            incoming_ids = {r.get("incident_id") for r in normalized if r.get("incident_id")}
             existing_incident_count = 0
             if source_collection and client.collection_exists(source_collection):
                 if progress_callback:
                     await progress_callback(0, 0, ["Copying existing data from active version..."])
                 existing_incident_count = await self._copy_collection_points(
-                    client, source_collection, collection_name
+                    client, source_collection, collection_name,
+                    exclude_incident_ids=incoming_ids,
                 )
                 logger.info(
                     f"Copied {existing_incident_count} existing incidents from "
@@ -417,14 +420,19 @@ class IncidentIngestionService:
         client,
         source_collection: str,
         target_collection: str,
+        exclude_incident_ids: set = None,
     ) -> int:
-        """Copy all vector points from source to target Qdrant collection.
+        """Copy vector points from source to target Qdrant collection.
 
-        Returns the number of unique incident_ids found (for incident_count tracking).
+        Skips points whose incident_id is in *exclude_incident_ids* so that
+        updated versions of those incidents can be re-ingested without duplicates.
+
+        Returns the number of unique incident_ids copied (for incident_count tracking).
         """
         import asyncio
         from qdrant_client.models import PointStruct
 
+        exclude_incident_ids = exclude_incident_ids or set()
         loop = asyncio.get_event_loop()
         offset = None
         seen_incident_ids: set = set()
@@ -445,23 +453,28 @@ class IncidentIngestionService:
             if not points:
                 break
 
-            point_structs = [
-                PointStruct(id=p.id, vector=p.vector, payload=p.payload)
-                for p in points
-            ]
-            await loop.run_in_executor(
-                None,
-                lambda ps=point_structs: client.upsert(
-                    collection_name=target_collection, points=ps
-                ),
-            )
-
-            # Track unique incident_ids for accurate count
+            # Filter out points belonging to incidents that will be re-ingested
+            filtered_points = []
             for p in points:
                 metadata = (p.payload or {}).get("metadata", {})
                 inc_id = metadata.get("incident_id")
+                if inc_id and inc_id in exclude_incident_ids:
+                    continue
+                filtered_points.append(p)
                 if inc_id:
                     seen_incident_ids.add(inc_id)
+
+            if filtered_points:
+                point_structs = [
+                    PointStruct(id=p.id, vector=p.vector, payload=p.payload)
+                    for p in filtered_points
+                ]
+                await loop.run_in_executor(
+                    None,
+                    lambda ps=point_structs: client.upsert(
+                        collection_name=target_collection, points=ps
+                    ),
+                )
 
             if next_offset is None:
                 break

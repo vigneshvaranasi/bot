@@ -205,7 +205,8 @@ def get_configured_llm(state: Optional[Dict[str, Any]] = None) -> BaseChatModel:
 
 SYSTEM_MESSAGE_PROMPT_TEMPLATE = """
     You are an expert incident resolution assistant with perfect memory of this conversation.
-    Today's date is {current_date}. Use this to calculate date ranges for user queries.
+    Today's date is {current_date}. The user's local timezone is {local_timezone}. Use this to calculate date ranges for user queries.
+    When displaying dates/times to the user, convert from UTC to {local_timezone} unless the user asks for UTC.
 
     Your primary goal is to answer user questions about incidents. Follow this logic:
 
@@ -290,9 +291,17 @@ def call_model(state: AgentState) -> dict:
     user_messages = [m for m in state["messages"] if hasattr(m, 'type') and m.type == 'human']
     latest_query = _extract_text_content(user_messages[-1].content) if user_messages else ""
 
-    # Inject current date into system prompt
-    current_date = datetime.now().strftime("%Y-%m-%d")
-    base_prompt_content = SYSTEM_MESSAGE_PROMPT_TEMPLATE.format(current_date=current_date)
+    # Inject current date and timezone into system prompt
+    now = datetime.now()
+    current_date = now.strftime("%Y-%m-%d")
+    utc_offset_seconds = now.astimezone().utcoffset().total_seconds()
+    utc_offset_hours = int(utc_offset_seconds // 3600)
+    utc_offset_minutes = int((utc_offset_seconds % 3600) // 60)
+    local_timezone = now.astimezone().tzname() or f"UTC{utc_offset_hours:+d}:{utc_offset_minutes:02d}"
+    base_prompt_content = SYSTEM_MESSAGE_PROMPT_TEMPLATE.format(
+        current_date=current_date,
+        local_timezone=local_timezone,
+    )
     enhanced_system_prompt = SystemMessage(base_prompt_content)
 
     if latest_query:

@@ -353,6 +353,8 @@ def format_incident_context(doc: Document) -> str:
     impacted_application = _get_metadata_value(metadata, "impacted_application")
     accountable_party = _get_metadata_value(metadata, "accountable_party")
     incident_title = _get_metadata_value(metadata, "incident_title")
+    opened_at = _get_metadata_value(metadata, "opened_at")
+    updated_at = _get_metadata_value(metadata, "updated_at")
 
     # Build context block with available fields
     context_lines = ["---"]
@@ -360,6 +362,10 @@ def format_incident_context(doc: Document) -> str:
         context_lines.append(f"Incident ID: {incident_id}")
     if incident_title:
         context_lines.append(f"Title: {incident_title}")
+    if opened_at:
+        context_lines.append(f"Opened At: {opened_at}")
+    if updated_at:
+        context_lines.append(f"Updated At: {updated_at}")
     if root_cause:
         context_lines.append(f"Root Cause: {root_cause}")
     if mitigation:

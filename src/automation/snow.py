@@ -95,12 +95,17 @@ def run_servicenow_ingestion(config):
     else:
         existing = []
 
-    existing_ids = {i["incident_id"] for i in existing}
-    new_unique = [
-        inc for inc in normalized if inc["incident_id"] not in existing_ids
-    ]
-
-    existing.extend(new_unique)
+    # Upsert: update existing incidents, add new ones
+    existing_map = {i["incident_id"]: i for i in existing}
+    added_count = 0
+    for inc in normalized:
+        inc_id = inc["incident_id"]
+        if inc_id in existing_map:
+            existing_map[inc_id].update(inc)
+        else:
+            existing_map[inc_id] = inc
+            added_count += 1
+    existing = list(existing_map.values())
 
     with open(output_path, "w") as f:
         json.dump(existing, f, indent=4)
@@ -108,10 +113,10 @@ def run_servicenow_ingestion(config):
     new_last_synced = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     return {
-        "added": len(new_unique),
+        "added": added_count,
         "total": len(existing),
         "last_synced": new_last_synced,
-        "normalized": new_unique
+        "normalized": normalized
     }
 
 

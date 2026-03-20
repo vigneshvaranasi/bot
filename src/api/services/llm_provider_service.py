@@ -259,7 +259,7 @@ class LlmProviderService:
             status = "success" if success else "error"
 
             # Update health check status in database
-            provider.last_health_check_at = datetime.now(timezone.utc)
+            provider.last_health_check_at = datetime.now(timezone.utc).replace(tzinfo=None)
             provider.last_health_check_status = status
             provider.last_health_check_error = None if success else message
             await self.session.commit()
@@ -277,7 +277,7 @@ class LlmProviderService:
             error_msg = str(e)
 
             # Update health check status
-            provider.last_health_check_at = datetime.now(timezone.utc)
+            provider.last_health_check_at = datetime.now(timezone.utc).replace(tzinfo=None)
             provider.last_health_check_status = "error"
             provider.last_health_check_error = error_msg
             await self.session.commit()

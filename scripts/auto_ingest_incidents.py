@@ -10,9 +10,9 @@ from requests.auth import HTTPBasicAuth
 import argparse
 
 # ServiceNow Configuration (Environment-based with defaults)
-DEFAULT_SN_INSTANCE = "dev266166"
+DEFAULT_SN_INSTANCE = "dev317243"
 DEFAULT_SN_USER = "admin"
-DEFAULT_SN_PASS = "WRvm74Z*r=Ut"
+DEFAULT_SN_PASS = "JjB3K*jE!9ou"
 DEFAULT_SN_INTERVAL_SECONDS = 360  # 6 minutes = ~10 incidents per hour
 DEFAULT_SN_BATCH_SIZE = 1
 
@@ -480,9 +480,6 @@ INCIDENT_TEMPLATES = [
     }
 ]
 
-def generate_incident_id(index, date):
-    """Generate unique incident ID"""
-    return f"INC-{date.strftime('%Y-%m-%d')}-{index:04d}"
 
 def generate_executive_summary(template, title):
     """Generate detailed executive summary with richer narrative and random variability."""
@@ -587,8 +584,6 @@ def generate_incidents(num_incidents=1000, start_date=None, start_index=0):
 
     for i in range(num_incidents):
         template = random.choice(INCIDENT_TEMPLATES)
-        incident_date = start_date + timedelta(days=random.randint(0, 90))
-        incident_id = generate_incident_id(start_index + i + 1, incident_date)
         title = random.choice(template["titles"])
         impacted_app = random.choice(template["impacted_apps"])
         root_cause = random.choice(template["root_causes"])
@@ -611,7 +606,6 @@ def generate_incidents(num_incidents=1000, start_date=None, start_index=0):
         )
 
         incident = {
-            "incident_id": incident_id,
             "incident_title": title,
             "incident_description": incident_description,
             "action_taken": action_taken
@@ -663,7 +657,7 @@ def create_servicenow_incident(incident_data):
     
     # Build ServiceNow payload with EXACT requirements
     payload = {
-        "short_description": f"{incident_data['incident_id']} | {incident_data['incident_title']}",
+        "short_description": incident_data['incident_title'],
         "description": incident_json_str,
         "impact": "2",
         "urgency": "2"
@@ -731,14 +725,14 @@ def auto_ingest_to_servicenow(incidents, interval_seconds=360, batch_size=1):
                     number = result.get('result', {}).get('number', 'N/A')
                     
                     created_count += 1
-                    print(f"  ✓ Created: {incident['incident_id']} → ServiceNow {number} (sys_id: {sys_id})")
+                    print(f"  ✓ Created: {incident['incident_title']} → ServiceNow {number} (sys_id: {sys_id})")
                 else:
                     failed_count += 1
-                    print(f"  ✗ Failed: {incident['incident_id']} (Status: {response.status_code})")
+                    print(f"  ✗ Failed: {incident['incident_title']} (Status: {response.status_code})")
                     
             except Exception as e:
                 failed_count += 1
-                print(f"  ✗ Error processing {incident['incident_id']}: {str(e)}")
+                print(f"  ✗ Error processing {incident['incident_title']}: {str(e)}")
         
         # Wait before next batch (skip wait after last batch)
         if i + batch_size < len(incidents):
@@ -825,7 +819,6 @@ def main():
         print("Sample Incident (first one):")
         print("="*70)
         sample = incidents[0]
-        print(f"ID: {sample['incident_id']}")
         print(f"Title: {sample['incident_title']}")
         print(f"\nDescription Preview:")
         desc_lines = sample['incident_description'].split('\n')
