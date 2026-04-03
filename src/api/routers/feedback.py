@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,7 +26,10 @@ from src.api.schemas.feedback_schemas import (
     GoldenExampleListResponse,
     GenerateResponseResult,
 )
-from src.api.services.feedback_service import FeedbackService
+from src.api.services.feedback_service import (
+    FeedbackService,
+    run_deferred_feedback_ai_processing,
+)
 from src.api.services.golden_example_service import GoldenExampleService
 from src.api.services.golden_response_generator import get_golden_response_generator
 from src.api.utils.llm_provider_helper import get_provider_config_for_chat
@@ -38,6 +41,7 @@ router = APIRouter()
 @router.post("/", response_model=FeedbackResponse, status_code=status.HTTP_201_CREATED)
 async def submit_feedback(
     data: FeedbackCreate,
+    background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_session),
 ):
@@ -60,12 +64,16 @@ async def submit_feedback(
                 detail="Invalid message ID format. Feedback can only be submitted for saved messages."
             )
 
-        feedback, golden_example = await service.create_feedback(
+        feedback, _golden_example, deferred_ai = await service.create_feedback(
             message_id=message_id,
             user_id=user_id,
             feedback_type=data.feedback_type,
             reason=data.reason,
         )
+        if deferred_ai:
+            background_tasks.add_task(
+                run_deferred_feedback_ai_processing, feedback.id
+            )
 
         return FeedbackResponse(
             id=str(feedback.id),
@@ -229,6 +237,8 @@ async def update_feedback_settings(
             update_data["feedback_require_reason_positive"] = data.require_reason_positive
         if data.require_reason_negative is not None:
             update_data["feedback_require_reason_negative"] = data.require_reason_negative
+        if data.auto_approve_by_ai is not None:
+            update_data["feedback_auto_approve_by_ai"] = data.auto_approve_by_ai
 
         latest = await settings_service.get_latest_setting()
         if not latest:

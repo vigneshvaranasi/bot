@@ -34,6 +34,8 @@ class FeedbackWithContext(BaseModel):
     feedback_type: str
     reason: Optional[str]
     status: str
+    ai_validated: Optional[str] = None
+    ai_reason: Optional[str] = None
     reviewed_by: Optional[str]
     reviewer_email: Optional[str]
     reviewed_at: Optional[datetime]
@@ -115,6 +117,7 @@ class FeedbackSettingsResponse(BaseModel):
     auto_approve_negative: bool
     require_reason_positive: bool
     require_reason_negative: bool
+    auto_approve_by_ai: bool
 
 
 class FeedbackSettingsUpdate(BaseModel):
@@ -123,7 +126,7 @@ class FeedbackSettingsUpdate(BaseModel):
     auto_approve_negative: Optional[bool] = None
     require_reason_positive: Optional[bool] = None
     require_reason_negative: Optional[bool] = None
-
+    auto_approve_by_ai: Optional[bool] = None
 
 
 class FeedbackStats(BaseModel):

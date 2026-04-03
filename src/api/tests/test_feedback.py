@@ -1705,7 +1705,7 @@ class TestFeedbackServiceCreate:
         await test_session.commit()
 
         svc = FeedbackService(test_session)
-        fb, ge = await svc.create_feedback(msg.id, user.id, "positive")
+        fb, ge, _ = await svc.create_feedback(msg.id, user.id, "positive")
         assert fb.feedback_type == "positive"
         assert fb.status == "pending"
         assert ge is None
@@ -1715,7 +1715,7 @@ class TestFeedbackServiceCreate:
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
 
-        fb, ge = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, ge, _ = await svc.create_feedback(msg.id, user.id, "negative")
         assert fb.feedback_type == "negative"
         assert fb.status == "pending"  # default auto_approve_negative=False
         assert ge is None
@@ -1725,7 +1725,7 @@ class TestFeedbackServiceCreate:
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
 
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
         with pytest.raises(ValueError, match="already submitted"):
             await svc.create_feedback(msg.id, user.id, "positive")
 
@@ -1756,7 +1756,7 @@ class TestFeedbackServiceUpdate:
     async def test_update_pending(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
 
         updated = await svc.update_feedback(fb.id, user.id, reason="Updated reason")
         assert updated.reason == "Updated reason"
@@ -1766,7 +1766,7 @@ class TestFeedbackServiceUpdate:
         """Updating feedback_type branch (line 159)."""
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
 
         updated = await svc.update_feedback(
             fb.id, user.id, feedback_type="positive", reason="actually good"
@@ -1783,7 +1783,7 @@ class TestFeedbackServiceUpdate:
         await test_session.refresh(other)
 
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
 
         with pytest.raises(ValueError, match="your own"):
             await svc.update_feedback(fb.id, other.id, reason="hack")
@@ -1794,7 +1794,7 @@ class TestFeedbackServiceUpdate:
         svc = FeedbackService(test_session)
 
         # Create negative pending, then mark as reviewed manually
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
         fb.status = "reviewed"
         await test_session.commit()
         await test_session.refresh(fb)
@@ -1816,7 +1816,7 @@ class TestFeedbackServiceDismissRestore:
     async def test_dismiss(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
 
         dismissed = await svc.dismiss_feedback(fb.id, user.id, reason="Not useful")
         assert dismissed.status == "dismissed"
@@ -1832,7 +1832,7 @@ class TestFeedbackServiceDismissRestore:
     async def test_restore(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative", reason="Original")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative", reason="Original")
 
         await svc.dismiss_feedback(fb.id, user.id, reason="Nah")
         restored = await svc.restore_feedback(fb.id)
@@ -1843,7 +1843,7 @@ class TestFeedbackServiceDismissRestore:
     async def test_restore_non_dismissed_raises(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
 
         with pytest.raises(ValueError, match="Only dismissed"):
             await svc.restore_feedback(fb.id)
@@ -1856,7 +1856,7 @@ class TestFeedbackServiceDelete:
     async def test_delete_success(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
 
         result = await svc.delete_feedback(fb.id)
         assert result is True
@@ -1947,8 +1947,8 @@ class TestFeedbackServiceListFeedback:
         await test_session.refresh(msg2)
 
         svc = FeedbackService(test_session)
-        fb1, _ = await svc.create_feedback(msg.id, user.id, "negative")
-        fb2, _ = await svc.create_feedback(msg2.id, user.id, "negative")
+        fb1, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb2, _, _ = await svc.create_feedback(msg2.id, user.id, "negative")
         await svc.dismiss_feedback(fb1.id, user.id)
 
         items, total = await svc.list_feedback(status_filter="dismissed")
@@ -2018,7 +2018,7 @@ class TestFeedbackServiceListFeedback:
     async def test_list_with_reviewer(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
         await svc.dismiss_feedback(fb.id, user.id, reason="dismiss it")
 
         items, total = await svc.list_feedback()
@@ -2034,7 +2034,7 @@ class TestFeedbackServiceGetWithContext:
     async def test_get_with_context(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative", reason="bad")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative", reason="bad")
 
         result = await svc.get_feedback_with_context(fb.id)
         assert result is not None
@@ -2054,7 +2054,7 @@ class TestFeedbackServiceGetWithContext:
     async def test_get_with_context_reviewed(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
         await svc.dismiss_feedback(fb.id, user.id)
 
         result = await svc.get_feedback_with_context(fb.id)
@@ -2077,7 +2077,7 @@ class TestFeedbackServiceResolve:
         await test_session.commit()
 
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "positive")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "positive")
 
         from src.api.db.models.golden_example import GoldenExample
         ge = GoldenExample(
@@ -2101,7 +2101,7 @@ class TestFeedbackServiceResolve:
     async def test_resolve_negative_requires_golden(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
 
         with pytest.raises(ValueError, match="Golden response is required"):
             await svc.resolve_feedback(fb.id, user.id)
@@ -2110,7 +2110,7 @@ class TestFeedbackServiceResolve:
     async def test_resolve_negative_with_golden(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
 
         from src.api.db.models.golden_example import GoldenExample
         ge = GoldenExample(
@@ -2151,7 +2151,7 @@ class TestFeedbackServiceResolve:
         await test_session.commit()
 
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "positive")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "positive")
 
         with patch.object(svc, "get_message_with_context", new_callable=AsyncMock, return_value=None):
             with pytest.raises(ValueError, match="Associated message not found"):
@@ -2161,7 +2161,7 @@ class TestFeedbackServiceResolve:
     async def test_resolve_already_processed(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
         fb.status = "reviewed"
         await test_session.commit()
         await test_session.refresh(fb)
@@ -2173,7 +2173,7 @@ class TestFeedbackServiceResolve:
     async def test_dismiss_already_processed(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
         fb.status = "reviewed"
         await test_session.commit()
         await test_session.refresh(fb)
@@ -2185,7 +2185,7 @@ class TestFeedbackServiceResolve:
     async def test_dismiss_without_reason(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
 
         dismissed = await svc.dismiss_feedback(fb.id, user.id)
         assert dismissed.status == "dismissed"
@@ -2195,7 +2195,7 @@ class TestFeedbackServiceResolve:
         """Dismiss with reason when feedback has no existing reason."""
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
 
         dismissed = await svc.dismiss_feedback(fb.id, user.id, reason="Not useful")
         assert "[Dismissed: Not useful]" in dismissed.reason
@@ -2204,7 +2204,7 @@ class TestFeedbackServiceResolve:
     async def test_restore_cleans_dismiss_reason(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative", reason="Original text")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative", reason="Original text")
 
         await svc.dismiss_feedback(fb.id, user.id, reason="Nah")
         restored = await svc.restore_feedback(fb.id)
@@ -2222,7 +2222,7 @@ class TestFeedbackServiceResolve:
         """Delete feedback that has an associated golden example."""
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
 
         from src.api.db.models.golden_example import GoldenExample
         ge = GoldenExample(
@@ -2244,7 +2244,7 @@ class TestFeedbackServiceResolve:
         """Delete feedback with golden example that has qdrant_point_id."""
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
 
         from src.api.db.models.golden_example import GoldenExample
         ge = GoldenExample(
@@ -2271,7 +2271,7 @@ class TestFeedbackServiceResolve:
         """Qdrant deletion failure doesn't prevent feedback deletion."""
         user, chat, msg = await _setup_feedback_context(test_session)
         svc = FeedbackService(test_session)
-        fb, _ = await svc.create_feedback(msg.id, user.id, "negative")
+        fb, _, _ = await svc.create_feedback(msg.id, user.id, "negative")
 
         from src.api.db.models.golden_example import GoldenExample
         ge = GoldenExample(

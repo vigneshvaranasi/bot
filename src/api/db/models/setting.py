@@ -35,6 +35,7 @@ class Setting(Base):
     feedback_auto_approve_negative = Column(Boolean, default=False, nullable=False)
     feedback_require_reason_positive = Column(Boolean, default=False, nullable=False)
     feedback_require_reason_negative = Column(Boolean, default=False, nullable=False)
+    feedback_auto_approve_by_ai = Column(Boolean, default=False, nullable=False)
 
     # Audit trail columns
     change_type = Column(String(20), nullable=False, default="update")  # 'create', 'update', 'rollback'

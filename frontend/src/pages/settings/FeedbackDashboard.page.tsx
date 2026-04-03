@@ -50,6 +50,20 @@ function renderMarkdown(content: string): string {
 
 const DEFAULT_PAGE_SIZE = 10;
 
+function aiValidationAccepted(aiValidated: string | null | undefined): boolean {
+  return String(aiValidated ?? "").toLowerCase() === "valid";
+}
+
+function aiValidationRejected(aiValidated: string | null | undefined): boolean {
+  return String(aiValidated ?? "").toLowerCase() === "invalid";
+}
+
+function feedbackHasAiValidation(f: FeedbackItem): boolean {
+  return (
+    (f.ai_validated != null && String(f.ai_validated).trim() !== "") ||
+    Boolean(f.ai_reason && f.ai_reason.trim() !== "")
+  );
+}
 
 const FeedbackDashboard: React.FC = () => {
   const { hasPermission } = usePermissions();
@@ -76,6 +90,7 @@ const FeedbackDashboard: React.FC = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [goldenResponse, setGoldenResponse] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAiValidationExpanded, setIsAiValidationExpanded] = useState(false);
   const [isAiResponseExpanded, setIsAiResponseExpanded] = useState(false);
   const [isGoldenResponseExpanded, setIsGoldenResponseExpanded] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -157,6 +172,7 @@ const FeedbackDashboard: React.FC = () => {
   const handleViewDetails = (feedback: FeedbackItem) => {
     setSelectedFeedback(feedback);
     setGoldenResponse(feedback.original_response);
+    setIsAiValidationExpanded(feedbackHasAiValidation(feedback));
     setIsAiResponseExpanded(false);
     setIsGoldenResponseExpanded(false);
     setIsEditing(false);
@@ -351,12 +367,16 @@ const FeedbackDashboard: React.FC = () => {
     const styles: Record<string, string> = {
       pending: 'bg-amber-50 text-amber-700 border border-amber-200',
       auto_approved: 'bg-sky-50 text-sky-700 border border-sky-200',
+      ai_approved: 'bg-violet-50 text-violet-700 border border-violet-200',
+      ai_rejected: 'bg-rose-50 text-rose-700 border border-rose-200',
       reviewed: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
       dismissed: 'bg-slate-50 text-slate-600 border border-slate-200',
     };
     const labels: Record<string, string> = {
       pending: 'Pending',
       auto_approved: 'Auto Approved',
+      ai_approved: 'Approved by AI',
+      ai_rejected: 'Rejected by AI',
       reviewed: 'Reviewed',
       dismissed: 'Dismissed',
     };
@@ -489,6 +509,20 @@ const FeedbackDashboard: React.FC = () => {
                 disabled={savingSettings}
               />
             </div>
+            <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-white">
+              <div>
+                <div className="flex items-center gap-1">
+                  <p className="text-sm font-medium text-gray-900">Auto-approve by AI</p>
+                  <InfoHint text="AI will validate feedback before auto-approving. If invalid, feedback stays pending with AI's reason. If valid, golden example is auto-created." />
+                </div>
+                <p className="text-xs text-gray-500">AI validates, then auto-generates golden example</p>
+              </div>
+              <Toggle
+                enabled={settings.auto_approve_by_ai}
+                onChange={(v) => handleSettingChange('auto_approve_by_ai', v)}
+                disabled={savingSettings}
+              />
+            </div>
           </div>
         </section>
       )}
@@ -508,6 +542,8 @@ const FeedbackDashboard: React.FC = () => {
             <option value="">All Status</option>
             <option value="pending">Pending</option>
             <option value="auto_approved">Auto Approved</option>
+            <option value="ai_approved">Approved by AI</option>
+            <option value="ai_rejected">Rejected by AI</option>
             <option value="reviewed">Reviewed</option>
             <option value="dismissed">Dismissed</option>
           </select>
@@ -568,11 +604,15 @@ const FeedbackDashboard: React.FC = () => {
                         </p>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="text-sm text-gray-500 max-w-[140px] truncate" title={item.reason || ''}>
-                          {item.reason || '—'}
+                        <p className="text-sm text-gray-500 max-w-[140px] truncate" title={item.reason || item.ai_reason || ''}>
+                          {item.ai_reason ? `AI: ${item.ai_reason.substring(0, 50)}...` : (item.reason || '—')}
                         </p>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">{getStatusBadge(item.status)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div title={item.ai_reason || ''}>
+                          {getStatusBadge(item.status)}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <p className="text-sm text-gray-600">{item.user_email || 'Anonymous'}</p>
                       </td>
@@ -581,11 +621,11 @@ const FeedbackDashboard: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <Button
-                          variant={item.status === 'pending' ? 'primary' : 'secondary'}
+                          variant={item.status === 'pending' || item.status === 'ai_rejected' ? 'primary' : 'secondary'}
                           onClick={() => handleViewDetails(item)}
                           className="text-xs"
                         >
-                          {item.status === 'pending' ? 'Review' : 'View'}
+                          {item.status === 'pending' || item.status === 'ai_rejected' ? 'Review' : 'View'}
                         </Button>
                       </td>
                     </tr>
@@ -613,7 +653,7 @@ const FeedbackDashboard: React.FC = () => {
         size="4xl"
         footer={
           <div className="flex items-center justify-between w-full">
-            {selectedFeedback?.status === 'pending' ? (
+            {selectedFeedback?.status === 'pending' || selectedFeedback?.status === 'ai_rejected' ? (
               <>
                 <div className="flex items-center gap-2">
                   {canManageFeedback && (
@@ -727,6 +767,82 @@ const FeedbackDashboard: React.FC = () => {
               </div>
             )}
 
+            {feedbackHasAiValidation(selectedFeedback) && (
+              <div
+                className={`rounded-lg overflow-hidden border ${
+                  aiValidationAccepted(selectedFeedback.ai_validated)
+                    ? "border-emerald-200"
+                    : aiValidationRejected(selectedFeedback.ai_validated)
+                      ? "border-rose-200"
+                      : "border-gray-200"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsAiValidationExpanded(!isAiValidationExpanded)}
+                  className={`w-full flex items-center justify-between px-4 py-3 transition-colors text-left cursor-pointer ${
+                    aiValidationAccepted(selectedFeedback.ai_validated)
+                      ? "bg-emerald-50 hover:bg-emerald-100"
+                      : aiValidationRejected(selectedFeedback.ai_validated)
+                        ? "bg-rose-50 hover:bg-rose-100"
+                        : "bg-gray-50 hover:bg-gray-100"
+                  }`}
+                >
+                  <span
+                    className={`text-sm font-medium min-w-0 ${
+                      aiValidationAccepted(selectedFeedback.ai_validated)
+                        ? "text-emerald-800"
+                        : aiValidationRejected(selectedFeedback.ai_validated)
+                          ? "text-rose-800"
+                          : "text-gray-700"
+                    }`}
+                  >
+                    AI validation
+                  </span>
+                  <svg
+                    className={`w-5 h-5 shrink-0 ml-2 transition-transform ${
+                      aiValidationAccepted(selectedFeedback.ai_validated)
+                        ? "text-emerald-600"
+                        : aiValidationRejected(selectedFeedback.ai_validated)
+                          ? "text-rose-600"
+                          : "text-gray-500"
+                    } ${isAiValidationExpanded ? "rotate-180" : ""}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+                {isAiValidationExpanded && (
+                  <div
+                    className={`p-4 border-t text-sm ${
+                      aiValidationAccepted(selectedFeedback.ai_validated)
+                        ? "bg-white border-emerald-200 text-emerald-900"
+                        : aiValidationRejected(selectedFeedback.ai_validated)
+                          ? "bg-white border-rose-200 text-rose-900"
+                          : "bg-white border-gray-200 text-gray-800"
+                    }`}
+                  >
+                    {selectedFeedback.ai_reason ? (
+                      <p className="whitespace-pre-wrap leading-relaxed">
+                        {selectedFeedback.ai_reason}
+                      </p>
+                    ) : (
+                      <p className="text-gray-500 italic">
+                        No written explanation was stored for this verdict.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="border border-gray-200 rounded-lg overflow-hidden">
               <button
                 type="button"
@@ -753,7 +869,7 @@ const FeedbackDashboard: React.FC = () => {
               )}
             </div>
 
-            {selectedFeedback.has_golden_example && selectedFeedback.golden_response && selectedFeedback.status !== 'pending' && (
+            {selectedFeedback.has_golden_example && selectedFeedback.golden_response && (selectedFeedback.status === 'ai_approved' || selectedFeedback.status === 'auto_approved' || selectedFeedback.status === 'reviewed') && (
               <div className="border border-violet-200 rounded-lg overflow-hidden">
                 <button
                   type="button"
@@ -900,7 +1016,7 @@ const FeedbackDashboard: React.FC = () => {
               </div>
             )}
 
-            {selectedFeedback.status === 'pending' && selectedFeedback.feedback_type === 'negative' && (
+            {(selectedFeedback.status === 'pending' || selectedFeedback.status === 'ai_rejected') && selectedFeedback.feedback_type === 'negative' && (
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-sm font-medium text-gray-700">
@@ -993,7 +1109,7 @@ const FeedbackDashboard: React.FC = () => {
               </div>
             )}
 
-            {selectedFeedback.status === 'pending' && selectedFeedback.feedback_type === 'positive' && (
+            {(selectedFeedback.status === 'pending' || selectedFeedback.status === 'ai_rejected') && selectedFeedback.feedback_type === 'positive' && (
               <div className="p-3 bg-emerald-50 rounded-lg text-sm text-emerald-700 border border-emerald-200">
                 Approving this will create a golden example using the original AI response shown above.
               </div>

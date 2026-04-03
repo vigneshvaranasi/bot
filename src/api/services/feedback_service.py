@@ -32,17 +32,29 @@ class FeedbackService:
         
         if setting:
             return {
-                "auto_approve_positive": setting.feedback_auto_approve_positive if setting.feedback_auto_approve_positive is not None else True,
-                "auto_approve_negative": setting.feedback_auto_approve_negative if setting.feedback_auto_approve_negative is not None else False,
-                "require_reason_positive": setting.feedback_require_reason_positive if setting.feedback_require_reason_positive is not None else False,
-                "require_reason_negative": setting.feedback_require_reason_negative if setting.feedback_require_reason_negative is not None else False,
+                "auto_approve_positive": setting.feedback_auto_approve_positive
+                if setting.feedback_auto_approve_positive is not None
+                else True,
+                "auto_approve_negative": setting.feedback_auto_approve_negative
+                if setting.feedback_auto_approve_negative is not None
+                else False,
+                "require_reason_positive": setting.feedback_require_reason_positive
+                if setting.feedback_require_reason_positive is not None
+                else False,
+                "require_reason_negative": setting.feedback_require_reason_negative
+                if setting.feedback_require_reason_negative is not None
+                else False,
+                "auto_approve_by_ai": setting.feedback_auto_approve_by_ai
+                if setting.feedback_auto_approve_by_ai is not None
+                else False,
             }
-        
+
         return {
             "auto_approve_positive": True,
             "auto_approve_negative": False,
             "require_reason_positive": False,
             "require_reason_negative": False,
+            "auto_approve_by_ai": False,
         }
 
     async def get_message_with_context(self, message_id: UUID) -> Optional[Message]:
@@ -80,13 +92,15 @@ class FeedbackService:
         message_id: UUID,
         user_id: UUID,
         feedback_type: str,
-        reason: Optional[str] = None
-    ) -> Tuple[MessageFeedback, Optional[GoldenExample]]:
+        reason: Optional[str] = None,
+    ) -> Tuple[MessageFeedback, Optional[GoldenExample], bool]:
         """
         Create feedback for a message.
         
         Returns:
-            Tuple of (feedback, golden_example if auto-approved)
+            Tuple of (feedback, golden_example if auto-approved synchronously,
+            ai_processing_deferred) — when AI auto-approval is enabled, processing
+            is deferred and the third element is True.
         """
         message = await self.get_message_with_context(message_id)
         if not message:
@@ -101,21 +115,34 @@ class FeedbackService:
         settings = await self.get_feedback_settings()
 
         auto_approve = (
-            (feedback_type == "positive" and settings["auto_approve_positive"]) or
-            (feedback_type == "negative" and settings["auto_approve_negative"])
-        )
+            feedback_type == "positive" and settings["auto_approve_positive"]
+        ) or (feedback_type == "negative" and settings["auto_approve_negative"])
+        golden_example: Optional[GoldenExample] = None
 
         feedback = MessageFeedback(
             message_id=message_id,
             user_id=user_id,
             feedback_type=feedback_type,
             reason=reason,
-            status="auto_approved" if auto_approve else "pending"
+            status="pending",
         )
+
+        if settings.get("auto_approve_by_ai"):
+            self.session.add(feedback)
+            await self.session.commit()
+            await self.session.refresh(feedback)
+            logger.info(
+                f"Created {feedback_type} feedback {feedback.id} for message {message_id} "
+                "(AI validation deferred)"
+            )
+            return feedback, None, True
+
+        if auto_approve:
+            feedback.status = "auto_approved"
+
         self.session.add(feedback)
         await self.session.flush()
 
-        golden_example = None
         if auto_approve:
             golden_example = await self._create_golden_example_from_feedback(
                 feedback=feedback,
@@ -135,7 +162,106 @@ class FeedbackService:
             f"(auto_approved={auto_approve})"
         )
 
-        return feedback, golden_example
+        return feedback, golden_example, False
+
+    async def _complete_ai_processing(self, feedback_id: UUID) -> None:
+        """Validate feedback with AI and create a golden example when applicable (runs after HTTP response)."""
+        feedback = await self.get_feedback_by_id(feedback_id)
+        if not feedback:
+            return
+        if feedback.status in ("ai_approved", "ai_rejected"):
+            return
+        if feedback.ai_validated is not None:
+            return
+
+        message = await self.get_message_with_context(feedback.message_id)
+        if not message:
+            return
+
+        settings = await self.get_feedback_settings()
+        if not settings.get("auto_approve_by_ai"):
+            return
+
+        auto_approve = (
+            feedback.feedback_type == "positive" and settings["auto_approve_positive"]
+        ) or (
+            feedback.feedback_type == "negative" and settings["auto_approve_negative"]
+        )
+
+        from src.api.routers.chat import get_provider_config_for_chat
+
+        llm_config = await get_provider_config_for_chat(self.session)
+
+        validation_result = await self._ai_validate_feedback(
+            original_query=message.human,
+            original_response=message.bot,
+            feedback_type=feedback.feedback_type,
+            feedback_reason=feedback.reason,
+            llm_config=llm_config,
+        )
+        feedback.ai_validated = validation_result["is_valid"]
+        feedback.ai_reason = validation_result["reason"]
+
+        golden_example: Optional[GoldenExample] = None
+
+        if validation_result["is_valid"] == "valid":
+            try:
+                from src.api.services.golden_response_generator import (
+                    get_golden_response_generator,
+                )
+
+                llm_config = await get_provider_config_for_chat(self.session)
+                generator = get_golden_response_generator()
+                result = await generator.generate(
+                    original_query=message.human,
+                    original_response=message.bot,
+                    feedback_reason=feedback.reason,
+                    feedback_type=feedback.feedback_type,
+                    llm_config=llm_config,
+                    existing_golden_responses=None,
+                )
+                generated_response = (
+                    result.generated_response if result.success else message.bot
+                )
+            except Exception as e:
+                logger.warning("AI generation failed, using original: %s", e)
+                generated_response = message.bot
+
+            golden_example = await self._create_golden_example_from_feedback(
+                feedback=feedback,
+                message=message,
+                golden_response=generated_response,
+                created_by=None,
+                approval_type="ai_generated",
+            )
+            feedback.status = "ai_approved"
+            auto_approve = True
+        elif validation_result["is_valid"] == "invalid":
+            feedback.status = "ai_rejected"
+
+        if auto_approve and feedback.status not in ("ai_approved", "ai_rejected"):
+            feedback.status = "auto_approved"
+
+        await self.session.flush()
+
+        if (
+            not golden_example
+            and auto_approve
+            and feedback.status != "ai_rejected"
+        ):
+            await self._create_golden_example_from_feedback(
+                feedback=feedback,
+                message=message,
+                golden_response=message.bot,
+                created_by=None,
+                approval_type="auto",
+            )
+
+        logger.info(
+            "Completed deferred AI processing for feedback %s status=%s",
+            feedback_id,
+            feedback.status,
+        )
 
     async def update_feedback(
         self,
@@ -240,25 +366,33 @@ class FeedbackService:
                 )
                 reviewer_email = reviewer_result.scalar()
 
-            items.append({
-                "id": str(feedback.id),
-                "message_id": str(feedback.message_id),
-                "user_id": str(feedback.user_id) if feedback.user_id else None,
-                "user_email": row.user_email,
-                "feedback_type": feedback.feedback_type,
-                "reason": feedback.reason,
-                "status": feedback.status,
-                "reviewed_by": str(feedback.reviewed_by) if feedback.reviewed_by else None,
-                "reviewer_email": reviewer_email,
-                "reviewed_at": feedback.reviewed_at,
-                "created_at": feedback.created_at,
-                "original_query": row.original_query,
-                "original_response": row.original_response,
-                "chat_id": str(row.chat_id),
-                "has_golden_example": golden_example_id is not None,
-                "golden_example_id": str(golden_example_id) if golden_example_id else None,
-                "golden_response": golden_response,
-            })
+            items.append(
+                {
+                    "id": str(feedback.id),
+                    "message_id": str(feedback.message_id),
+                    "user_id": str(feedback.user_id) if feedback.user_id else None,
+                    "user_email": row.user_email,
+                    "feedback_type": feedback.feedback_type,
+                    "reason": feedback.reason,
+                    "status": feedback.status,
+                    "ai_validated": feedback.ai_validated,
+                    "ai_reason": feedback.ai_reason,
+                    "reviewed_by": str(feedback.reviewed_by)
+                    if feedback.reviewed_by
+                    else None,
+                    "reviewer_email": reviewer_email,
+                    "reviewed_at": feedback.reviewed_at,
+                    "created_at": feedback.created_at,
+                    "original_query": row.original_query,
+                    "original_response": row.original_response,
+                    "chat_id": str(row.chat_id),
+                    "has_golden_example": golden_example_id is not None,
+                    "golden_example_id": str(golden_example_id)
+                    if golden_example_id
+                    else None,
+                    "golden_response": golden_response,
+                }
+            )
 
         return items, total
 
@@ -303,6 +437,8 @@ class FeedbackService:
             "feedback_type": feedback.feedback_type,
             "reason": feedback.reason,
             "status": feedback.status,
+            "ai_validated": feedback.ai_validated,
+            "ai_reason": feedback.ai_reason,
             "reviewed_by": str(feedback.reviewed_by) if feedback.reviewed_by else None,
             "reviewer_email": reviewer_email,
             "reviewed_at": feedback.reviewed_at,
@@ -312,6 +448,7 @@ class FeedbackService:
             "chat_id": str(row.chat_id),
             "has_golden_example": golden_example is not None,
             "golden_example_id": str(golden_example.id) if golden_example else None,
+            "golden_response": golden_example.golden_response if golden_example else None,
         }
 
     async def resolve_feedback(
@@ -536,3 +673,114 @@ class FeedbackService:
         )
 
         return golden_example
+
+    async def _ai_validate_feedback(
+        self,
+        original_query: str,
+        original_response: str,
+        feedback_type: str,
+        feedback_reason: Optional[str] = None,
+        llm_config: Optional[dict] = None,
+    ) -> dict:
+        """
+        Validate feedback using AI to determine if it's valid for golden example creation.
+
+        Args:
+            llm_config: Provider configuration from get_provider_config_for_chat()
+
+        Returns:
+            dict with 'is_valid' (valid/invalid) and 'reason' (explanation)
+        """
+        from src.copilot.llm_factory import get_default_llm
+        from src.copilot.graph import create_llm_for_request
+        from langchain_core.messages import HumanMessage
+
+        validation_prompt = f"""You are a feedback validation assistant. Your task is to determine if user feedback on an AI response is meaningful enough to create a golden example.
+
+## User Feedback Analysis
+Feedback Type: {feedback_type}
+User's Reason: {feedback_reason or "No reason provided"}
+
+## Original Query
+{original_query}
+
+## Original AI Response
+{original_response}
+
+## Your Task
+Analyze the feedback and determine if it represents a valuable learning opportunity for the AI.
+
+Output your decision in JSON format:
+{{
+  "is_valid": "valid" or "invalid",
+  "reason": "Detailed explanation of why you think the feedback is valid or invalid. If invalid, explain what would make it valid."
+}}
+
+Consider:
+- Does the feedback identify a specific issue with the response?
+- Is the feedback actionable (can we improve based on it)?
+- Is it specific enough to guide response improvement?
+- Does positive feedback indicate genuinely good response quality?
+- Does negative feedback indicate clear areas for improvement?
+
+Now respond with ONLY valid JSON."""
+
+        try:
+            if (
+                llm_config
+                and llm_config.get("provider_type")
+                and llm_config.get("model_id")
+            ):
+                llm = create_llm_for_request(
+                    provider_type=llm_config["provider_type"],
+                    model_id=llm_config["model_id"],
+                    api_key=llm_config.get("api_key"),
+                    base_url=llm_config.get("base_url"),
+                    provider_config=llm_config.get("provider_config"),
+                    temperature=llm_config.get("temperature"),
+                )
+            else:
+                llm = get_default_llm()
+            messages = [HumanMessage(content=validation_prompt)]
+            response = await llm.ainvoke(messages)
+
+            content = response.content.strip()
+
+            if content.startswith("```json"):
+                content = content[7:]
+            if content.endswith("```"):
+                content = content[:-3]
+            if content.startswith("```"):
+                content = content[3:]
+            content = content.strip()
+
+            import json
+
+            result = json.loads(content)
+
+            return {
+                "is_valid": result.get("is_valid", "invalid"),
+                "reason": result.get("reason", "Unable to determine validity"),
+            }
+        except Exception as e:
+            logger.warning(f"AI validation failed, defaulting to valid: {e}")
+            return {
+                "is_valid": "valid",
+                "reason": "AI validation unavailable, defaulted to valid",
+            }
+
+
+async def run_deferred_feedback_ai_processing(feedback_id: UUID) -> None:
+    """Run AI validation for feedback created with auto_approve_by_ai (own DB session)."""
+    from src.api.db.session import async_session
+
+    async with async_session() as session:
+        try:
+            service = FeedbackService(session)
+            await service._complete_ai_processing(feedback_id)
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            logger.exception(
+                "Deferred AI feedback processing failed for feedback_id=%s", feedback_id
+            )

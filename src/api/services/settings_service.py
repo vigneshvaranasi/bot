@@ -325,6 +325,7 @@ class SettingsService:
             feedback_auto_approve_negative=target_setting.feedback_auto_approve_negative,
             feedback_require_reason_positive=target_setting.feedback_require_reason_positive,
             feedback_require_reason_negative=target_setting.feedback_require_reason_negative,
+            feedback_auto_approve_by_ai=target_setting.feedback_auto_approve_by_ai,
             # Audit trail
             change_type=ChangeType.ROLLBACK.value,
             source_version_id=current_setting.id if current_setting else None,

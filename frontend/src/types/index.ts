@@ -77,6 +77,8 @@ export interface FeedbackItem {
   feedback_type: FeedbackType;
   reason: string | null;
   status: string;
+  ai_validated: string | null;
+  ai_reason: string | null;
   reviewed_by: string | null;
   reviewer_email: string | null;
   reviewed_at: string | null;
@@ -105,6 +107,7 @@ export interface FeedbackSettings {
   auto_approve_negative: boolean;
   require_reason_positive: boolean;
   require_reason_negative: boolean;
+  auto_approve_by_ai: boolean;
 }
 
 // ============================================================================

@@ -35,8 +35,19 @@ class MessageFeedback(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     feedback_type = Column(String(20), nullable=False, comment="positive or negative")
     reason = Column(Text, nullable=True, comment="Optional user explanation")
-    status = Column(String(20), default="pending", nullable=False, comment="pending, auto_approved, reviewed, dismissed")
-    
+    status = Column(
+        String(20),
+        default="pending",
+        nullable=False,
+        comment="pending, auto_approved, ai_approved, ai_rejected, reviewed, dismissed",
+    )
+
+    ai_validated = Column(
+        String(20), nullable=True, comment="valid, invalid, or null if not processed"
+    )
+    ai_reason = Column(
+        Text, nullable=True, comment="AI's reason for validation decision"
+    )
     reviewed_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
     
