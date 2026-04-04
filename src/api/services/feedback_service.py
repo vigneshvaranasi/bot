@@ -1,5 +1,6 @@
 """Feedback service layer for handling user feedback and golden examples."""
 
+import asyncio
 import logging
 from typing import Optional, List, Tuple
 from uuid import UUID
@@ -17,6 +18,15 @@ logger = logging.getLogger(__name__)
 
 class FeedbackService:
     """Service class for feedback operations."""
+
+    MAX_CONCURRENT_AI = 5
+    _semaphore: Optional[asyncio.Semaphore] = None
+    @classmethod
+    def _get_semaphore(cls) -> asyncio.Semaphore:
+        """Get or create the semaphore"""
+        if cls._semaphore is None:
+            cls._semaphore = asyncio.Semaphore(cls.MAX_CONCURRENT_AI)
+        return cls._semaphore
 
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -691,11 +701,17 @@ class FeedbackService:
         Returns:
             dict with 'is_valid' (valid/invalid) and 'reason' (explanation)
         """
+        semaphore = self._get_semaphore()
+        logger.warning(
+            f"AI feedback: acquiring semaphore (available={semaphore._value})"
+        )
+
         from src.copilot.llm_factory import get_default_llm
         from src.copilot.graph import create_llm_for_request
         from langchain_core.messages import HumanMessage
 
-        validation_prompt = f"""You are a feedback validation assistant. Your task is to determine if user feedback on an AI response is meaningful enough to create a golden example.
+        async def _call_llm():
+            validation_prompt = f"""You are a feedback validation assistant. Your task is to determine if user feedback on an AI response is meaningful enough to create a golden example.
 
 ## User Feedback Analysis
 Feedback Type: {feedback_type}
@@ -725,7 +741,6 @@ Consider:
 
 Now respond with ONLY valid JSON."""
 
-        try:
             if (
                 llm_config
                 and llm_config.get("provider_type")
@@ -762,6 +777,12 @@ Now respond with ONLY valid JSON."""
                 "is_valid": result.get("is_valid", "invalid"),
                 "reason": result.get("reason", "Unable to determine validity"),
             }
+        try:
+            async with semaphore:
+                logger.warning(f"AI feedback: semaphore acquired, running validation")
+                result = await _call_llm()
+                logger.warning(f"AI feedback: completed, semaphore released")
+                return result
         except Exception as e:
             logger.warning(f"AI validation failed, defaulting to valid: {e}")
             return {
