@@ -311,6 +311,7 @@ async def resolve_feedback(
             feedback_id=UUID(feedback_id),
             reviewer_id=reviewer_id,
             golden_response=data.golden_response,
+            query_type=data.query_type,
         )
 
         return {
@@ -576,6 +577,7 @@ async def get_golden_example(
             original_query=example.original_query,
             original_response=example.original_response,
             golden_response=example.golden_response,
+            query_type=example.query_type,
             qdrant_point_id=example.qdrant_point_id,
             created_by=str(example.created_by) if example.created_by else None,
             creator_email=creator_email,
@@ -613,6 +615,7 @@ async def create_golden_example(
             created_by=user_id,
             source_type="manual",
             approval_type="manual",
+            query_type=data.query_type,
         )
 
         return GoldenExampleResponse(
@@ -623,6 +626,7 @@ async def create_golden_example(
             original_query=example.original_query,
             original_response=example.original_response,
             golden_response=example.golden_response,
+            query_type=example.query_type,
             qdrant_point_id=example.qdrant_point_id,
             created_by=str(example.created_by) if example.created_by else None,
             creator_email=current_user.get("email"),
@@ -655,6 +659,7 @@ async def update_golden_example(
             example_id=UUID(example_id),
             golden_response=data.golden_response,
             is_active=data.is_active,
+            query_type=data.query_type,
         )
         
         if not example:
@@ -679,6 +684,7 @@ async def update_golden_example(
             original_query=example.original_query,
             original_response=example.original_response,
             golden_response=example.golden_response,
+            query_type=example.query_type,
             qdrant_point_id=example.qdrant_point_id,
             created_by=str(example.created_by) if example.created_by else None,
             creator_email=creator_email,

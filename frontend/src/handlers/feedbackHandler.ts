@@ -1,4 +1,4 @@
-import type { FeedbackCreate, FeedbackResponse, FeedbackType, FeedbackItem, FeedbackStats, FeedbackSettings } from '../types';
+import type { FeedbackCreate, FeedbackResponse, FeedbackType, FeedbackItem, FeedbackStats, FeedbackSettings, QueryType } from '../types';
 import { BE_URL } from '../config/config';
 export async function submitFeedback(
   token: string,
@@ -145,7 +145,8 @@ export async function updateFeedbackSettings(
 export async function resolveFeedback(
   token: string,
   feedbackId: string,
-  goldenResponse?: string
+  goldenResponse?: string,
+  queryType: QueryType = 'static'
 ): Promise<void> {
   const response = await fetch(`${BE_URL}/feedback/admin/${feedbackId}/resolve`, {
     method: 'POST',
@@ -153,7 +154,7 @@ export async function resolveFeedback(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ golden_response: goldenResponse }),
+    body: JSON.stringify({ golden_response: goldenResponse, query_type: queryType }),
   });
   
   if (!response.ok) {
@@ -212,15 +213,19 @@ export async function restoreFeedback(token: string, feedbackId: string): Promis
 export async function updateGoldenExample(
   token: string,
   exampleId: string,
-  goldenResponse: string
+  goldenResponse: string,
+  queryType?: QueryType
 ): Promise<void> {
+  const body: Record<string, unknown> = { golden_response: goldenResponse };
+  if (queryType) body.query_type = queryType;
+
   const response = await fetch(`${BE_URL}/feedback/golden-examples/${exampleId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ golden_response: goldenResponse }),
+    body: JSON.stringify(body),
   });
   
   if (!response.ok) {

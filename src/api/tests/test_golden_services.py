@@ -502,9 +502,9 @@ class TestBuildPromptWithGoldenExamples:
         result = build_prompt_with_golden_examples("base prompt", [])
         assert result == "base prompt"
 
-    def test_low_confidence_examples(self):
+    def test_low_confidence_static_example(self):
         examples = [
-            {"score": 0.6, "original_query": "Q1", "golden_response": "A1"},
+            {"score": 0.6, "original_query": "Q1", "golden_response": "A1", "query_type": "static"},
         ]
         result = build_prompt_with_golden_examples("base", examples)
         assert "base" in result
@@ -512,7 +512,48 @@ class TestBuildPromptWithGoldenExamples:
         assert "Q1" in result
         assert "A1" in result
 
-    def test_high_confidence_example(self):
+    def test_high_confidence_static_allows_direct_answer(self):
+        """Static query with high score should allow direct answer."""
+        examples = [
+            {"score": 0.95, "original_query": "Q1", "golden_response": "A1", "query_type": "static"},
+        ]
+        result = build_prompt_with_golden_examples("base", examples)
+        assert "Direct Answer Available" in result
+        assert "HIGH CONFIDENCE" in result
+
+    def test_high_confidence_temporal_blocks_direct_answer(self):
+        """Temporal query with high score must NOT allow direct answer — few-shot only."""
+        examples = [
+            {"score": 0.95, "original_query": "recent incidents", "golden_response": "A1", "query_type": "temporal"},
+        ]
+        result = build_prompt_with_golden_examples("base", examples)
+        assert "Direct Answer Available" not in result
+        assert "HIGH CONFIDENCE" not in result
+        assert "MUST use tools" in result
+        assert "Reference" in result
+
+    def test_mixed_static_and_temporal(self):
+        """Only the static high-confidence example should get direct answer treatment."""
+        examples = [
+            {"score": 0.95, "original_query": "Q1", "golden_response": "A1", "query_type": "static"},
+            {"score": 0.95, "original_query": "Q2", "golden_response": "A2", "query_type": "temporal"},
+        ]
+        result = build_prompt_with_golden_examples("base", examples)
+        assert "HIGH CONFIDENCE" in result
+        assert "Reference" in result
+
+    def test_temporal_only_examples_never_direct(self):
+        """All temporal examples should force tool usage regardless of score."""
+        examples = [
+            {"score": 0.99, "original_query": "last 30 days", "golden_response": "A1", "query_type": "temporal"},
+            {"score": 0.90, "original_query": "open tickets", "golden_response": "A2", "query_type": "temporal"},
+        ]
+        result = build_prompt_with_golden_examples("base", examples)
+        assert "Direct Answer Available" not in result
+        assert "MUST use tools" in result
+
+    def test_defaults_to_static_when_query_type_missing(self):
+        """Backward compat: examples without query_type default to static."""
         examples = [
             {"score": 0.95, "original_query": "Q1", "golden_response": "A1"},
         ]
@@ -520,18 +561,9 @@ class TestBuildPromptWithGoldenExamples:
         assert "Direct Answer Available" in result
         assert "HIGH CONFIDENCE" in result
 
-    def test_mixed_confidence(self):
-        examples = [
-            {"score": 0.95, "original_query": "Q1", "golden_response": "A1"},
-            {"score": 0.6, "original_query": "Q2", "golden_response": "A2"},
-        ]
-        result = build_prompt_with_golden_examples("base", examples)
-        assert "HIGH CONFIDENCE" in result
-        assert "Reference" in result
-
     def test_custom_threshold(self):
         examples = [
-            {"score": 0.7, "original_query": "Q1", "golden_response": "A1"},
+            {"score": 0.7, "original_query": "Q1", "golden_response": "A1", "query_type": "static"},
         ]
         result = build_prompt_with_golden_examples("base", examples, direct_answer_threshold=0.6)
         assert "HIGH CONFIDENCE" in result

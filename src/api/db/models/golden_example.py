@@ -41,6 +41,12 @@ class GoldenExample(Base):
     
     golden_response = Column(Text, nullable=False)
     
+    query_type = Column(
+        String(20),
+        nullable=False,
+        default="static",
+        comment="static or temporal - temporal queries always require tool calls",
+    )
     qdrant_point_id = Column(String(100), nullable=True)
     
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

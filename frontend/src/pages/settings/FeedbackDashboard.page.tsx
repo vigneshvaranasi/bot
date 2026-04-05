@@ -13,7 +13,7 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { usePermissions } from "../../hooks/usePermissions";
 import { PERMISSIONS } from "../../types/Permission";
-import type { FeedbackItem, FeedbackStats, FeedbackSettings } from "../../types";
+import type { FeedbackItem, FeedbackStats, FeedbackSettings, QueryType } from "../../types";
 import {
   fetchFeedbackList,
   fetchFeedbackStats,
@@ -96,6 +96,7 @@ const FeedbackDashboard: React.FC = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedGoldenResponse, setEditedGoldenResponse] = useState('');
+  const [queryType, setQueryType] = useState<QueryType>('static');
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
@@ -172,6 +173,7 @@ const FeedbackDashboard: React.FC = () => {
   const handleViewDetails = (feedback: FeedbackItem) => {
     setSelectedFeedback(feedback);
     setGoldenResponse(feedback.original_response);
+    setQueryType(feedback.query_type || 'static');
     setIsAiValidationExpanded(feedbackHasAiValidation(feedback));
     setIsAiResponseExpanded(false);
     setIsGoldenResponseExpanded(false);
@@ -191,11 +193,11 @@ const FeedbackDashboard: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const responseToSend = selectedFeedback.feedback_type === 'negative' 
-        ? goldenResponse 
+      const responseToSend = selectedFeedback.feedback_type === 'negative'
+        ? goldenResponse
         : undefined;
-      
-      await resolveFeedback(token, selectedFeedback.id, responseToSend);
+
+      await resolveFeedback(token, selectedFeedback.id, responseToSend, queryType);
       toast.success('Feedback resolved and golden example created');
       setIsDetailModalOpen(false);
       loadFeedbackList();
@@ -332,12 +334,13 @@ const FeedbackDashboard: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await updateGoldenExample(token, selectedFeedback.golden_example_id, editedGoldenResponse);
+      await updateGoldenExample(token, selectedFeedback.golden_example_id, editedGoldenResponse, queryType);
       toast.success('Golden example updated');
       setIsEditing(false);
       setSelectedFeedback({
         ...selectedFeedback,
         golden_response: editedGoldenResponse,
+        query_type: queryType,
       });
       loadFeedbackList();
     } catch (error: any) {
@@ -745,6 +748,15 @@ const FeedbackDashboard: React.FC = () => {
                   Has Golden Example
                 </span>
               )}
+              {selectedFeedback.query_type && (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                  selectedFeedback.query_type === 'temporal'
+                    ? 'bg-orange-50 text-orange-700 border border-orange-200'
+                    : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                }`}>
+                  {selectedFeedback.query_type === 'temporal' ? 'Temporal Query' : 'Static Query'}
+                </span>
+              )}
             </div>
 
             <div>
@@ -984,6 +996,37 @@ const FeedbackDashboard: React.FC = () => {
                           </p>
                         )}
                         
+                        <div className="mt-3">
+                          <label className="block text-xs font-medium text-gray-600 mb-1.5">Query Type</label>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setQueryType('static')}
+                              className={`px-3 py-1.5 text-xs rounded-lg border transition-colors cursor-pointer ${
+                                queryType === 'static'
+                                  ? 'border-cyan-400 bg-cyan-50 text-cyan-700 font-medium'
+                                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                              }`}
+                            >
+                              Static
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setQueryType('temporal')}
+                              className={`px-3 py-1.5 text-xs rounded-lg border transition-colors cursor-pointer ${
+                                queryType === 'temporal'
+                                  ? 'border-orange-400 bg-orange-50 text-orange-700 font-medium'
+                                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                              }`}
+                            >
+                              Temporal
+                            </button>
+                            <span className="text-xs text-gray-400 self-center ml-1">
+                              {queryType === 'temporal' ? 'AI use as a reference' : 'Can be used as direct answer'}
+                            </span>
+                          </div>
+                        </div>
+
                         <div className="flex justify-end gap-2 mt-3">
                           <button
                             type="button"
@@ -1112,6 +1155,57 @@ const FeedbackDashboard: React.FC = () => {
             {(selectedFeedback.status === 'pending' || selectedFeedback.status === 'ai_rejected') && selectedFeedback.feedback_type === 'positive' && (
               <div className="p-3 bg-emerald-50 rounded-lg text-sm text-emerald-700 border border-emerald-200">
                 Approving this will create a golden example using the original AI response shown above.
+              </div>
+            )}
+
+            {(selectedFeedback.status === 'pending' || selectedFeedback.status === 'ai_rejected') && canManageFeedback && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Query Type
+                  <span className="font-normal text-gray-500 ml-1">(How should this golden example be used?)</span>
+                </label>
+                <div className="flex gap-3">
+                  <label
+                    className={`flex-1 flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      queryType === 'static'
+                        ? 'border-cyan-400 bg-cyan-50'
+                        : 'border-gray-200 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="queryType"
+                      value="static"
+                      checked={queryType === 'static'}
+                      onChange={() => setQueryType('static')}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Static</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Answer doesn't change over time. Can be used as a direct answer for similar queries.</p>
+                    </div>
+                  </label>
+                  <label
+                    className={`flex-1 flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      queryType === 'temporal'
+                        ? 'border-orange-400 bg-orange-50'
+                        : 'border-gray-200 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="queryType"
+                      value="temporal"
+                      checked={queryType === 'temporal'}
+                      onChange={() => setQueryType('temporal')}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Temporal</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Answer depends on current data (recent incidents, counts, trends). Used as reference</p>
+                    </div>
+                  </label>
+                </div>
               </div>
             )}
 

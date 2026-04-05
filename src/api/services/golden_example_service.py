@@ -152,6 +152,7 @@ class GoldenExampleService:
                 "original_query": example.original_query,
                 "original_response": example.original_response,
                 "golden_response": example.golden_response,
+                "query_type": example.query_type,
                 "qdrant_point_id": example.qdrant_point_id,
                 "created_by": str(example.created_by) if example.created_by else None,
                 "creator_email": row.creator_email,
@@ -171,6 +172,7 @@ class GoldenExampleService:
         feedback_id: Optional[UUID] = None,
         source_type: str = "manual",
         approval_type: str = "manual",
+        query_type: str = "static",
     ) -> GoldenExample:
         """
         Create a new golden example and embed it in Qdrant.
@@ -184,6 +186,7 @@ class GoldenExampleService:
             golden_response=golden_response,
             created_by=created_by,
             is_active=True,
+            query_type=query_type,
         )
         self.session.add(example)
         await self.session.flush()
@@ -205,6 +208,7 @@ class GoldenExampleService:
         example_id: UUID,
         golden_response: Optional[str] = None,
         is_active: Optional[bool] = None,
+        query_type: Optional[str] = None,
     ) -> Optional[GoldenExample]:
         """
         Update a golden example and re-embed if response changed.
@@ -220,6 +224,11 @@ class GoldenExampleService:
 
         if is_active is not None:
             example.is_active = is_active
+
+        if query_type is not None and query_type in ("static", "temporal"):
+            if query_type != example.query_type:
+                example.query_type = query_type
+                response_changed = True
 
         if response_changed:
             try:
@@ -288,6 +297,7 @@ class GoldenExampleService:
                         "source_type": example.source_type,
                         "approval_type": example.approval_type,
                         "is_active": example.is_active,
+                        "query_type": example.query_type,
                         "created_at": example.created_at.isoformat() if example.created_at else None,
                     },
                 )
@@ -354,6 +364,7 @@ class GoldenExampleService:
                     "original_query": result.payload.get("original_query"),
                     "golden_response": result.payload.get("golden_response"),
                     "source_type": result.payload.get("source_type"),
+                    "query_type": result.payload.get("query_type", "static"),
                 })
 
             logger.debug(f"Found {len(examples)} similar golden examples for query")
@@ -405,6 +416,7 @@ def search_golden_examples_sync(
                 "original_query": result.payload.get("original_query"),
                 "golden_response": result.payload.get("golden_response"),
                 "source_type": result.payload.get("source_type"),
+                "query_type": result.payload.get("query_type", "static"),
             })
 
         logger.debug(f"[Golden Examples] Found {len(examples)} similar examples for query")
@@ -421,53 +433,72 @@ def build_prompt_with_golden_examples(
     direct_answer_threshold: float = 0.85,
 ) -> str:
     """
-    Build an enhanced system prompt with golden examples as few-shot examples.
-    
-    If a golden example has a very high similarity score (above direct_answer_threshold),
-    the LLM is instructed that it MAY use that answer directly without calling tools.
-    
+    Build an enhanced system prompt with golden examples.
+
+    Behaviour depends on **query_type** stored alongside each golden example:
+
+    * **static** + score >= *direct_answer_threshold* → the LLM MAY answer
+      directly without calling tools (existing fast-path).
+    * **temporal** (any score) → the example is used as a **format / tone
+      reference only**; the LLM MUST still call tools to fetch current data.
+    * Low-score static examples also serve as format references only.
+
     Args:
         base_prompt: The original system prompt
-        golden_examples: List of golden examples from search (each has 'score' key)
-        direct_answer_threshold: Score above which direct answer is allowed (default 0.85)
-        
+        golden_examples: List of golden examples from search
+        direct_answer_threshold: Score above which direct answer is allowed
+            for *static* queries (default 0.85)
+
     Returns:
         Enhanced prompt with examples appended
     """
     if not golden_examples:
         return base_prompt
 
-    high_confidence_example = None
+    # Only allow direct answer for STATIC queries with high confidence
+    high_confidence_static = None
     for example in golden_examples:
-        if example.get('score', 0) >= direct_answer_threshold:
-            high_confidence_example = example
+        if (
+            example.get("query_type", "static") == "static"
+            and example.get("score", 0) >= direct_answer_threshold
+        ):
+            high_confidence_static = example
             break
 
     examples_section = "\n\n## Verified Knowledge from Past Feedback\n\n"
-    
-    if high_confidence_example:
-        examples_section += """
-        **Direct Answer Available**
-        A verified, admin-approved answer exists for a very similar question. 
-        You MAY use the verified response content below WITHOUT calling any tools, 
-        but ONLY if the user's question is asking for the SAME information.
-        **Rules for using verified answers:**
-        - Use the verified response content directly (you can rephrase slightly)
-        - Do NOT add any prefix like 'Based on verified knowledge' - just respond naturally
-        - If the user asks something DIFFERENT or needs MORE details, use tools as normal
-        """        
+
+    if high_confidence_static:
+        examples_section += (
+            "**Direct Answer Available**\n"
+            "A verified, admin-approved answer exists for a very similar question.\n"
+            "You MAY use the verified response content below WITHOUT calling any tools, "
+            "but ONLY if the user's question is asking for the SAME information.\n"
+            "**Rules for using verified answers:**\n"
+            "- Use the verified response content directly (you can rephrase slightly)\n"
+            "- Do NOT add any prefix like 'Based on verified knowledge' - just respond naturally\n"
+            "- If the user asks something DIFFERENT or needs MORE details, use tools as normal\n\n"
+        )
     else:
-        examples_section +=  """
-        Here are reference examples of ideal responses for similar questions. 
-        Use these as guidance for tone and format only. 
-        You should still use tools to retrieve current incident data.\n\n"
-        """
+        examples_section += (
+            "Below are verified, high-quality responses to similar past questions.\n"
+            "You MUST use tools to retrieve **current data** — the data in these examples is outdated.\n"
+            "However, you MUST **match the full response structure** of the example below:\n"
+            "- Reproduce every section the example has (tables, summaries, key points, analysis, next steps, etc.)\n"
+            "- Match the same level of detail and depth — if the example has analysis and recommendations, yours must too\n"
+            "- Use the same formatting (tables, bullet points, headers) but populate with fresh data from tools\n"
+            "- Do NOT give a shorter or simpler response than the example — it represents the expected quality bar\n\n"
+        )
 
     for i, example in enumerate(golden_examples, 1):
-        score = example.get('score', 0)
-        confidence_label = "HIGH CONFIDENCE" if score >= direct_answer_threshold else "Reference"
-        
-        examples_section += f"### Example {i} ({confidence_label}, similarity: {score:.0%}):\n"
+        score = example.get("score", 0)
+        q_type = example.get("query_type", "static")
+        is_direct = (
+            q_type == "static" and score >= direct_answer_threshold
+        )
+        label = "HIGH CONFIDENCE" if is_direct else "Reference"
+        tag = f" | {q_type}" if q_type == "temporal" else ""
+
+        examples_section += f"### Example {i} ({label}, similarity: {score:.0%}{tag}):\n"
         examples_section += f"**User Question:** {example['original_query']}\n\n"
         examples_section += f"**Verified Response:** {example['golden_response']}\n\n"
 

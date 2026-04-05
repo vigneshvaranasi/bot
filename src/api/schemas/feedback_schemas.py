@@ -46,6 +46,7 @@ class FeedbackWithContext(BaseModel):
     has_golden_example: bool = False
     golden_example_id: Optional[str] = None
     golden_response: Optional[str] = None
+    query_type: Optional[Literal["static", "temporal"]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -64,6 +65,10 @@ class FeedbackResolveRequest(BaseModel):
         None, 
         description="The ideal response. If not provided for positive feedback, uses original response."
     )
+    query_type: Literal["static", "temporal"] = Field(
+        "static",
+        description="static = answer doesn't change over time; temporal = answer depends on current data",
+    )
 
 
 class FeedbackDismissRequest(BaseModel):
@@ -76,12 +81,20 @@ class GoldenExampleCreate(BaseModel):
     original_query: str = Field(..., description="The user's original question")
     original_response: Optional[str] = Field(None, description="The original AI response (optional for manual)")
     golden_response: str = Field(..., description="The ideal response")
+    query_type: Literal["static", "temporal"] = Field(
+        "static",
+        description="static = answer doesn't change over time; temporal = answer depends on current data",
+    )
 
 
 class GoldenExampleUpdate(BaseModel):
     """Schema for updating a golden example."""
     golden_response: Optional[str] = Field(None, description="Updated ideal response")
     is_active: Optional[bool] = Field(None, description="Whether the example is active")
+    query_type: Optional[Literal["static", "temporal"]] = Field(
+        None,
+        description="Override query type: static (direct answer allowed) or temporal (few-shot only)",
+    )
 
 
 class GoldenExampleResponse(BaseModel):
@@ -93,6 +106,7 @@ class GoldenExampleResponse(BaseModel):
     original_query: str
     original_response: str
     golden_response: str
+    query_type: str = "static"
     qdrant_point_id: Optional[str]
     created_by: Optional[str]
     creator_email: Optional[str] = None

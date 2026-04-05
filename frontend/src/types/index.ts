@@ -69,6 +69,8 @@ export interface FeedbackResponse {
   created_at: string;
 }
 
+export type QueryType = 'static' | 'temporal';
+
 export interface FeedbackItem {
   id: string;
   message_id: string;
@@ -89,6 +91,7 @@ export interface FeedbackItem {
   has_golden_example: boolean;
   golden_example_id: string | null;
   golden_response: string | null;
+  query_type?: QueryType;
 }
 
 export interface FeedbackStats {

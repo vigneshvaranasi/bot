@@ -211,6 +211,7 @@ class FeedbackService:
         )
         feedback.ai_validated = validation_result["is_valid"]
         feedback.ai_reason = validation_result["reason"]
+        query_type = validation_result.get("query_type", "static")
 
         golden_example: Optional[GoldenExample] = None
 
@@ -243,6 +244,7 @@ class FeedbackService:
                 golden_response=generated_response,
                 created_by=None,
                 approval_type="ai_generated",
+                query_type=query_type,
             )
             feedback.status = "ai_approved"
             auto_approve = True
@@ -265,6 +267,7 @@ class FeedbackService:
                 golden_response=message.bot,
                 created_by=None,
                 approval_type="auto",
+                query_type=query_type,
             )
 
         logger.info(
@@ -362,12 +365,13 @@ class FeedbackService:
             feedback = row[0]
             
             ge_result = await self.session.execute(
-                select(GoldenExample.id, GoldenExample.golden_response)
+                select(GoldenExample.id, GoldenExample.golden_response, GoldenExample.query_type)
                 .where(GoldenExample.feedback_id == feedback.id)
             )
             golden_example_row = ge_result.first()
             golden_example_id = golden_example_row[0] if golden_example_row else None
             golden_response = golden_example_row[1] if golden_example_row else None
+            query_type = golden_example_row[2] if golden_example_row else None
 
             reviewer_email = None
             if feedback.reviewed_by:
@@ -401,6 +405,7 @@ class FeedbackService:
                     if golden_example_id
                     else None,
                     "golden_response": golden_response,
+                    "query_type": query_type,
                 }
             )
 
@@ -459,13 +464,15 @@ class FeedbackService:
             "has_golden_example": golden_example is not None,
             "golden_example_id": str(golden_example.id) if golden_example else None,
             "golden_response": golden_example.golden_response if golden_example else None,
+            "query_type": golden_example.query_type if golden_example else None,
         }
 
     async def resolve_feedback(
         self,
         feedback_id: UUID,
         reviewer_id: UUID,
-        golden_response: Optional[str] = None
+        golden_response: Optional[str] = None,
+        query_type: str = "static",
     ) -> Tuple[MessageFeedback, GoldenExample]:
         """
         Resolve feedback by creating a golden example.
@@ -498,7 +505,8 @@ class FeedbackService:
             message=message,
             golden_response=golden_response,
             created_by=reviewer_id,
-            approval_type="manual"
+            approval_type="manual",
+            query_type=query_type,
         )
 
         await self.session.commit()
@@ -665,7 +673,8 @@ class FeedbackService:
         message: Message,
         golden_response: str,
         created_by: Optional[UUID],
-        approval_type: str
+        approval_type: str,
+        query_type: str = "static",
     ) -> GoldenExample:
         """Create a golden example from feedback and embed in Qdrant."""
         from src.api.services.golden_example_service import GoldenExampleService
@@ -680,6 +689,7 @@ class FeedbackService:
             feedback_id=feedback.id,
             source_type=feedback.feedback_type,
             approval_type=approval_type,
+            query_type=query_type,
         )
 
         return golden_example
@@ -711,11 +721,18 @@ class FeedbackService:
         from langchain_core.messages import HumanMessage
 
         async def _call_llm():
-            validation_prompt = f"""You are a feedback validation assistant. Your task is to determine if user feedback on an AI response is meaningful enough to create a golden example.
+            validation_prompt = f"""You are a feedback validation assistant. Your task is to determine if user feedback on an AI response is justified — i.e. whether the response genuinely matches (or fails to match) the label the user picked.
 
-## User Feedback Analysis
+## Context
+The "User's Reason" below is NOT free-form text. It is a **predefined category** the user selected from a UI (thumbs up/down + a preset label). Common labels include:
+- Positive: "Accurate information", "Helpful resolution steps", "Clear and well explained", "Saved me time", "Relevant to my query"
+- Negative: "Incorrect or outdated information", "Not relevant to my query", "Unclear explanation", "Referenced wrong incident", "Missing information"
+
+Because these labels are pre-written, they will ALWAYS look generic. Do NOT reject feedback just because the label is short or generic — that is the expected format. Instead, JUDGE THE RESPONSE ITSELF against the label.
+
+## User Feedback
 Feedback Type: {feedback_type}
-User's Reason: {feedback_reason or "No reason provided"}
+User's Reason (UI category): {feedback_reason or "No reason provided"}
 
 ## Original Query
 {original_query}
@@ -724,22 +741,44 @@ User's Reason: {feedback_reason or "No reason provided"}
 {original_response}
 
 ## Your Task
-Analyze the feedback and determine if it represents a valuable learning opportunity for the AI.
+Decide two things:
 
-Output your decision in JSON format:
+### 1. Is the feedback JUSTIFIED by the response?
+Evaluate the AI response against the label the user picked. You are judging the RESPONSE, not the label.
+
+**For POSITIVE feedback ("valid" when the response truly deserves the praise):**
+- "Accurate information" → valid if the response contains concrete, factual, correct-looking info (incident IDs, steps, root causes). Invalid if the response is empty, evasive, or clearly wrong.
+- "Helpful resolution steps" → valid if the response gives actionable steps/checklist/fix. Invalid if there are no steps.
+- "Clear and well explained" → valid if the response is well-structured (headings, tables, bullets) and readable. Invalid if the response is a confusing wall of text or empty.
+- "Saved me time" / "Relevant to my query" → valid if the response directly addresses the query with usable info. Invalid if off-topic or empty.
+
+**For NEGATIVE feedback ("valid" when the response truly has the claimed problem):**
+- "Incorrect or outdated information" → valid if you can see plausible signs the response is wrong, outdated, or unsupported. Invalid if the response looks accurate and the complaint seems unfounded.
+- "Not relevant to my query" → valid if the response clearly doesn't answer the query. Invalid if the response is on-topic.
+- "Unclear explanation" → valid if the response really is hard to follow. Invalid if it's well-structured.
+- "Referenced wrong incident" / "Missing information" → valid if you can spot the issue in the response.
+
+Be CHARITABLE: if the response is substantive and the label plausibly matches, classify as "valid". Only classify as "invalid" when the response clearly does NOT match the label (e.g., user praises a blank response, or complains about accuracy on a response that looks correct).
+
+An empty AI Response is a strong signal for "invalid" positive feedback.
+
+### 2. Is the QUERY static or temporal?
+- **"static"** — The answer is about a SPECIFIC, already-existing record or fixed knowledge that does NOT change over time.
+  Examples: details about a specific incident by ID (e.g. "tell me about INC-2025-01-18-0278"), process documentation, how-to guides, escalation paths, SLA definitions, root cause analysis of a past incident, resolution steps for a known issue, generic troubleshooting ("I am getting webhook connection issue", "I am not getting OTP").
+- **"temporal"** — The answer depends on WHEN the question is asked because it requires aggregating or filtering CURRENT/RECENT data.
+  Examples: "recent incidents", "last 30 days incidents", "how many open tickets", "trending issues this week", "recurring incidents", "current system status".
+
+**Key distinction:** Asking about a SPECIFIC incident/entity by ID, or asking a GENERIC troubleshooting question, is STATIC. Asking for a LIST filtered by time or status is TEMPORAL.
+
+Note: even if a generic troubleshooting response HAPPENS to cite recent incidents as examples, the QUERY itself is static — the user asked for help with a problem, not for a time-filtered list.
+
+## Output
+Respond with ONLY valid JSON:
 {{
   "is_valid": "valid" or "invalid",
-  "reason": "Detailed explanation of why you think the feedback is valid or invalid. If invalid, explain what would make it valid."
-}}
-
-Consider:
-- Does the feedback identify a specific issue with the response?
-- Is the feedback actionable (can we improve based on it)?
-- Is it specific enough to guide response improvement?
-- Does positive feedback indicate genuinely good response quality?
-- Does negative feedback indicate clear areas for improvement?
-
-Now respond with ONLY valid JSON."""
+  "reason": "1-2 sentences: why the response does or does not justify the label the user picked, AND why the query is static or temporal.",
+  "query_type": "static" or "temporal"
+}}"""
 
             if (
                 llm_config
@@ -776,6 +815,7 @@ Now respond with ONLY valid JSON."""
             return {
                 "is_valid": result.get("is_valid", "invalid"),
                 "reason": result.get("reason", "Unable to determine validity"),
+                "query_type": result.get("query_type", "static"),
             }
         try:
             async with semaphore:
@@ -788,6 +828,7 @@ Now respond with ONLY valid JSON."""
             return {
                 "is_valid": "valid",
                 "reason": "AI validation unavailable, defaulted to valid",
+                "query_type": "static",
             }
 
 
