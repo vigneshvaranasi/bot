@@ -272,6 +272,7 @@ const IntegrationsPage = () => {
               lastError={integration.last_sync_error || undefined}
               authType={integration.auth_type}
               config={integration.config}
+              configuredSecrets={integration.configured_secrets}
               isNew={integration.isNew}
               onSave={(integration.isNew ? canCreate : canEdit) ? handleIntegrationSave : undefined}
               onDelete={(integration.isNew || canDelete) ? handleIntegrationDelete : undefined}

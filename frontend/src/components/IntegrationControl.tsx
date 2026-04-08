@@ -10,6 +10,19 @@ import {
 } from "../types/Integrations";
 import type { IntegrationPayload } from "../handlers/integrationHandlers";
 
+const normalizeConfig = (value?: Record<string, string>) =>
+  JSON.stringify(value || {});
+
+const isSensitiveField = (key: string) => {
+  const lowered = key.toLowerCase();
+  return (
+    lowered.includes("password") ||
+    lowered.includes("secret") ||
+    lowered.includes("token") ||
+    lowered === "api_key"
+  );
+};
+
 type IntegrationControlProps = {
   id?: string;
   serviceName: string;
@@ -19,6 +32,7 @@ type IntegrationControlProps = {
   lastError?: string;
   authType?: keyof typeof AUTH_SCHEMAS;
   config?: Record<string, string>;
+  configuredSecrets?: string[];
   isNew?: boolean;
   readOnly?: boolean;
   onSave?: (
@@ -50,6 +64,7 @@ export default function IntegrationControl({
   enabled,
   authType: initialAuthType,
   config: initialConfig,
+  configuredSecrets: initialConfiguredSecrets = [],
   isNew = false,
   readOnly = false,
   onSave,
@@ -100,6 +115,12 @@ export default function IntegrationControl({
     }
   }, [isNameEditable]);
 
+  const isDirty =
+    name.trim() !== serviceName ||
+    authType !== initialAuthType ||
+    Boolean(isEnabled) !== Boolean(enabled) ||
+    normalizeConfig(config) !== normalizeConfig(initialConfig);
+
   const handleAuthChange = (value?: string) => {
     setAuthType(value);
     setConfig({});
@@ -111,7 +132,13 @@ export default function IntegrationControl({
     if (!authType) return "Authentication type is required";
 
     for (const field of AUTH_SCHEMAS[authType]) {
-      if (field.required && !config[field.key]) {
+      const hasConfiguredSecret =
+        !isNew &&
+        authType === initialAuthType &&
+        isSensitiveField(field.key) &&
+        initialConfiguredSecrets.includes(field.key) &&
+        !config[field.key];
+      if (field.required && !config[field.key] && !hasConfiguredSecret) {
         return `${field.label} is required`;
       }
     }
@@ -120,6 +147,7 @@ export default function IntegrationControl({
 
   const handleSave = async () => {
     if (!onSave || readOnly) return;
+    if (!isDirty) return;
 
     const validationError = validate();
     if (validationError) {
@@ -130,11 +158,22 @@ export default function IntegrationControl({
     setError(null);
     setIsSaving(true);
     try {
+      const payloadConfig: Record<string, string> = {};
+      for (const [key, value] of Object.entries(config)) {
+        const sensitive = isSensitiveField(key);
+
+        if (sensitive && !value && initialConfiguredSecrets.includes(key)) {
+          continue;
+        }
+
+        payloadConfig[key] = value;
+      }
+
       await onSave({
         id,
         service_name: name.trim(),
         auth_type: authType as string,
-        config,
+        config: payloadConfig,
         is_active: Boolean(isEnabled),
         isNew,
       });
@@ -369,14 +408,18 @@ export default function IntegrationControl({
 
                     <InputBox
                       value={String(config[field.key] || "")}
-                      placeholder={field.label}
+                      placeholder={
+                        isSensitiveField(field.key) && initialConfiguredSecrets.includes(field.key)
+                          ? "••••••••"
+                          : field.label
+                      }
                       type={field.type === "url" ? "text" : field.type}
                       variant="primary"
                       onChange={readOnly ? () => {} : (value) =>
-                        setConfig({
-                          ...config,
+                        setConfig((prev) => ({
+                          ...prev,
                           [field.key]: value,
-                        })
+                        }))
                       }
                       disabled={readOnly}
                     />
@@ -398,7 +441,7 @@ export default function IntegrationControl({
                 variant="primary"
                 className="w-full sm:w-fit mt-2"
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || !isDirty}
               >
                 {isSaving ? "Saving..." : "Save Configuration"}
               </Button>
@@ -429,6 +472,11 @@ export default function IntegrationControl({
         confirmVariant="danger"
         isLoading={isDeleting}
       />
+      {!readOnly && isConfigOpen && !isDirty && (
+        <p className="text-xs text-gray-500">
+          No changes to save.
+        </p>
+      )}
     </div>
   );
 }

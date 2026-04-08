@@ -14,6 +14,7 @@ export type Integration = {
   service_name: string;
   auth_type: keyof typeof AUTH_SCHEMAS;
   config: Record<string, string>;
+  configured_secrets?: string[];
   is_active: boolean;
   last_synced_at?: string | null;
   last_sync_status?: string | null;

@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -21,28 +21,46 @@ from src.api.services.incident_ingestion_service import IncidentIngestionService
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Sensitive fields that should be masked in API responses
+# Sensitive fields that should never be returned in API responses
 SENSITIVE_CONFIG_FIELDS = {"password", "api_key", "secret", "token", "api_token", "access_token", "refresh_token"}
+MASK_PLACEHOLDER = "********"
 
 
-def mask_sensitive_config(config: dict) -> dict:
-    """Mask sensitive fields in integration config for API responses."""
-    if not config:
-        return config
-    masked = config.copy()
-    for key in masked:
-        if key.lower() in SENSITIVE_CONFIG_FIELDS or "password" in key.lower() or "secret" in key.lower() or "token" in key.lower():
-            masked[key] = "********"
-    return masked
+def split_public_and_secret_config(config: dict | None) -> tuple[dict | None, list[str]]:
+    """Split config into public fields and configured secret field names."""
+    if config is None:
+        return None, []
+    public_config = {}
+    configured_secrets: list[str] = []
+    for key, value in config.items():
+        if is_sensitive_config_key(key):
+            if value not in (None, ""):
+                configured_secrets.append(key)
+            continue
+        public_config[key] = value
+    return public_config, configured_secrets
+
+
+def mask_sensitive_config(config: dict | None) -> dict | None:
+    """Backward-compatible helper for existing tests; avoid using in new code."""
+    public_config, configured_secrets = split_public_and_secret_config(config)
+    if public_config is None:
+        return None
+    legacy = public_config.copy()
+    for key in configured_secrets:
+        legacy[key] = "********"
+    return legacy
 
 
 def mask_integration_response(integration) -> dict:
     """Create a masked version of an integration for API responses."""
+    public_config, configured_secrets = split_public_and_secret_config(integration.config)
     return {
         "id": str(integration.id),
         "service_name": integration.service_name,
         "auth_type": integration.auth_type,
-        "config": mask_sensitive_config(integration.config),
+        "config": public_config,
+        "configured_secrets": configured_secrets,
         "is_active": integration.is_active,
         "last_synced_at": integration.last_synced_at.isoformat() + "Z" if integration.last_synced_at else None,
         "last_sync_status": integration.last_sync_status,
@@ -50,6 +68,50 @@ def mask_integration_response(integration) -> dict:
         "updated_at": integration.updated_at.isoformat() + "Z" if integration.updated_at else None,
         "user_id": str(integration.user_id) if integration.user_id else None,
     }
+
+
+def is_sensitive_config_key(key: str) -> bool:
+    """Return True when key likely contains a secret value."""
+    lowered = key.lower()
+    return (
+        lowered in SENSITIVE_CONFIG_FIELDS
+        or "password" in lowered
+        or "secret" in lowered
+        or "token" in lowered
+    )
+
+
+def _is_mask_placeholder(value) -> bool:
+    if not isinstance(value, str):
+        return False
+    stripped = value.strip()
+    return len(stripped) >= len(MASK_PLACEHOLDER) and set(stripped) == {"*"}
+
+
+def merge_integration_config(
+    existing_config: dict | None,
+    incoming_config: dict | None,
+    *,
+    auth_type_changed: bool,
+) -> dict:
+    """Merge partial config updates while preserving existing secrets by omission."""
+    incoming = incoming_config or {}
+    for key, value in incoming.items():
+        if is_sensitive_config_key(key) and _is_mask_placeholder(value):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid value for sensitive field '{key}'. "
+                    "Send a real value to update the secret."
+                ),
+            )
+
+    if auth_type_changed:
+        return incoming.copy()
+
+    merged = (existing_config or {}).copy()
+    merged.update(incoming)
+    return merged
 
 
 # GET All Integrations
@@ -163,9 +225,14 @@ async def update_integration(
         if not integration:
             return {"success": False, "message": "Integration not found"}
 
+        auth_type_changed = integration.auth_type != integration_data.auth_type
         integration.service_name = integration_data.service_name
         integration.auth_type = integration_data.auth_type
-        integration.config = integration_data.config
+        integration.config = merge_integration_config(
+            integration.config,
+            integration_data.config,
+            auth_type_changed=auth_type_changed,
+        )
         integration.is_active = integration_data.is_active
 
         session.add(integration)
@@ -173,6 +240,9 @@ async def update_integration(
         await session.refresh(integration)
 
         return {"success": True, "integration": mask_integration_response(integration)}
+    except HTTPException:
+        await session.rollback()
+        raise
     except Exception as e:
         await session.rollback()
         return {
