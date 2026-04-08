@@ -30,6 +30,11 @@ class Setting(Base):
     # LLM Provider selection
     provider_id = Column(UUID(as_uuid=True), ForeignKey("llm_providers.id", ondelete="SET NULL"), nullable=True)
 
+    # Auto-routing configuration
+    auto_routing_enabled = Column(Boolean, default=False, nullable=False)
+    router_provider_id = Column(UUID(as_uuid=True), ForeignKey("llm_providers.id", ondelete="SET NULL"), nullable=True)
+    router_model_id = Column(String, nullable=True)
+
     # Feedback settings for human feedback loop
     feedback_auto_approve_positive = Column(Boolean, default=True, nullable=False)
     feedback_auto_approve_negative = Column(Boolean, default=False, nullable=False)
@@ -48,6 +53,7 @@ class Setting(Base):
 
     user = relationship("User", back_populates="settings")
     provider = relationship("LlmProvider", foreign_keys=[provider_id])
+    router_provider = relationship("LlmProvider", foreign_keys=[router_provider_id])
     # Self-referential relationships for audit trail
     source_version = relationship("Setting", foreign_keys=[source_version_id], remote_side=[id])
     target_version = relationship("Setting", foreign_keys=[target_version_id], remote_side=[id])

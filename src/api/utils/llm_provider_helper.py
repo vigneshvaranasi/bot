@@ -1,9 +1,10 @@
 """Helper utilities for LLM provider configuration.
 
 Provides functions to fetch provider configuration from the database
-and prepare it for the copilot graph.
+and prepare it for the copilot graph, including auto-routing support.
 """
 
+import asyncio
 import logging
 from typing import Any, Dict, Optional
 
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.db.models import Setting
 from src.api.db.models.llm_provider import LlmProvider
+from src.api.db.models.model_routing_config import ModelRoutingConfig
 from src.api.services.encryption_service import decrypt_value
 
 logger = logging.getLogger(__name__)
@@ -208,3 +210,96 @@ async def get_provider_config_for_model(
         return await get_provider_config_for_chat(session)
 
     return config
+
+async def resolve_auto_routed_config(
+    session: AsyncSession,
+    user_id: Optional[str] = None,
+    query: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Resolve provider config with auto-routing support.
+
+    If auto_routing_enabled is True in settings, uses the router LLM to
+    pick the best model. Falls back to default config on any failure.
+    """
+    settings_query = select(Setting).order_by(Setting.updated_at.desc())
+    result = await session.execute(settings_query)
+    settings = result.scalars().first()
+
+    if not settings or not getattr(settings, "auto_routing_enabled", False) or not query:
+        return await get_provider_config_for_chat(session, user_id)
+
+    router_provider_id = getattr(settings, "router_provider_id", None)
+    router_model_id = getattr(settings, "router_model_id", None)
+
+    if not router_provider_id or not router_model_id:
+        logger.debug("Auto-routing enabled but no router model configured, using default")
+        return await get_provider_config_for_chat(session, user_id)
+
+    try:
+        configs_result = await session.execute(
+            select(ModelRoutingConfig).where(ModelRoutingConfig.is_enabled == True)
+        )
+        routing_configs = list(configs_result.scalars().all())
+
+        if not routing_configs:
+            logger.debug("No enabled routing configs, using default")
+            return await get_provider_config_for_chat(session, user_id)
+
+        router_provider_result = await session.execute(
+            select(LlmProvider).where(
+                LlmProvider.id == router_provider_id,
+                LlmProvider.is_active == True,
+            )
+        )
+        router_provider = router_provider_result.scalars().first()
+
+        if not router_provider:
+            logger.warning("Router provider not found or inactive, using default")
+            return await get_provider_config_for_chat(session, user_id)
+
+        router_api_key = None
+        if router_provider.api_key_encrypted:
+            router_api_key = decrypt_value(router_provider.api_key_encrypted)
+
+        from src.api.services.llm_routing_service import route_query
+
+        loop = asyncio.get_running_loop()
+        decision = await loop.run_in_executor(
+            None,
+            route_query,
+            query,
+            routing_configs,
+            router_provider.provider_type,
+            router_model_id,
+            router_api_key,
+            router_provider.base_url,
+            router_provider.config or {},
+        )
+
+        if decision and decision.get("provider_id") and decision.get("model_id"):
+            logger.info(
+                f"Auto-routing selected: {decision['model_id']} "
+                f"(reason: {decision.get('reason', 'N/A')})"
+            )
+            return await get_provider_config_for_model(
+                session, decision["provider_id"], decision["model_id"]
+            )
+
+        logger.info("Router returned no decision, trying fallback model")
+        fallback_result = await session.execute(
+            select(ModelRoutingConfig).where(
+                ModelRoutingConfig.is_fallback == True,
+                ModelRoutingConfig.is_enabled == True,
+            )
+        )
+        fallback = fallback_result.scalars().first()
+
+        if fallback:
+            logger.info(f"Using fallback model: {fallback.model_id}")
+            return await get_provider_config_for_model(
+                session, str(fallback.provider_id), fallback.model_id
+            )
+
+    except Exception as e:
+        logger.error(f"Auto-routing failed: {e}")
+    return await get_provider_config_for_chat(session, user_id)

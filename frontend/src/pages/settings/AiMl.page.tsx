@@ -7,6 +7,7 @@ import { Button } from "../../components/ui/Button";
 import { ConfigurableTable } from "../../components/ui/Table";
 import InfoHint from "../../components/ui/InfoHint";
 import LlmProviderControl from "../../components/LlmProviderControl";
+import AutoRoutingSection from "../../components/AutoRoutingSection";
 import { fetchAiMlSettings, updateAiMlSettings } from "../../handlers/settingsHandlers";
 import {
   fetchLlmProviders,
@@ -49,6 +50,9 @@ const AiMlConfigPage = () => {
   const [langfuseBaseUrl, setLangfuseBaseUrl] = useState("");
   const [hasLangfuseSecretKey, setHasLangfuseSecretKey] = useState(false);
   const [allowUserModelSelection, setAllowUserModelSelection] = useState<boolean | undefined>(undefined);
+  const [autoRoutingEnabled, setAutoRoutingEnabled] = useState(false);
+  const [routerProviderId, setRouterProviderId] = useState<string | null>(null);
+  const [routerModelId, setRouterModelId] = useState<string | null>(null);
 
   const [denyWordsArray, setDenyWordsArray] = useState<DenyWordRecord[]>([]);
   const [denyWords, setDenyWords] = useState("");
@@ -120,6 +124,9 @@ const AiMlConfigPage = () => {
           setLangfuseBaseUrl(settings.langfuse_base_url ?? "");
           setHasLangfuseSecretKey(settings.has_langfuse_secret_key ?? false);
           setAllowUserModelSelection(settings.allow_user_model_selection ?? false);
+          setAutoRoutingEnabled(settings.auto_routing_enabled ?? false);
+          setRouterProviderId(settings.router_provider_id ?? null);
+          setRouterModelId(settings.router_model_id ?? null);
         }
       } catch (err) {
         logger.error("Error fetching AI/ML settings", err);
@@ -213,7 +220,7 @@ const AiMlConfigPage = () => {
     );
 
     try {
-      const result = await toggleLlmProviderActive(id);
+      const result: LlmProvider | null = await toggleLlmProviderActive(id);
       if (result) {
         setProviders((prev) =>
           prev.map((p) => (p.id === id ? { ...p, is_active: result.is_active } : p))
@@ -534,6 +541,18 @@ const AiMlConfigPage = () => {
           )}
         </div>
       </section>
+      <AutoRoutingSection
+        autoRoutingEnabled={autoRoutingEnabled}
+        routerProviderId={routerProviderId}
+        routerModelId={routerModelId}
+        availableModels={availableModels}
+        canEdit={canEditAiMl}
+        onSettingsChange={(changes) => {
+          if (changes.auto_routing_enabled !== undefined) setAutoRoutingEnabled(changes.auto_routing_enabled);
+          if (changes.router_provider_id !== undefined) setRouterProviderId(changes.router_provider_id);
+          if (changes.router_model_id !== undefined) setRouterModelId(changes.router_model_id);
+        }}
+      />
 
       <section className="border border-gray-200 rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">

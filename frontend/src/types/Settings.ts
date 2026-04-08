@@ -43,6 +43,9 @@ export type AiMlSettings = {
   has_langfuse_secret_key?: boolean;
   allow_user_model_selection: boolean;
   provider_id?: string | null;  // LLM provider selection
+  auto_routing_enabled?: boolean;
+  router_provider_id?: string | null;
+  router_model_id?: string | null;
 }
 
 export type AuthSettings = {

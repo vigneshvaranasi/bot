@@ -33,6 +33,9 @@ class AiMlSettingsUpdate(BaseModel):
     langfuse_base_url: Optional[str] = None
     provider_id: Optional[str] = None
     allow_user_model_selection: Optional[bool] = None
+    auto_routing_enabled: Optional[bool] = None
+    router_provider_id: Optional[str] = None
+    router_model_id: Optional[str] = None
 
 
 class AiMlSettingsResponse(BaseModel):
@@ -46,6 +49,9 @@ class AiMlSettingsResponse(BaseModel):
     has_langfuse_secret_key: bool = False
     provider_id: Optional[str] = None
     allow_user_model_selection: bool
+    auto_routing_enabled: bool = False
+    router_provider_id: Optional[str] = None
+    router_model_id: Optional[str] = None
 
 
 class AuthSettingsUpdate(BaseModel):

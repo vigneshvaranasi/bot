@@ -31,6 +31,7 @@ from src.api.schemas.chat_schema import (
 from src.api.utils.llm_provider_helper import (
     get_provider_config_for_chat,
     get_provider_config_for_model,
+    resolve_auto_routed_config,
 )
 from src.api.utils.tracing import resolve_langfuse_config, create_langfuse_trace, update_langfuse_trace_name
 from src.copilot.graph import create_agent_graph, create_langfuse_callback, generate_title_from_query
@@ -269,13 +270,15 @@ async def prompt_stream(
         langfuse_enabled = settings.langfuse_enabled if settings else False
         langfuse_config = resolve_langfuse_config(settings)
 
-        # Fetch and configure LLM provider (per-prompt override or default)
+        # Fetch and configure LLM provider (per-prompt override, auto-route, or default)
         if request.provider_id and request.model_id:
             provider_config = await get_provider_config_for_model(
                 session, request.provider_id, request.model_id
             )
         else:
-            provider_config = await get_provider_config_for_chat(session, str(user_id))
+            provider_config = await resolve_auto_routed_config(
+                session, str(user_id), human_message
+            )
         llm_config = {
             "provider_type": provider_config.get("provider_type"),
             "model_id": provider_config.get("model_id"),
@@ -734,13 +737,15 @@ async def prompt(
         
         logger.debug(f"[CACHE MISS] No cached response found, processing with LangGraph")
 
-        # Fetch and configure LLM provider (per-prompt override or default)
+        # Fetch and configure LLM provider (per-prompt override, auto-route, or default)
         if request.provider_id and request.model_id:
             provider_config = await get_provider_config_for_model(
                 session, request.provider_id, request.model_id
             )
         else:
-            provider_config = await get_provider_config_for_chat(session, str(user_id))
+            provider_config = await resolve_auto_routed_config(
+                session, str(user_id), human_message
+            )
         llm_config = {
             "provider_type": provider_config.get("provider_type"),
             "model_id": provider_config.get("model_id"),

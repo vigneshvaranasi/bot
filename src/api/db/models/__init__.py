@@ -18,3 +18,4 @@ from .golden_example import GoldenExample
 from .incident_log import IncidentLog
 from .incident_upload_session import IncidentUploadSession
 from .incident_dataset_version import IncidentDatasetVersion
+from .model_routing_config import ModelRoutingConfig

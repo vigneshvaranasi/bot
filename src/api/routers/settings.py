@@ -27,6 +27,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _bool_or_default(value: Optional[bool], default: bool = False) -> bool:
+    """Normalize nullable legacy boolean values for strict response schemas."""
+    return default if value is None else value
+
+
 # ============================================================
 # Segment-based endpoints
 # ============================================================
@@ -85,6 +90,10 @@ async def update_aiml_settings(
     # Convert provider_id string to UUID for DB compatibility
     if "provider_id" in update_dict and update_dict["provider_id"] is not None:
         update_dict["provider_id"] = UUID(update_dict["provider_id"])
+
+    # Convert router_provider_id string to UUID for DB compatibility
+    if "router_provider_id" in update_dict and update_dict["router_provider_id"] is not None:
+        update_dict["router_provider_id"] = UUID(update_dict["router_provider_id"])
 
     user_id = UUID(current_user["user_id"])
     new_setting = await service.update_segment(
@@ -176,15 +185,15 @@ async def get_settings_history(
             model=item["setting"].model,
             temperature=item["setting"].temperature,
             deny_words=item["setting"].deny_words,
-            langfuse_enabled=item["setting"].langfuse_enabled,
+            langfuse_enabled=_bool_or_default(item["setting"].langfuse_enabled, False),
             langfuse_public_key=item["setting"].langfuse_public_key,
             langfuse_base_url=item["setting"].langfuse_base_url,
             has_langfuse_secret_key=bool(item["setting"].langfuse_secret_key_encrypted),
-            allow_user_model_selection=item["setting"].allow_user_model_selection,
-            auth_google_enabled=item["setting"].auth_google_enabled,
-            auth_github_enabled=item["setting"].auth_github_enabled,
-            auth_microsoft_enabled=item["setting"].auth_microsoft_enabled,
-            auth_local_enabled=item["setting"].auth_local_enabled,
+            allow_user_model_selection=_bool_or_default(item["setting"].allow_user_model_selection, False),
+            auth_google_enabled=_bool_or_default(item["setting"].auth_google_enabled, True),
+            auth_github_enabled=_bool_or_default(item["setting"].auth_github_enabled, True),
+            auth_microsoft_enabled=_bool_or_default(item["setting"].auth_microsoft_enabled, True),
+            auth_local_enabled=_bool_or_default(item["setting"].auth_local_enabled, True),
         )
         for item in history_data
     ]

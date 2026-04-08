@@ -87,6 +87,8 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
   const [selectedModel, setSelectedModel] = useState<AvailableModel | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
+  const [autoRoutingEnabled, setAutoRoutingEnabled] = useState(false);
+  const [userExplicitlyPickedModel, setUserExplicitlyPickedModel] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputFocusedRef = useRef(false);
 
@@ -108,6 +110,7 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
       setModels(allModels);
 
       setShowModelPicker(settingsRes?.settings?.allow_user_model_selection ?? false);
+      setAutoRoutingEnabled(settingsRes?.settings?.auto_routing_enabled ?? false);
 
       // Match the admin-configured model + provider from settings
       const savedModelId = settingsRes?.settings?.model;
@@ -161,7 +164,8 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
   const handleSend = () => {
     const text = chatInput.trim();
     if (!text || isLoading) return;
-    const override: ModelOverride | undefined = selectedModel
+    const shouldOverride = selectedModel && (!autoRoutingEnabled || userExplicitlyPickedModel);
+    const override: ModelOverride | undefined = shouldOverride
       ? { provider_id: selectedModel.provider_id, model_id: selectedModel.model_id }
       : undefined;
     onSend(text, override);
@@ -231,14 +235,17 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
   return (
     <div className="w-full px-4 py-2 md:py-3 prompt-bar-safe">
       {/* Model selector pill */}
-      {models.length > 0 && showModelPicker && (
+      {models.length > 0 && (showModelPicker || autoRoutingEnabled) && (
         <div className="relative mb-1.5" ref={dropdownRef}>
           <button
             type="button"
             onClick={() => setDropdownOpen((v) => !v)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border border-border-default bg-surface-primary hover:bg-surface-tertiary text-text-secondary transition-colors"
+            className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors  
+                border-border-default bg-surface-primary hover:bg-surface-tertiary text-text-secondary`}
           >
-            {selectedModel?.display_name ?? "Select model"}
+            {autoRoutingEnabled && !userExplicitlyPickedModel
+              ? "Auto"
+              : (selectedModel?.display_name ?? "Select model")}
             <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" className={`transition-transform ${dropdownOpen ? "rotate-180" : ""}`}>
               <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
             </svg>
@@ -246,6 +253,18 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
 
           {dropdownOpen && (
             <div className="absolute left-0 bottom-full mb-1 z-50 w-64 max-h-72 overflow-y-auto rounded-lg border border-border-default bg-surface-primary shadow-dropdown">
+              {autoRoutingEnabled && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserExplicitlyPickedModel(false);
+                    setDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm transition-colors border-b border-border-default text-text-primary hover:bg-surface-tertiary`}
+                >
+                  Auto
+                </button>
+              )}
               {Object.entries(grouped).map(([providerName, providerModels]) => (
                 <div key={providerName}>
                   <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary bg-surface-secondary">
@@ -257,6 +276,7 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
                       type="button"
                       onClick={() => {
                         setSelectedModel(m);
+                        setUserExplicitlyPickedModel(true);
                         setDropdownOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2 text-sm hover:bg-surface-tertiary transition-colors ${

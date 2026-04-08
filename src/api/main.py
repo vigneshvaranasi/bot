@@ -67,3 +67,6 @@ app.include_router(permissions.router, tags=["Permissions"])
 
 from src.api.routers import feedback
 app.include_router(feedback.router, prefix="/feedback", tags=["Feedback"])
+
+from src.api.routers import model_routing
+app.include_router(model_routing.router, prefix="/model-routing", tags=["Model Routing"])
