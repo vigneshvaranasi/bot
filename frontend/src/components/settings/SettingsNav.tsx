@@ -187,7 +187,7 @@ const SettingsNav = ({ onNavigate }: SettingsNavProps) => {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search settings"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none focus:ring-0"
+          className="w-full rounded-md border border-border-default bg-surface-primary text-text-primary px-3 py-2 text-sm focus:border-border-strong focus:outline-none focus:ring-0"
         />
       </div>
       <div className="space-y-1">
@@ -202,7 +202,7 @@ const SettingsNav = ({ onNavigate }: SettingsNavProps) => {
           />
         ))}
         {filteredItems.length === 0 ? (
-          <p className="text-xs text-gray-500 px-3 py-2">No matches</p>
+          <p className="text-xs text-text-tertiary px-3 py-2">No matches</p>
         ) : null}
       </div>
     </nav>

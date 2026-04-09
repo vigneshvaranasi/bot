@@ -390,7 +390,7 @@ export default function LlmProviderControl({
   };
 
   return (
-    <div className="flex flex-col border border-gray-200 rounded-lg px-3 py-2.5 gap-2">
+    <div className="flex flex-col border border-border-default rounded-lg px-3 py-2.5 gap-2">
       {/* Header */}
       <div className="flex flex-wrap justify-between items-center gap-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -399,12 +399,12 @@ export default function LlmProviderControl({
               ref={nameInputRef}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="border border-gray-300 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+              className="border border-border-strong rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
               placeholder="Enter provider name"
             />
           ) : (
             <h3
-              className={`text-sm font-semibold text-gray-900 ${canEdit ? "cursor-text" : ""}`}
+              className={`text-sm font-semibold text-text-primary ${canEdit ? "cursor-text" : ""}`}
               onClick={() => {
                 if (canEdit) {
                   setIsNameEditable(true);
@@ -425,14 +425,14 @@ export default function LlmProviderControl({
           )}
 
           {isDefault && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-800 font-medium">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning-subtle text-warning-text font-medium">
               Default
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <label className="flex items-center gap-1 text-xs text-gray-600">
+          <label className="flex items-center gap-1 text-xs text-text-secondary">
             <input
               type="checkbox"
               checked={isActive}
@@ -459,35 +459,35 @@ export default function LlmProviderControl({
       </div>
 
       {/* Status */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-600">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-text-secondary">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1">
             <span>Health:</span>
             {provider?.last_health_check_status === "success" && (
-              <span className="text-green-600 font-medium">✔ Healthy</span>
+              <span className="text-success-text font-medium">✔ Healthy</span>
             )}
             {provider?.last_health_check_status === "error" && (
-              <span className="text-red-600 font-medium">✖ Unhealthy</span>
+              <span className="text-danger-text font-medium">✖ Unhealthy</span>
             )}
             {!provider?.last_health_check_status && (
-              <span className="text-gray-400">Not tested</span>
+              <span className="text-text-tertiary">Not tested</span>
             )}
           </div>
 
           {provider?.last_health_check_at && (
-            <span className="text-gray-400">
+            <span className="text-text-tertiary">
               {formatLastCheck()}
             </span>
           )}
 
           {provider?.last_health_check_error && (
-            <span className="text-red-500">
+            <span className="text-danger-text">
               {provider.last_health_check_error}
             </span>
           )}
 
           {testResult && (
-            <span className={testResult.success ? "text-green-600" : "text-red-500"}>
+            <span className={testResult.success ? "text-success-text" : "text-danger-text"}>
               {testResult.success
                 ? `✔ OK (${testResult.response_time_ms?.toFixed(0)}ms)`
                 : `✖ ${testResult.message}`}
@@ -509,12 +509,12 @@ export default function LlmProviderControl({
 
       {/* Config */}
       {isConfigOpen && (
-        <div className="flex flex-col gap-2.5 border-t border-gray-100 pt-3">
+        <div className="flex flex-col gap-2.5 border-t border-border-subtle pt-3">
           {/* Form fields in 2-col grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5">
             {/* Provider Type */}
             <div className="flex flex-col gap-0.5">
-              <label className="text-xs font-medium text-gray-700">Provider Type</label>
+              <label className="text-xs font-medium text-text-secondary">Provider Type</label>
               <Dropdown
                 options={providerTypeOptions}
                 value={providerType}
@@ -527,9 +527,9 @@ export default function LlmProviderControl({
               <>
                 {fieldConfig.showBaseUrl && (
                   <div className="flex flex-col gap-0.5 sm:col-span-2">
-                    <label className="text-xs font-medium text-gray-700">
+                    <label className="text-xs font-medium text-text-secondary">
                       Base URL
-                      {fieldConfig.baseUrlRequired && <span className="text-red-500"> *</span>}
+                      {fieldConfig.baseUrlRequired && <span className="text-danger-text"> *</span>}
                     </label>
                     <InputBox
                       value={baseUrl}
@@ -543,13 +543,13 @@ export default function LlmProviderControl({
 
                 {fieldConfig.showApiKey && (
                   <div className="flex flex-col gap-0.5">
-                    <label className="text-xs font-medium text-gray-700">
+                    <label className="text-xs font-medium text-text-secondary">
                       API Key
                       {fieldConfig.apiKeyRequired && !provider?.has_api_key && (
-                        <span className="text-red-500"> *</span>
+                        <span className="text-danger-text"> *</span>
                       )}
                       {provider?.has_api_key && (
-                        <span className="text-gray-400 ml-1">(keep existing)</span>
+                        <span className="text-text-tertiary ml-1">(keep existing)</span>
                       )}
                     </label>
                     <InputBox
@@ -568,8 +568,8 @@ export default function LlmProviderControl({
 
                 {fieldConfig.showOrganizationId && (
                   <div className="flex flex-col gap-0.5">
-                    <label className="text-xs font-medium text-gray-700">
-                      Organization ID <span className="text-gray-400">(optional)</span>
+                    <label className="text-xs font-medium text-text-secondary">
+                      Organization ID <span className="text-text-tertiary">(optional)</span>
                     </label>
                     <InputBox
                       value={organizationId}
@@ -583,7 +583,7 @@ export default function LlmProviderControl({
 
                 {fieldConfig.showAuthType && (
                   <div className="flex flex-col gap-0.5">
-                    <label className="text-xs font-medium text-gray-700">Auth Type</label>
+                    <label className="text-xs font-medium text-text-secondary">Auth Type</label>
                     <Dropdown
                       options={AUTH_TYPE_OPTIONS}
                       value={authType}
@@ -594,7 +594,7 @@ export default function LlmProviderControl({
 
                 {fieldConfig.showAuthType && authType === "api_key_header" && (
                   <div className="flex flex-col gap-0.5">
-                    <label className="text-xs font-medium text-gray-700">Header Name</label>
+                    <label className="text-xs font-medium text-text-secondary">Header Name</label>
                     <InputBox
                       value={authHeaderName}
                       placeholder="X-API-Key"
@@ -619,21 +619,21 @@ export default function LlmProviderControl({
               >
                 {isDiscovering ? "Discovering..." : "Discover Models"}
               </Button>
-              <span className="text-xs text-gray-400">Fetch available models from the provider API</span>
+              <span className="text-xs text-text-tertiary">Fetch available models from the provider API</span>
             </div>
           )}
 
           {/* Discovered Models */}
           {discoveredModels.length > 0 && (
-            <div className="flex flex-col gap-1.5 p-2 bg-blue-50 rounded-md">
+            <div className="flex flex-col gap-1.5 p-2 bg-info-subtle rounded-md">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-blue-800">
+                <span className="text-xs font-medium text-accent-blue">
                   Discovered ({discoveredModels.length})
                 </span>
                 <button
                   type="button"
                   onClick={handleSelectAllDiscovered}
-                  className="text-[10px] text-blue-600 hover:text-blue-800 underline"
+                  className="text-[10px] text-accent-blue hover:text-accent-blue underline"
                 >
                   Select All
                 </button>
@@ -648,8 +648,8 @@ export default function LlmProviderControl({
                       onClick={() => handleToggleDiscoveredModel(model)}
                       className={`px-1.5 py-0.5 rounded text-[11px] transition-colors ${
                         isSelected
-                          ? "bg-blue-600 text-white"
-                          : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-100"
+                          ? "bg-accent-blue text-white"
+                          : "bg-surface-primary text-text-secondary border border-border-strong hover:bg-surface-tertiary"
                       }`}
                     >
                       {model}
@@ -662,16 +662,16 @@ export default function LlmProviderControl({
           )}
 
           {discoveryError && (
-            <div className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
+            <div className="text-xs text-warning-text bg-warning-subtle px-2 py-1 rounded">
               {discoveryError}. You can manually add models below.
             </div>
           )}
 
           {/* Selected Models */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-gray-700">
+            <label className="text-xs font-medium text-text-secondary">
               Selected Models
-              <span className="text-gray-400 ml-1">({selectedModels.length})</span>
+              <span className="text-text-tertiary ml-1">({selectedModels.length})</span>
             </label>
 
             {selectedModels.length > 0 ? (
@@ -679,13 +679,13 @@ export default function LlmProviderControl({
                 {selectedModels.map((model) => (
                   <span
                     key={model}
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded text-[11px]"
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-success-subtle text-success-text border border-success rounded text-[11px]"
                   >
                     {model}
                     <button
                       type="button"
                       onClick={() => handleRemoveModel(model)}
-                      className="text-green-500 hover:text-red-500"
+                      className="text-success-text hover:text-danger-text"
                     >
                       ×
                     </button>
@@ -693,7 +693,7 @@ export default function LlmProviderControl({
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-text-tertiary">
                 {canDiscoverModels()
                   ? "Click 'Discover Models' to find available models."
                   : "Enter credentials to discover available models."}
@@ -721,7 +721,7 @@ export default function LlmProviderControl({
           </div>
 
           {/* Default toggle */}
-          <label className="flex items-center gap-1.5 text-xs text-gray-700">
+          <label className="flex items-center gap-1.5 text-xs text-text-secondary">
             <input
               type="checkbox"
               checked={isDefault}
@@ -731,10 +731,10 @@ export default function LlmProviderControl({
             Set as default provider
           </label>
 
-          {error && <span className="text-xs text-red-500">{error}</span>}
+          {error && <span className="text-xs text-danger-text">{error}</span>}
 
           {/* Action buttons */}
-          <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
+          <div className="flex items-center gap-2 pt-1 border-t border-border-subtle">
             {canEdit && onSave && (
               <Button
                 variant="secondary"

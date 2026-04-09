@@ -13,11 +13,11 @@ import {
 } from "../../handlers/knowledgeBaseHandlers";
 
 const statusColors: Record<string, string> = {
-  active: "bg-green-100 text-green-800",
-  inactive: "bg-gray-100 text-gray-800",
-  ingesting: "bg-blue-100 text-blue-800",
-  archived: "bg-yellow-100 text-yellow-800",
-  failed: "bg-red-100 text-red-800",
+  active: "bg-success-subtle text-success-text",
+  inactive: "bg-surface-tertiary text-text-primary",
+  ingesting: "bg-info-subtle text-info-text",
+  archived: "bg-warning-subtle text-warning-text",
+  failed: "bg-danger-subtle text-danger-text",
 };
 
 const VersionListPanel = ({ refreshTrigger = 0 }: { refreshTrigger?: number }) => {
@@ -78,7 +78,7 @@ const VersionListPanel = ({ refreshTrigger = 0 }: { refreshTrigger?: number }) =
   const columns = [
     {
       header: "Version",
-      headerClassName: "font-medium text-gray-700 text-xs sticky top-0 bg-gray-50 z-10 border-b border-gray-200",
+      headerClassName: "font-medium text-text-secondary text-xs sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
       className: "text-xs py-3",
       render: (item: DatasetVersion) => (
         <span className="font-medium">v{item.version_number}</span>
@@ -87,14 +87,14 @@ const VersionListPanel = ({ refreshTrigger = 0 }: { refreshTrigger?: number }) =
     },
     {
       header: "Source",
-      headerClassName: "font-medium text-gray-700 text-xs sticky top-0 bg-gray-50 z-10 border-b border-gray-200",
+      headerClassName: "font-medium text-text-secondary text-xs sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
       className: "text-xs py-3",
       render: (item: DatasetVersion) => (
         <span
           className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
             item.source === "servicenow"
-              ? "bg-blue-100 text-blue-800"
-              : "bg-purple-100 text-purple-800"
+              ? "bg-info-subtle text-info-text"
+              : "bg-info-subtle text-info-text"
           }`}
         >
           {item.source === "servicenow" ? "ServiceNow" : "Upload"}
@@ -104,7 +104,7 @@ const VersionListPanel = ({ refreshTrigger = 0 }: { refreshTrigger?: number }) =
     },
     {
       header: "Status",
-      headerClassName: "font-medium text-gray-700 text-xs sticky top-0 bg-gray-50 z-10 border-b border-gray-200",
+      headerClassName: "font-medium text-text-secondary text-xs sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
       className: "text-xs py-3",
       render: (item: DatasetVersion) => {
         let label = item.status.charAt(0).toUpperCase() + item.status.slice(1);
@@ -113,7 +113,7 @@ const VersionListPanel = ({ refreshTrigger = 0 }: { refreshTrigger?: number }) =
         return (
           <span
             className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-              statusColors[item.status] || "bg-gray-100 text-gray-800"
+              statusColors[item.status] || "bg-surface-tertiary text-text-primary"
             }`}
           >
             {label}
@@ -124,21 +124,21 @@ const VersionListPanel = ({ refreshTrigger = 0 }: { refreshTrigger?: number }) =
     },
     {
       header: "Incidents",
-      headerClassName: "font-medium text-gray-700 text-xs sticky top-0 bg-gray-50 z-10 border-b border-gray-200",
+      headerClassName: "font-medium text-text-secondary text-xs sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
       className: "text-xs py-3",
       render: (item: DatasetVersion) => <span>{item.incident_count ?? "-"}</span>,
       searchable: false,
     },
     {
       header: "Uploaded By",
-      headerClassName: "font-medium text-gray-700 text-xs sticky top-0 bg-gray-50 z-10 border-b border-gray-200",
+      headerClassName: "font-medium text-text-secondary text-xs sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
       className: "text-xs py-3",
       render: (item: DatasetVersion) => <span>{item.uploader_email ?? "-"}</span>,
       searchable: false,
     },
     {
       header: "Created",
-      headerClassName: "font-medium text-gray-700 text-xs sticky top-0 bg-gray-50 z-10 border-b border-gray-200",
+      headerClassName: "font-medium text-text-secondary text-xs sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
       className: "text-xs py-3",
       render: (item: DatasetVersion) =>
         item.created_at ? new Date(item.created_at).toLocaleString() : "-",
@@ -146,7 +146,7 @@ const VersionListPanel = ({ refreshTrigger = 0 }: { refreshTrigger?: number }) =
     },
     {
       header: "Actions",
-      headerClassName: "font-medium text-gray-700 text-xs sticky top-0 bg-gray-50 z-10 border-b border-gray-200",
+      headerClassName: "font-medium text-text-secondary text-xs sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
       className: "text-xs py-3",
       render: (item: DatasetVersion) => (
         <div className="flex gap-1">
@@ -182,16 +182,16 @@ const VersionListPanel = ({ refreshTrigger = 0 }: { refreshTrigger?: number }) =
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">{total} version(s)</p>
+        <p className="text-xs text-text-secondary">{total} version(s)</p>
         <Button variant="secondary" size="sm" onClick={loadVersions}>
           Refresh
         </Button>
       </div>
 
       {loading ? (
-        <div className="text-sm text-gray-500 py-8 text-center">Loading versions...</div>
+        <div className="text-sm text-text-secondary py-8 text-center">Loading versions...</div>
       ) : versions.length === 0 ? (
-        <div className="text-sm text-gray-500 py-8 text-center">
+        <div className="text-sm text-text-secondary py-8 text-center">
           No dataset versions found. Upload and ingest incidents to create a version.
         </div>
       ) : (
@@ -209,7 +209,7 @@ const VersionListPanel = ({ refreshTrigger = 0 }: { refreshTrigger?: number }) =
               >
                 Previous
               </Button>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-text-secondary">
                 Page {page + 1} of {Math.ceil(total / pageSize)}
               </span>
               <Button

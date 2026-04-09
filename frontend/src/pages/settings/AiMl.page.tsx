@@ -396,17 +396,17 @@ const AiMlConfigPage = () => {
       />
 
       {error ? (
-        <div className="p-3 bg-red-50 text-sm text-red-700 border border-red-200 rounded">
+        <div className="p-3 bg-danger-subtle text-sm text-danger-text border border-danger rounded">
           {error}
         </div>
       ) : null}
 
       {/* LLM Providers Section */}
-      <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+      <section className="border border-border-default rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">LLM Providers</h3>
-            <p className="text-xs text-gray-600">
+            <h3 className="text-sm font-semibold text-text-primary">LLM Providers</h3>
+            <p className="text-xs text-text-secondary">
               Configure API keys and endpoints for AI model providers.
             </p>
           </div>
@@ -423,12 +423,12 @@ const AiMlConfigPage = () => {
         </div>
 
         {loadingProviders ? (
-          <div className="text-sm text-gray-500">Loading providers...</div>
+          <div className="text-sm text-text-secondary">Loading providers...</div>
         ) : (
           <div className="space-y-4">
             {/* New Provider Form */}
             {newProviderOpen && canCreateProvider && (
-              <div className="border-2 border-dashed border-blue-300 rounded-lg p-2">
+              <div className="border-2 border-dashed border-accent-blue rounded-lg p-2">
                 <LlmProviderControl
                   isNew={true}
                   onSave={handleSaveProvider}
@@ -443,7 +443,7 @@ const AiMlConfigPage = () => {
 
             {/* Existing Providers */}
             {providers.length === 0 && !newProviderOpen ? (
-              <div className="text-sm text-gray-500 text-center py-4">
+              <div className="text-sm text-text-secondary text-center py-4">
                 No providers configured.{canCreateProvider ? " Click \"Add Provider\" to get started." : ""}
               </div>
             ) : (
@@ -468,11 +468,11 @@ const AiMlConfigPage = () => {
         )}
       </section>
 
-      <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+      <section className="border border-border-default rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Model & Generation</h3>
-            <p className="text-xs text-gray-600">Select model and configure generation parameters.</p>
+            <h3 className="text-sm font-semibold text-text-primary">Model & Generation</h3>
+            <p className="text-xs text-text-secondary">Select model and configure generation parameters.</p>
           </div>
           {canEditAiMl && (
             <Button variant="blue" size="sm" onClick={handleSaveModel} disabled={savingModel}>
@@ -482,7 +482,7 @@ const AiMlConfigPage = () => {
         </div>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <div className="space-y-3">
-            <div className="flex flex-row items-center text-sm md:text-medium text-black min-w-fit">
+            <div className="flex flex-row items-center text-sm md:text-medium text-text-primary min-w-fit">
               <span>Select Model</span>
               <InfoHint text="Available models come from the providers you've configured above. To see more options, add another provider." />
             </div>
@@ -505,13 +505,13 @@ const AiMlConfigPage = () => {
               disabled={!canEditAiMl}
             />
             {availableModels.length === 0 && (
-              <p className="text-xs text-amber-600">
+              <p className="text-xs text-warning-text">
                 No providers configured. Using default models.
               </p>
             )}
           </div>
           <div className="shrink-0 space-y-1">
-            <div className="flex items-center text-xs font-medium text-gray-700">
+            <div className="flex items-center text-xs font-medium text-text-secondary">
               <label>Temperature</label>
               <InfoHint text="Controls how creative the AI responses are. Lower values (closer to 0) give more focused, consistent answers. Higher values (closer to 1) give more varied responses." />
             </div>
@@ -520,7 +520,7 @@ const AiMlConfigPage = () => {
               onChange={(val) => setTemperature(val)}
               variant="primary"
               type="number"
-              className="outline-none rounded-md px-2 py-1.5 text-sm text-gray-900 w-24"
+              className="outline-none rounded-md px-2 py-1.5 text-sm text-text-primary w-24"
               step={0.1}
               min={0}
               max={1}
@@ -530,14 +530,14 @@ const AiMlConfigPage = () => {
         </div>
 
         <div className="mt-2 flex items-center gap-3">
-          <div className="flex flex-row items-center text-sm md:text-medium text-gray-900 min-w-fit">
+          <div className="flex flex-row items-center text-sm md:text-medium text-text-primary min-w-fit">
             <span>Let Users Choose Model</span>
             <InfoHint text="When enabled, users can pick a different model in the chat. When disabled, all chats use the model selected above." />
           </div>
           {allowUserModelSelection !== undefined ? (
             <Toggle id="user-model-selection-toggle" enabled={allowUserModelSelection} onChange={setAllowUserModelSelection} disabled={!canEditAiMl} />
           ) : (
-            <div className="w-11 h-6 bg-gray-200 rounded-full animate-pulse" />
+            <div className="w-11 h-6 bg-surface-hover rounded-full animate-pulse" />
           )}
         </div>
       </section>
@@ -554,11 +554,11 @@ const AiMlConfigPage = () => {
         }}
       />
 
-      <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+      <section className="border border-border-default rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Safety & Observability</h3>
-            <p className="text-xs text-gray-600"> Configure safety filters and tracing options.</p>
+            <h3 className="text-sm font-semibold text-text-primary">Safety & Observability</h3>
+            <p className="text-xs text-text-secondary"> Configure safety filters and tracing options.</p>
           </div>
           {canEditAiMl && (
             <Button variant="blue" size="sm" onClick={handleSaveSafety} disabled={savingSafety}>
@@ -569,15 +569,15 @@ const AiMlConfigPage = () => {
 
         <div className="space-y-3">
           <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2">
-            <span className="flex flex-row justify-between text-sm md:text-medium text-black w-full">
+            <span className="flex flex-row justify-between text-sm md:text-medium text-text-primary w-full">
               <div className="flex flex-row items-center gap-1">
                 <span>Deny List Words</span>
                 <InfoHint text="Any word on this list will be automatically blocked from both user prompts and AI responses." />
               </div>
-              <span className="text-xs text-gray-600 font-normal">
+              <span className="text-xs text-text-secondary font-normal">
                 <button
                   onClick={() => setShowDenyWordsTable(!showDenyWordsTable)}
-                  className="ml-2 text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                  className="ml-2 text-accent-blue hover:text-accent-blue underline cursor-pointer"
                 >
                   {showDenyWordsTable ? "Hide All" : `View All (${denyWordsCount})`}
                 </button>
@@ -590,7 +590,7 @@ const AiMlConfigPage = () => {
               onChange={setDenyWords}
               placeholder="Add words to deny"
               variant="primary"
-              className="w-full rounded-[5px] border-gray-400 border-b-1"
+              className="w-full rounded-[5px] border-border-strong border-b-1"
               disabled={!canEditAiMl}
             />
             <Button
@@ -607,13 +607,13 @@ const AiMlConfigPage = () => {
 
         {showDenyWordsTable ? (
           <div className="grid grid-cols-1 xl:grid-cols-1 gap-4 xl:gap-6 my-2">
-            <div className="overflow-x-auto bg-white rounded-lg border border-gray-300">
+            <div className="overflow-x-auto bg-surface-primary rounded-lg border border-border-strong">
               {denyWordsArray.length === 0 ? (
-                <div className="p-4 text-center text-gray-500 text-sm">
+                <div className="p-4 text-center text-text-secondary text-sm">
                   No deny words configured. Add words above to get started.
                 </div>
               ) : (
-                <div className="max-h-60 overflow-y-auto border-t border-gray-200">
+                <div className="max-h-60 overflow-y-auto border-t border-border-default">
                   <ConfigurableTable
                     data={denyWordsArray}
                     keyExtractor={(row) => row.id}
@@ -622,20 +622,20 @@ const AiMlConfigPage = () => {
                         header: "Deny Word",
                         accessor: "word",
                         headerClassName:
-                          "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200",
-                        className: "text-xs md:text-sm text-gray-900 py-3",
+                          "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
+                        className: "text-xs md:text-sm text-text-primary py-3",
                         searchable: true,
                       },
                       ...(canEditAiMl ? [{
                         header: "Action",
                         headerClassName:
-                          "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200 w-20",
+                          "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default w-20",
                         render: (denyWord: DenyWordRecord) => (
                           <div className="flex flex-row gap-1 sm:gap-2">
                             <Button
                               variant="default"
                               size="sm"
-                              className="hover:text-red-500"
+                              className="hover:text-danger-text"
                               onClick={() => handleRemoveDenyWord(denyWord.id)}
                             >
                               ✕
@@ -645,8 +645,8 @@ const AiMlConfigPage = () => {
                         searchable: false,
                       }] : []),
                     ]}
-                    headerRowClassName="bg-gray-50 sticky top-0 z-10"
-                    rowClassName="bg-white border-t border-gray-200 hover:bg-gray-50"
+                    headerRowClassName="bg-surface-secondary sticky top-0 z-10"
+                    rowClassName="bg-surface-primary border-t border-border-default hover:bg-surface-secondary"
                   />
                 </div>
               )}
@@ -655,47 +655,47 @@ const AiMlConfigPage = () => {
         ) : null}
 
         <div className="mt-2 flex items-center gap-3">
-          <div className="flex flex-row items-center text-sm md:text-medium text-gray-900 min-w-fit">
+          <div className="flex flex-row items-center text-sm md:text-medium text-text-primary min-w-fit">
             <span>Enable Langfuse Tracing</span>
             <InfoHint text="When enabled, all AI interactions are logged to Langfuse for monitoring response quality and debugging." />
           </div>
           {langfuseEnabled !== undefined ? (
             <Toggle id="langfuse-toggle" enabled={langfuseEnabled} onChange={setLangfuseEnabled} disabled={!canEditAiMl} />
           ) : (
-            <div className="w-11 h-6 bg-gray-200 rounded-full animate-pulse" />
+            <div className="w-11 h-6 bg-surface-hover rounded-full animate-pulse" />
           )}
         </div>
 
         {langfuseEnabled ? (
-          <div className="mt-3 space-y-3 border border-gray-200 rounded-lg p-3 bg-gray-50">
+          <div className="mt-3 space-y-3 border border-border-default rounded-lg p-3 bg-surface-tertiary">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-gray-700">Base URL</label>
+              <label className="text-xs font-medium text-text-secondary">Base URL</label>
               <InputBox
                 value={langfuseBaseUrl}
                 onChange={setLangfuseBaseUrl}
                 placeholder="e.g. http://localhost:3000"
                 variant="primary"
-                className="w-full rounded-[5px] border-gray-400 border-b-1"
+                className="w-full rounded-[5px] border-border-strong border-b-1"
                 disabled={!canEditAiMl}
               />
             </div>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-700">Public Key</label>
+                <label className="text-xs font-medium text-text-secondary">Public Key</label>
                 <InputBox
                   value={langfusePublicKey}
                   onChange={setLangfusePublicKey}
                   placeholder="pk-lf-..."
                   variant="primary"
-                  className="w-full rounded-[5px] border-gray-400 border-b-1"
+                  className="w-full rounded-[5px] border-border-strong border-b-1"
                   disabled={!canEditAiMl}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-700">
+                <label className="text-xs font-medium text-text-secondary">
                   Secret Key
                   {hasLangfuseSecretKey && (
-                    <span className="text-gray-400 ml-1">(keep existing)</span>
+                    <span className="text-text-tertiary ml-1">(keep existing)</span>
                   )}
                 </label>
                 <InputBox
@@ -704,7 +704,7 @@ const AiMlConfigPage = () => {
                   placeholder={hasLangfuseSecretKey ? "••••••••••••••••" : "sk-lf-..."}
                   variant="primary"
                   type="password"
-                  className="w-full rounded-[5px] border-gray-400 border-b-1"
+                  className="w-full rounded-[5px] border-border-strong border-b-1"
                   disabled={!canEditAiMl}
                 />
               </div>
@@ -715,7 +715,7 @@ const AiMlConfigPage = () => {
                   href={langfuseBaseUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center font-semibold shrink-0 text-xs px-3 py-1.5 rounded-md transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 bg-gray-600 hover:bg-gray-700 text-white border border-gray-600"
+                  className="inline-flex items-center font-semibold shrink-0 text-xs px-3 py-1.5 rounded-md transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 bg-btn-secondary hover:bg-btn-secondary-hover text-white border border-btn-secondary"
                 >
                   View Traces
                 </a>

@@ -261,11 +261,11 @@ export default function AutoRoutingSection({
   };
 
   return (
-    <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+    <section className="border border-border-default rounded-lg p-4 space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">LLM Routing</h3>
-          <p className="text-xs text-gray-600">
+          <h3 className="text-sm font-semibold text-text-primary">LLM Routing</h3>
+          <p className="text-xs text-text-secondary">
             Automatically select the best model for each query based on model capabilities.
           </p>
         </div>
@@ -278,7 +278,7 @@ export default function AutoRoutingSection({
 
       {/* Toggle */}
       <div className="flex items-center gap-3">
-        <div className="flex flex-row items-center text-sm text-gray-900 min-w-fit">
+        <div className="flex flex-row items-center text-sm text-text-primary min-w-fit">
           <span>Enable LLM Routing</span>
           <InfoHint text="When enabled, a router LLM automatically picks the best model for each query based on the capabilities you configure below." />
         </div>
@@ -291,10 +291,10 @@ export default function AutoRoutingSection({
       </div>
 
       {enabled && (
-        <div className="space-y-4 border-t border-gray-100 pt-3">
+        <div className="space-y-4 border-t border-border-subtle pt-3">
           {/* Router Model Selector */}
           <div className="space-y-1">
-            <div className="flex items-center text-xs font-medium text-gray-700">
+            <div className="flex items-center text-xs font-medium text-text-secondary">
               <span>Router Model</span>
               <InfoHint text="This model analyzes each query and picks the best model from the pool. Use a fast, cheap model (e.g., Haiku, GPT-4o-mini, Gemini Flash)." />
             </div>
@@ -308,14 +308,14 @@ export default function AutoRoutingSection({
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-700">
+            <label className="text-xs font-medium text-text-secondary">
               Available Task Types
             </label>
             <div className="flex flex-wrap gap-1 mb-1">
               {allTaskTypes.map((t) => (
                 <span
                   key={t}
-                  className="px-1.5 py-0.5 bg-gray-100 text-gray-700 border border-gray-200 rounded text-[11px]"
+                  className="px-1.5 py-0.5 bg-surface-tertiary text-text-secondary border border-border-default rounded text-[11px]"
                 >
                   {t}
                 </span>
@@ -342,35 +342,35 @@ export default function AutoRoutingSection({
           </div>
 
           {loading ? (
-            <div className="text-sm text-gray-500">Loading models...</div>
+            <div className="text-sm text-text-secondary">Loading models...</div>
           ) : rows.length === 0 ? (
-            <div className="text-sm text-gray-500 text-center py-4">
+            <div className="text-sm text-text-secondary text-center py-4">
               No models available. Configure LLM providers above first.
             </div>
           ) : (
-            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+            <div className="overflow-x-auto border border-border-default rounded-lg">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-2 py-2 text-left font-medium text-gray-700">Model</th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-700">Task Types</th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-700">Prompt Sizes</th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-700">Cost</th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-700">Latency</th>
-                    <th className="px-2 py-2 text-left font-medium text-gray-700">Quality</th>
-                    <th className="px-2 py-2 text-center font-medium text-gray-700">Enabled</th>
-                    <th className="px-2 py-2 text-center font-medium text-gray-700">Fallback</th>
+                  <tr className="bg-surface-secondary border-b border-border-default">
+                    <th className="px-2 py-2 text-left font-medium text-text-secondary">Model</th>
+                    <th className="px-2 py-2 text-left font-medium text-text-secondary">Task Types</th>
+                    <th className="px-2 py-2 text-left font-medium text-text-secondary">Prompt Sizes</th>
+                    <th className="px-2 py-2 text-left font-medium text-text-secondary">Cost</th>
+                    <th className="px-2 py-2 text-left font-medium text-text-secondary">Latency</th>
+                    <th className="px-2 py-2 text-left font-medium text-text-secondary">Quality</th>
+                    <th className="px-2 py-2 text-center font-medium text-text-secondary">Enabled</th>
+                    <th className="px-2 py-2 text-center font-medium text-text-secondary">Fallback</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row, idx) => (
                     <tr
                       key={`${row.provider_id}::${row.model_id}`}
-                      className={`border-b border-gray-100 ${
-                        row.is_enabled ? "bg-white" : "bg-gray-50 opacity-60"
+                      className={`border-b border-border-subtle ${
+                        row.is_enabled ? "bg-surface-primary" : "bg-surface-secondary opacity-60"
                       }`}
                     >
-                      <td className="px-2 py-2 font-medium text-gray-900 whitespace-nowrap">
+                      <td className="px-2 py-2 font-medium text-text-primary whitespace-nowrap">
                         {row.display_name}
                       </td>
 
@@ -386,8 +386,8 @@ export default function AutoRoutingSection({
                                 disabled={!canEdit}
                                 className={`px-1 py-0.5 rounded text-[10px] transition-colors ${
                                   selected
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                    ? "bg-accent-blue text-white"
+                                    : "bg-surface-tertiary text-text-secondary hover:bg-surface-hover"
                                 }`}
                               >
                                 {t}
@@ -409,8 +409,8 @@ export default function AutoRoutingSection({
                                 disabled={!canEdit}
                                 className={`px-1 py-0.5 rounded text-[10px] transition-colors ${
                                   selected
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                    ? "bg-accent-blue text-white"
+                                    : "bg-surface-tertiary text-text-secondary hover:bg-surface-hover"
                                 }`}
                               >
                                 {s.label}
@@ -425,7 +425,7 @@ export default function AutoRoutingSection({
                           value={row.cost_tier}
                           onChange={(e) => updateRow(idx, "cost_tier", e.target.value)}
                           disabled={!canEdit}
-                          className="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white"
+                          className="text-[11px] border border-border-default rounded px-1 py-0.5 bg-surface-primary text-text-primary"
                         >
                           {tierOptions.map((o) => (
                             <option key={o.value} value={o.value}>
@@ -440,7 +440,7 @@ export default function AutoRoutingSection({
                           value={row.latency_tier}
                           onChange={(e) => updateRow(idx, "latency_tier", e.target.value)}
                           disabled={!canEdit}
-                          className="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white"
+                          className="text-[11px] border border-border-default rounded px-1 py-0.5 bg-surface-primary text-text-primary"
                         >
                           {latencyOptions.map((o) => (
                             <option key={o.value} value={o.value}>
@@ -455,7 +455,7 @@ export default function AutoRoutingSection({
                           value={row.quality_tier}
                           onChange={(e) => updateRow(idx, "quality_tier", e.target.value)}
                           disabled={!canEdit}
-                          className="text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white"
+                          className="text-[11px] border border-border-default rounded px-1 py-0.5 bg-surface-primary text-text-primary"
                         >
                           {tierOptions.map((o) => (
                             <option key={o.value} value={o.value}>

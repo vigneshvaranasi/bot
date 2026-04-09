@@ -12,20 +12,20 @@ const SettingsLayout = () => {
   const openNav = () => setNavOpen(true);
 
   return (
-    <div className="min-h-screen bg-gray-50 w-full overflow-x-hidden">
-      <div className="bg-white/95 backdrop-blur border-b border-gray-200 sticky top-0 z-30">
+    <div className="min-h-screen bg-surface-secondary w-full overflow-x-hidden">
+      <div className="bg-surface-primary/95 backdrop-blur border-b border-border-default sticky top-0 z-30">
         <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8 flex items-center gap-3">
           <div
-            className="bg-transparent hover:bg-gray-100 text-gray-900 px-1 md:px-2 py-2 rounded-md cursor-pointer"
+            className="bg-transparent hover:bg-surface-tertiary text-text-primary px-1 md:px-2 py-2 rounded-md cursor-pointer"
             onClick={() => navigate("/")}
           >
             ← <span className="hidden md:inline">Back</span>
           </div>
-          <h1 className="text-base sm:text-lg font-semibold text-gray-900 flex-1 truncate">
+          <h1 className="text-base sm:text-lg font-semibold text-text-primary flex-1 truncate">
             {pageTitle}
           </h1>
           <div
-            className="md:hidden text-black px-3 py-2 flex items-center gap-2"
+            className="md:hidden text-text-primary px-3 py-2 flex items-center gap-2"
             onClick={openNav}
             aria-label="Open settings menu"
             title="Open settings menu"
@@ -50,31 +50,31 @@ const SettingsLayout = () => {
 
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 flex gap-6">
         <aside className="w-64 shrink-0 hidden md:block">
-          <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm sticky top-20">
+          <div className="bg-surface-primary border border-border-default rounded-lg p-4 shadow-sm sticky top-20">
             <SettingsNav />
           </div>
         </aside>
         <main className="flex-1 min-w-0">
-          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 shadow-sm">
+          <div className="bg-surface-primary border border-border-default rounded-lg p-4 sm:p-6 shadow-sm">
             <Outlet />
           </div>
         </main>
       </div>
 
       {navOpen ? (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+        <div className="fixed inset-0 z-50 bg-surface-primary flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border-default">
             <div className="flex flex-row items-center gap-3">
               <div
-                className="bg-transparent hover:bg-gray-100 text-gray-900 px-1 md:px-2 py-2 rounded-md cursor-pointer"
+                className="bg-transparent hover:bg-surface-tertiary text-text-primary px-1 md:px-2 py-2 rounded-md cursor-pointer"
                 onClick={() => navigate("/")}
               >
                 ← <span className="hidden md:inline">Back</span>
               </div>
-              <h2 className="text-md font-semibold text-gray-900">Settings</h2>
+              <h2 className="text-md font-semibold text-text-primary">Settings</h2>
             </div>
             <div
-              className="bg-transparent hover:bg-gray-100 text-gray-500 p-2 rounded-full cursor-pointer"
+              className="bg-transparent hover:bg-surface-tertiary text-text-secondary p-2 rounded-full cursor-pointer"
               onClick={closeNav}
               aria-label="Close menu"
             >

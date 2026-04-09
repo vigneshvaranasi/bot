@@ -154,29 +154,29 @@ const MyAccountPage = () => {
       />
 
       <div className="flex flex-col gap-6">
-        <div className="border border-gray-200 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Profile</h3>
-          <dl className="space-y-2 text-sm text-gray-700">
+        <div className="border border-border-default rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-text-primary mb-3">Profile</h3>
+          <dl className="space-y-2 text-sm text-text-secondary">
             <div className="flex justify-between">
-              <dt className="text-gray-600">Email</dt>
+              <dt className="text-text-secondary">Email</dt>
               <dd className="font-medium">{user?.email || "-"}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-gray-600">Role</dt>
+              <dt className="text-text-secondary">Role</dt>
               <dd className="font-medium">{user?.role || "-"}</dd>
             </div>
           </dl>
         </div>
 
-        <div className="border border-gray-200 rounded-lg p-4 space-y-3">
+        <div className="border border-border-default rounded-lg p-4 space-y-3">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Linked Accounts</h3>
-            <p className="text-xs text-gray-600">
+            <h3 className="text-sm font-semibold text-text-primary">Linked Accounts</h3>
+            <p className="text-xs text-text-secondary">
               Manage the authentication methods connected to your account.
             </p>
           </div>
 
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-border-default">
             {availableProviders.includes("local") && (
               <div className="flex items-center justify-between py-3">
                 <div className="flex items-center gap-3">
@@ -184,7 +184,7 @@ const MyAccountPage = () => {
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 20 20"
                     fill="currentColor"
-                    className="w-5 h-5 text-gray-500"
+                    className="w-5 h-5 text-text-secondary"
                   >
                     <path
                       fillRule="evenodd"
@@ -192,11 +192,11 @@ const MyAccountPage = () => {
                       clipRule="evenodd"
                     />
                   </svg>
-                  <span className="text-sm font-medium text-gray-900">Email & Password</span>
+                  <span className="text-sm font-medium text-text-primary">Email & Password</span>
                 </div>
                 {hasLocalAuth ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-success-subtle text-success-text px-2 py-0.5 rounded-full">
                       Connected
                     </span>
                     <Button
@@ -221,10 +221,10 @@ const MyAccountPage = () => {
             )}
 
             {showLocalSetup && !hasLocalAuth && (
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 my-2">
+              <div className="bg-surface-secondary p-4 rounded-lg border border-border-default my-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
                       Password
                     </label>
                     <InputBox
@@ -237,7 +237,7 @@ const MyAccountPage = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
                       Confirm Password
                     </label>
                     <InputBox
@@ -278,12 +278,12 @@ const MyAccountPage = () => {
                   className="flex items-center justify-between py-3"
                 >
                   <div className="flex items-center gap-3">
-                    <img src={meta.icon} alt={meta.label} className="w-5 h-5" />
-                    <span className="text-sm font-medium text-gray-900">{meta.label}</span>
+                    <img src={meta.icon} alt={meta.label} className={`w-5 h-5 ${provider === "github" ? "icon-adaptive" : ""}`} />
+                    <span className="text-sm font-medium text-text-primary">{meta.label}</span>
                   </div>
                   {isLinked ? (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                      <span className="text-xs bg-success-subtle text-success-text px-2 py-0.5 rounded-full">
                         Connected
                       </span>
                       <Button
@@ -310,7 +310,7 @@ const MyAccountPage = () => {
           </div>
 
           {identityCount <= 1 && (
-            <p className="text-xs text-amber-600 mt-2">
+            <p className="text-xs text-warning-text mt-2">
               You must have at least one authentication method. Connect another provider before
               disconnecting your current one.
             </p>
@@ -318,11 +318,11 @@ const MyAccountPage = () => {
         </div>
 
         {hasLocalAuth && (
-          <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+          <div className="border border-border-default rounded-lg p-4 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">Account Security</h3>
-                <p className="text-xs text-gray-600">
+                <h3 className="text-sm font-semibold text-text-primary">Account Security</h3>
+                <p className="text-xs text-text-secondary">
                   Update your password to secure your account.
                 </p>
               </div>
@@ -338,10 +338,10 @@ const MyAccountPage = () => {
             </div>
 
             {showPasswordUpdate ? (
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <div className="bg-surface-secondary p-4 rounded-lg border border-border-default">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
                       New Password
                     </label>
                     <InputBox
@@ -354,7 +354,7 @@ const MyAccountPage = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
                       Confirm Password
                     </label>
                     <InputBox

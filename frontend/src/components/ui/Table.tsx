@@ -24,13 +24,13 @@ interface TableProps<T> {
 export function ConfigurableTable<T>({
   columns,
   data,            
-  tableClassName = "min-w-full border-1 border-gray-300 rounded-lg overflow-hidden border-separate", 
-  headerRowClassName = "bg-white",
-  rowClassName = "bg-white border-t border-gray-400",
+  tableClassName = "min-w-full border-1 border-border-strong rounded-lg overflow-hidden border-separate",
+  headerRowClassName = "bg-surface-primary",
+  rowClassName = "bg-surface-primary border-t border-border-default",
   keyExtractor,
-  searchButtonClassName = "ml-2 px-2 py-1 text-xs  text-white rounded focus:outline-none",
-  searchInputClassName = "px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500",
-  searchContainerClassName = "mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg",
+  searchButtonClassName = "ml-2 px-2 py-1 text-xs text-text-inverse rounded focus:outline-none",
+  searchInputClassName = "px-2 py-1 text-sm border border-border-default bg-surface-primary text-text-primary rounded focus:outline-none focus:ring-1 focus:ring-accent-blue",
+  searchContainerClassName = "mb-4 p-3 bg-surface-tertiary border border-border-default rounded-lg",
 }: TableProps<T>) {
   const [activeSearchColumn, setActiveSearchColumn] = useState<number | null>(null);
   const [searchQueries, setSearchQueries] = useState<{[key: number]: string}>({});
@@ -125,15 +125,15 @@ const getCellValue = (row: T, col: TableColumn<T>, rowIndex: number): string => 
       {hasSearchableColumns && activeSearchColumn !== null && (
         <div className={searchContainerClassName}>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-text-secondary">
               Search in "{columns[activeSearchColumn].header}":
             </span>
             <input
               type="text"
               value={searchQueries[activeSearchColumn] || ""}
-              onChange={(e) => setSearchQueries(prev => ({ 
-                ...prev, 
-                [activeSearchColumn]: e.target.value 
+              onChange={(e) => setSearchQueries(prev => ({
+                ...prev,
+                [activeSearchColumn]: e.target.value
               }))}
               onKeyDown={(e) => handleKeyPress(e, activeSearchColumn)}
               className={searchInputClassName}
@@ -142,25 +142,25 @@ const getCellValue = (row: T, col: TableColumn<T>, rowIndex: number): string => 
             />
             <button
               onClick={() => handleSearchSubmit(activeSearchColumn)}
-              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 focus:outline-none"
+              className="px-3 py-1 text-sm bg-accent-blue text-white rounded hover:bg-accent-blue-hover focus:outline-none"
             >
               Search
             </button>
             <button
               onClick={() => handleSearchReset(activeSearchColumn)}
-              className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 focus:outline-none"
+              className="px-3 py-1 text-sm bg-btn-secondary text-white rounded hover:bg-btn-secondary-hover focus:outline-none"
             >
               Reset
             </button>
             <button
               onClick={() => setActiveSearchColumn(null)}
-              className="px-2 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 focus:outline-none"
+              className="px-2 py-1 text-sm bg-btn-secondary text-white rounded hover:bg-btn-secondary-hover focus:outline-none"
             >
               ✕
             </button>
           </div>
           {Object.keys(appliedFilters).length > 0 && (
-            <div className="mt-2 text-xs text-gray-600">
+            <div className="mt-2 text-xs text-text-secondary">
               Active filters: {Object.entries(appliedFilters).map(([colIndex, query]) => 
                 `${columns[parseInt(colIndex)].header}: "${query}"`
               ).join(', ')}
@@ -175,7 +175,7 @@ const getCellValue = (row: T, col: TableColumn<T>, rowIndex: number): string => 
             {columns.map((col, colIndex) => (
               <th
                 key={colIndex}
-                className={`px-4 py-3 text-left ${col.headerClassName || "font-semibold text-gray-800"}`}
+                className={`px-4 py-3 text-left ${col.headerClassName || "font-semibold text-text-primary"}`}
               >
                 <div className="flex items-center justify-between">
                   <span>{col.header}</span>
@@ -186,7 +186,7 @@ const getCellValue = (row: T, col: TableColumn<T>, rowIndex: number): string => 
                         appliedFilters[colIndex] ? '' : ''
                       } ${activeSearchColumn === colIndex ? '' : ''}`}
                     >
-                      <img src={searchIcon} alt="Search" />
+                      <img src={searchIcon} alt="Search" className="icon-adaptive" />
                     </button>
                   )}
                 </div>
@@ -203,7 +203,7 @@ const getCellValue = (row: T, col: TableColumn<T>, rowIndex: number): string => 
               {columns.map((col, colIndex) => (
                 <td
                   key={colIndex}
-                  className={`px-4 py-3 align-middle ${col.className || "text-gray-700"}`}
+                  className={`px-4 py-3 align-middle ${col.className || "text-text-secondary"}`}
                 >
                   {col.render
                     ? col.render(row, rowIndex)
@@ -218,7 +218,7 @@ const getCellValue = (row: T, col: TableColumn<T>, rowIndex: number): string => 
       </table>
       
       {filteredData.length === 0 && data.length > 0 && (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-text-secondary">
           No results found. Try adjusting your search.
         </div>
       )}

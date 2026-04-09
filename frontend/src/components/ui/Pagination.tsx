@@ -24,13 +24,13 @@ export const PageSizeSelector: React.FC<PageSizeSelectorProps> = ({
   label = "Rows per page:",
 }) => {
   return (
-    <div className={`flex items-center gap-2 text-xs text-gray-600 ${className}`}>
+    <div className={`flex items-center gap-2 text-xs text-text-secondary ${className}`}>
       <span>{label}</span>
       <select
         value={pageSize}
         onChange={(e) => onPageSizeChange(Number(e.target.value))}
         disabled={disabled}
-        className={`px-2 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+        className={`px-2 py-1 border border-border-default rounded text-xs bg-surface-primary text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-blue ${
           disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
         }`}
       >
@@ -128,7 +128,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           />
         )}
         {showPageInfo && totalItems !== undefined && (
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-text-tertiary">
             {startItem !== null && endItem !== null
               ? `Showing ${startItem}-${endItem} of ${totalItems}`
               : `${totalItems} total`}
@@ -144,8 +144,8 @@ export const Pagination: React.FC<PaginationProps> = ({
           disabled={disabled || currentPage === 1}
           className={`px-2 py-1 text-xs rounded border ${
             currentPage === 1 || disabled
-              ? "border-gray-200 text-gray-300 cursor-not-allowed"
-              : "border-gray-300 text-gray-600 hover:bg-gray-100"
+              ? "border-border-subtle text-text-tertiary cursor-not-allowed"
+              : "border-border-default text-text-secondary hover:bg-surface-tertiary"
           }`}
           aria-label="Previous page"
         >
@@ -155,7 +155,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         {/* Page numbers */}
         {getPageNumbers().map((page, index) =>
           page === "..." ? (
-            <span key={`ellipsis-${index}`} className="px-2 py-1 text-xs text-gray-400">
+            <span key={`ellipsis-${index}`} className="px-2 py-1 text-xs text-text-tertiary">
               ...
             </span>
           ) : (
@@ -165,10 +165,10 @@ export const Pagination: React.FC<PaginationProps> = ({
               disabled={disabled}
               className={`px-2.5 py-1 text-xs rounded border ${
                 currentPage === page
-                  ? "border-blue-500 bg-blue-500 text-white"
+                  ? "border-accent-blue bg-accent-blue text-white"
                   : disabled
-                  ? "border-gray-200 text-gray-300 cursor-not-allowed"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                  ? "border-border-subtle text-text-tertiary cursor-not-allowed"
+                  : "border-border-default text-text-secondary hover:bg-surface-tertiary"
               }`}
               aria-current={currentPage === page ? "page" : undefined}
             >
@@ -183,8 +183,8 @@ export const Pagination: React.FC<PaginationProps> = ({
           disabled={disabled || currentPage === totalPages}
           className={`px-2 py-1 text-xs rounded border ${
             currentPage === totalPages || disabled
-              ? "border-gray-200 text-gray-300 cursor-not-allowed"
-              : "border-gray-300 text-gray-600 hover:bg-gray-100"
+              ? "border-border-subtle text-text-tertiary cursor-not-allowed"
+              : "border-border-default text-text-secondary hover:bg-surface-tertiary"
           }`}
           aria-label="Next page"
         >
@@ -221,14 +221,14 @@ export const LoadMoreButton: React.FC<LoadMoreButtonProps> = ({
   return (
     <div className={`flex flex-col items-center gap-2 py-3 ${className}`}>
       {totalCount !== undefined && (
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-text-tertiary">
           Showing {loadedCount} of {totalCount}
         </span>
       )}
       <button
         onClick={onClick}
         disabled={loading}
-        className="px-4 py-1.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors disabled:opacity-50"
+        className="px-4 py-1.5 text-xs text-text-secondary bg-surface-tertiary hover:bg-surface-hover rounded-full transition-colors disabled:opacity-50"
       >
         {loading ? "Loading..." : "Load More"}
       </button>

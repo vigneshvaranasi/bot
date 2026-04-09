@@ -122,9 +122,9 @@ const PermissionSetEditModal = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
+      <div className="bg-surface-primary rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-border-default">
+          <h2 className="text-lg font-semibold text-text-primary">
             {isEdit ? "Edit Permission Set" : "Create Permission Set"}
           </h2>
         </div>
@@ -132,56 +132,56 @@ const PermissionSetEditModal = ({
         <div className="p-4 overflow-y-auto flex-1 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Name <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Name <span className="text-danger-text">*</span>
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                className="w-full px-3 py-2 border border-border-strong rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
                 placeholder="e.g., Report Viewer"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Code {!isEdit && <span className="text-red-500">*</span>}
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Code {!isEdit && <span className="text-danger-text">*</span>}
               </label>
               <input
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 disabled={isEdit}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 disabled:bg-gray-100 disabled:text-gray-500"
+                className="w-full px-3 py-2 border border-border-strong rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 disabled:bg-surface-tertiary disabled:text-text-secondary"
                 placeholder="e.g., report_viewer"
               />
               {isEdit && (
-                <p className="text-xs text-gray-500 mt-1">Code cannot be changed</p>
+                <p className="text-xs text-text-secondary mt-1">Code cannot be changed</p>
               )}
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-text-secondary mb-1">
               Description
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+              className="w-full px-3 py-2 border border-border-strong rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
               placeholder="Optional description"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Permissions <span className="text-red-500">*</span>
-              <span className="font-normal text-gray-500 ml-2">
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              Permissions <span className="text-danger-text">*</span>
+              <span className="font-normal text-text-secondary ml-2">
                 ({selectedPermissions.length} selected)
               </span>
             </label>
-            <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
+            <div className="border border-border-default rounded-lg max-h-64 overflow-y-auto">
               {Object.entries(permissionsByCategory).map(([category, perms]) => {
                 const categorySelected = perms.filter((p) =>
                   selectedPermissions.includes(p.code)
@@ -190,9 +190,9 @@ const PermissionSetEditModal = ({
                 const someSelected = categorySelected > 0 && !allSelected;
 
                 return (
-                  <div key={category} className="border-b border-gray-100 last:border-b-0">
+                  <div key={category} className="border-b border-border-subtle last:border-b-0">
                     <div
-                      className="flex items-center gap-2 px-3 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100"
+                      className="flex items-center gap-2 px-3 py-2 bg-surface-secondary cursor-pointer hover:bg-surface-tertiary"
                       onClick={() => handleToggleCategory(category)}
                     >
                       <input
@@ -202,13 +202,13 @@ const PermissionSetEditModal = ({
                           if (el) el.indeterminate = someSelected;
                         }}
                         onChange={() => handleToggleCategory(category)}
-                        className="w-4 h-4 rounded border-gray-300"
+                        className="w-4 h-4 rounded border-border-strong"
                       />
-                      <span className="font-medium text-sm text-gray-800">
+                      <span className="font-medium text-sm text-text-primary">
                         {PERMISSION_CATEGORIES[category as keyof typeof PERMISSION_CATEGORIES] ||
                           category}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-text-secondary">
                         ({categorySelected}/{perms.length})
                       </span>
                     </div>
@@ -216,18 +216,18 @@ const PermissionSetEditModal = ({
                       {perms.map((perm) => (
                         <label
                           key={perm.code}
-                          className="flex items-start gap-2 py-1 cursor-pointer hover:bg-gray-50 rounded"
+                          className="flex items-start gap-2 py-1 cursor-pointer hover:bg-surface-secondary rounded"
                         >
                           <input
                             type="checkbox"
                             checked={selectedPermissions.includes(perm.code)}
                             onChange={() => handleTogglePermission(perm.code)}
-                            className="w-4 h-4 mt-0.5 rounded border-gray-300"
+                            className="w-4 h-4 mt-0.5 rounded border-border-strong"
                           />
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm text-gray-800">{perm.name}</div>
+                            <div className="text-sm text-text-primary">{perm.name}</div>
                             {perm.description && (
-                              <div className="text-xs text-gray-500 truncate">
+                              <div className="text-xs text-text-secondary truncate">
                                 {perm.description}
                               </div>
                             )}
@@ -242,7 +242,7 @@ const PermissionSetEditModal = ({
           </div>
         </div>
 
-        <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+        <div className="p-4 border-t border-border-default flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>
@@ -365,32 +365,32 @@ const PermissionSetsPage = () => {
     {
       header: "Name",
       accessor: "name" as keyof PermissionSet,
-      className: "text-sm text-gray-900 font-medium",
-      headerClassName: "text-sm font-medium text-gray-700",
+      className: "text-sm text-text-primary font-medium",
+      headerClassName: "text-sm font-medium text-text-secondary",
     },
     {
       header: "Code",
       accessor: "code" as keyof PermissionSet,
-      className: "text-sm text-gray-600 font-mono",
-      headerClassName: "text-sm font-medium text-gray-700",
+      className: "text-sm text-text-secondary font-mono",
+      headerClassName: "text-sm font-medium text-text-secondary",
     },
     {
       header: "Permissions",
-      headerClassName: "text-sm font-medium text-gray-700",
-      className: "text-sm text-gray-600",
+      headerClassName: "text-sm font-medium text-text-secondary",
+      className: "text-sm text-text-secondary",
       render: (ps: PermissionSet) => (
         <div className="flex flex-wrap gap-1">
           {ps.permissions.slice(0, 3).map((p) => (
             <span
               key={p.code}
-              className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs"
+              className="px-2 py-0.5 bg-surface-tertiary text-text-secondary rounded text-xs"
               title={p.name}
             >
               {p.code}
             </span>
           ))}
           {ps.permissions.length > 3 && (
-            <span className="px-2 py-0.5 bg-gray-200 text-gray-600 rounded text-xs">
+            <span className="px-2 py-0.5 bg-surface-hover text-text-secondary rounded text-xs">
               +{ps.permissions.length - 3} more
             </span>
           )}
@@ -402,7 +402,7 @@ const PermissionSetsPage = () => {
       ? [
           {
             header: "Actions",
-            headerClassName: "text-sm font-medium text-gray-700",
+            headerClassName: "text-sm font-medium text-text-secondary",
             render: (ps: PermissionSet) => (
               <div className="flex gap-2">
                 {canEdit && (
@@ -438,8 +438,8 @@ const PermissionSetsPage = () => {
           description="Manage permission sets that group related permissions."
         />
         <div className="animate-pulse space-y-4">
-          <div className="h-10 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
+          <div className="h-10 bg-surface-hover rounded w-1/4"></div>
+          <div className="h-64 bg-surface-hover rounded"></div>
         </div>
       </div>
     );
@@ -453,16 +453,16 @@ const PermissionSetsPage = () => {
       />
 
       {error && (
-        <div className="p-3 bg-red-50 text-sm text-red-700 border border-red-200 rounded">
+        <div className="p-3 bg-danger-subtle text-sm text-danger-text border border-danger rounded">
           {error}
         </div>
       )}
 
-      <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+      <section className="border border-border-default rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Permission Sets</h3>
-            <p className="text-xs text-gray-600">
+            <h3 className="text-sm font-semibold text-text-primary">Permission Sets</h3>
+            <p className="text-xs text-text-secondary">
               {permissionSets.length} set(s) configured
             </p>
           </div>
@@ -479,32 +479,32 @@ const PermissionSetsPage = () => {
         </div>
 
         {permissionSets.length === 0 ? (
-          <div className="p-6 text-center text-gray-500 text-sm border border-dashed border-gray-300 rounded-lg bg-gray-50">
+          <div className="p-6 text-center text-text-secondary text-sm border border-dashed border-border-strong rounded-lg bg-surface-secondary">
             No permission sets configured.
           </div>
         ) : (
-          <div className="overflow-x-auto bg-white rounded-lg">
+          <div className="overflow-x-auto bg-surface-primary rounded-lg">
             <ConfigurableTable
               columns={columns}
               data={permissionSets}
               keyExtractor={(ps) => ps.id}
-              headerRowClassName="bg-gray-50"
-              rowClassName="border-t border-gray-200 hover:bg-gray-50"
+              headerRowClassName="bg-surface-secondary"
+              rowClassName="border-t border-border-default hover:bg-surface-secondary"
             />
           </div>
         )}
       </section>
 
-      {/* <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+      {/* <section className="border border-border-default rounded-lg p-4 space-y-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">
+          <h3 className="text-sm font-semibold text-text-primary">
             About Permission Sets
           </h3>
-          <p className="text-xs text-gray-600 mt-1">
+          <p className="text-xs text-text-secondary mt-1">
             Permission sets are groups of permissions that can be assigned to roles.
           </p>
         </div>
-        <div className="text-xs text-gray-600 space-y-2">
+        <div className="text-xs text-text-secondary space-y-2">
           <p>
             Permission sets can be created, modified, and deleted to define specific
             permission combinations for your organization's needs.

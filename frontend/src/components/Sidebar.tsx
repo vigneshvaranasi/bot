@@ -14,6 +14,36 @@ import { ConfirmModal } from "./ui/Modal";
 import { SkeletonChatList } from "./ui/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { usePaginatedChats } from "../hooks/usePaginatedChats";
+import { useTheme } from "../hooks/useTheme";
+
+function ThemeToggleButton() {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <button
+      onClick={toggleTheme}
+      className="hover:bg-surface-hover p-1.5 rounded cursor-pointer"
+      title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+    >
+      {theme === "dark" ? (
+        <svg className="w-5 h-5 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="5" />
+          <line x1="12" y1="1" x2="12" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="23" />
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+          <line x1="1" y1="12" x2="3" y2="12" />
+          <line x1="21" y1="12" x2="23" y2="12" />
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+        </svg>
+      ) : (
+        <svg className="w-5 h-5 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+        </svg>
+      )}
+    </button>
+  );
+}
 
 const CHATS_PAGE_SIZE = 20;
 
@@ -177,7 +207,7 @@ function Sidebar() {
   if (!user) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <p className="text-gray-500">Please log in to view chats.</p>
+        <p className="text-text-secondary">Please log in to view chats.</p>
       </div>
     );
   }
@@ -254,14 +284,14 @@ function Sidebar() {
               />
             </div>
             <button
-              className="p-2 rounded-md hover:bg-gray-200"
+              className="p-2 rounded-md hover:bg-surface-tertiary"
               onClick={() => toggleSidebar()}
               title="Close Sidebar"
             >
               <img
                 src={sidebarImg}
                 alt="Close Sidebar"
-                className="w-7 mt-3 md:mt-0 md:w-6"
+                className="w-7 mt-3 md:mt-0 md:w-6 icon-adaptive"
               />
             </button>
           </div>
@@ -280,7 +310,7 @@ function Sidebar() {
             {showSidebarLoading && chats.length === 0 ? (
               <SkeletonChatList count={6} />
             ) : filteredChats.length === 0 ? (
-              <div className="text-gray-400 text-center mt-8">
+              <div className="text-text-tertiary text-center mt-8">
                 No chats found.
               </div>
             ) : (
@@ -298,7 +328,7 @@ function Sidebar() {
                         handleLinkClick();
                       }}
                     >
-                      <div className="text-xs text-[#5c5c5c]">
+                      <div className="text-xs text-text-muted">
                         {chat.date
                           ? new Date(chat.date).toLocaleDateString("en-US", {
                               year: "numeric",
@@ -311,7 +341,7 @@ function Sidebar() {
                         {editingChatId === chat.chatId ? (
                           <input
                             ref={editingInputRef}
-                            className="truncate bg-white border border-gray-300 rounded px-1"
+                            className="truncate bg-surface-primary border border-border-default text-text-primary rounded px-1"
                             value={editingTitle}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -343,20 +373,20 @@ function Sidebar() {
                             e.stopPropagation();
                             setActiveMenu(activeMenu === chat.chatId ? null : chat.chatId);
                           }}
-                          className={`p-1 rounded-md hover:bg-gray-300 transition-opacity ${
+                          className={`p-1 rounded-md hover:bg-surface-hover transition-opacity ${
                             currentChat?.chatId === chat.chatId
                               ? "opacity-70"
                               : "opacity-0 group-hover:opacity-100"
                           }`}
                         >
-                          <img src={threeDotsIcon} alt="" className="w-5 max-w-5" />
+                          <img src={threeDotsIcon} alt="" className="w-5 max-w-5 icon-adaptive" />
                         </button>
                       </div>
                     </Link>
                     {activeMenu === chat.chatId && (
-                      <div ref={menuRef} className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-dropdown p-1 min-w-[140px] z-10">
+                      <div ref={menuRef} className="absolute right-0 top-full mt-1 bg-surface-primary border border-border-default rounded-lg shadow-dropdown p-1 min-w-[140px] z-10">
                         <button
-                          className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 w-full text-left rounded-md rounded-tl-md rounded-tr-md"
+                          className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-surface-tertiary w-full text-left rounded-md rounded-tl-md rounded-tr-md"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -369,12 +399,12 @@ function Sidebar() {
                           <img
                             src={editPencilIcon}
                             alt="Edit"
-                            className="w-4"
+                            className="w-4 icon-adaptive"
                           />
                           Rename
                         </button>
                         <button
-                          className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 w-full text-left rounded-md rounded-bl-md rounded-br-md"
+                          className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-surface-tertiary w-full text-left rounded-md rounded-bl-md rounded-br-md"
                           onClick={() => {
                             setArchiveModalChatId(chat.chatId);
                             setActiveMenu(null);
@@ -383,7 +413,7 @@ function Sidebar() {
                           <img
                             src={archiveIcon}
                             alt="Archive"
-                            className="w-4"
+                            className="w-4 icon-adaptive"
                           />
                           Archive
                         </button>
@@ -400,7 +430,7 @@ function Sidebar() {
                 {/* Loading indicator for loading more chats */}
                 {!searchInput && chatsPagination.isLoadingMore && (
                   <div className="flex justify-center py-3">
-                    <div className="flex items-center gap-2 text-gray-500 text-sm">
+                    <div className="flex items-center gap-2 text-text-secondary text-sm">
                       <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -413,25 +443,26 @@ function Sidebar() {
             )}
           </div>
           <div className="flex-shrink-0 safe-area-bottom">
-            <div className="flex bg-surface-tertiary border border-border-subtle m-4 mb-2 p-2 rounded-lg items-center justify-between">
+            <div className="flex bg-surface-primary border border-border-default m-4 mb-2 p-2 rounded-lg items-center justify-between">
               <div className="flex items-center gap-2">
                 <div
-                  className="w-8 h-8 rounded-full bg-gray-600 text-text-inverse flex items-center justify-center text-xs font-semibold select-none"
+                  className="w-8 h-8 rounded-full bg-surface-hover text-text-primary flex items-center justify-center text-xs font-semibold select-none"
                   title={user?.email || "Guest"}
                 >
                   {(user?.email || "GU").slice(0, 2).toUpperCase()}
                 </div>
                 <p>{user?.email.split("@")[0] || "Guest"}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <Link to="/settings" className="hover:bg-gray-300 p-1.5 rounded cursor-pointer" title="Settings">
-                  <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <div className="flex items-center gap-1">
+                <ThemeToggleButton />
+                <Link to="/settings" className="hover:bg-surface-hover p-1.5 rounded cursor-pointer" title="Settings">
+                  <svg className="w-5 h-5 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="3" />
                     <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
                   </svg>
                 </Link>
-                <button onClick={handleLogout} className="hover:bg-gray-300 p-1.5 rounded cursor-pointer" title="Logout">
-                  <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <button onClick={handleLogout} className="hover:bg-surface-hover p-1.5 rounded cursor-pointer" title="Logout">
+                  <svg className="w-5 h-5 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
                     <polyline points="16 17 21 12 16 7" />
                     <line x1="21" y1="12" x2="9" y2="12" />
@@ -445,11 +476,11 @@ function Sidebar() {
         <div className="flex flex-1 flex-col justify-between items-center gap-2 py-2">
           <div className="flex items-center flex-col">
             <button
-              className="p-2 rounded-md hover:bg-gray-200 cursor-pointer"
+              className="p-2 rounded-md hover:bg-surface-tertiary cursor-pointer"
               onClick={() => toggleSidebar()}
               title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
             >
-              <img src={sidebarImg} alt="Close Sidebar" className="w-6" />
+              <img src={sidebarImg} alt="Close Sidebar" className="w-6 icon-adaptive" />
             </button>
             <Link
               to={"/"}
@@ -462,13 +493,14 @@ function Sidebar() {
               </svg>
             </Link>
           </div>
-          <div className="flex-shrink-0 safe-area-bottom pb-2">
+          <div className="flex flex-col items-center gap-1 flex-shrink-0 safe-area-bottom pb-2">
+            <ThemeToggleButton />
             <Link
               to="/settings"
-              className="p-2 rounded-md hover:bg-gray-200 block"
+              className="p-2 rounded-md hover:bg-surface-tertiary block"
               title="Settings"
             >
-              <svg className="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <svg className="w-5 h-5 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3" />
                 <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
               </svg>

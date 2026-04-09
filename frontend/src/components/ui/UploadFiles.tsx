@@ -170,23 +170,23 @@ const UploadFiles = ({
   };
 
   // Outer wrappers → compact mode removes the big vertical space
-  const outerWrap = compact ? "min-h-0 p-0 bg-transparent" : "min-h-screen bg-gray-50 p-6";
+  const outerWrap = compact ? "min-h-0 p-0 bg-transparent" : "min-h-screen bg-surface-secondary p-6";
   const widthWrap = compact ? "" : "max-w-4xl mx-auto";
 
-  const cardClasses = "bg-white";
+  const cardClasses = "bg-surface-primary";
 
   const Card = (
     <div className={cardClasses}>
-      <h1 className="text-xl text-black mb-4">Upload files</h1>
+      <h1 className="text-xl text-text-primary mb-4">Upload files</h1>
 
-      <p className="text-sm text-black mb-6">
+      <p className="text-sm text-text-primary mb-6">
         Please drag and drop file(s) in the below area; or browse files by using the button.
       </p>
 
       {/* Upload Area */}
       <div
         className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
-          isDragOver ? "border-blue-400 bg-blue-50" : "border-gray-300 bg-gray-50"
+          isDragOver ? "border-accent-blue bg-info-subtle" : "border-border-strong bg-surface-primary"
         }`}
         onDragEnter={handleDragOver}
         onDragOver={handleDragOver}
@@ -200,13 +200,13 @@ const UploadFiles = ({
           </svg>
         </div>
 
-        <p className="text-base text-black mb-4">Drop files here or</p>
+        <p className="text-base text-text-primary mb-4">Drop files here or</p>
 
         <Button variant="secondary" size="sm" onClick={handleBrowseClick} className="mb-4">
           Browse Files
         </Button>
 
-        <p className="text-xs text-black">
+        <p className="text-xs text-text-primary">
           Files must be in
           {supportedFileTypes?.map((type: string, index: number) => (
             <span key={type} className="font-medium">
@@ -236,7 +236,7 @@ const UploadFiles = ({
       {/* Upload Progress */}
       {totalCount > 0 && (
         <div className="mt-6">
-          <p className="text-base text-black mb-4">
+          <p className="text-base text-text-primary mb-4">
             {uploadedCount} out of {totalCount} files uploaded
             {maxFiles && ` (max ${maxFiles})`}
           </p>
@@ -246,13 +246,13 @@ const UploadFiles = ({
             {localFiles.map((file) => (
               <div
                 key={file.id}
-                className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-gray-50"
+                className="flex items-center justify-between p-3 border border-border-default rounded-lg bg-surface-secondary"
               >
                 <div className="flex items-center space-x-3">
                       {/* Success checkmark */}
                   {file.uploaded && (
                     <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="h-5 w-5 text-success-text" fill="currentColor" viewBox="0 0 20 20">
                         <path
                           fillRule="evenodd"
                           d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -263,15 +263,15 @@ const UploadFiles = ({
                   )}
 
                   <div>
-                    <p className="text-sm text-black">{file.name}</p>
-                    <p className="text-xs text-black">{formatFileSize(file.size)}</p>
+                    <p className="text-sm text-text-primary">{file.name}</p>
+                    <p className="text-xs text-text-primary">{formatFileSize(file.size)}</p>
                   </div>
                 </div>
 
                     {/* Remove button */}
                 <button
                   onClick={() => removeFile(file.id)}
-                  className="text-gray-400 hover:text-red-500 transition-colors"
+                  className="text-text-tertiary hover:text-danger-text transition-colors"
                   title="Remove file"
                 >
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

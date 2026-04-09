@@ -94,70 +94,70 @@ const RoleEditModal = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
+      <div className="bg-surface-primary rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-border-default">
+          <h2 className="text-lg font-semibold text-text-primary">
             {isEdit ? "Edit Role" : "Create Role"}
           </h2>
         </div>
 
         <div className="p-4 overflow-y-auto flex-1 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Name <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Name <span className="text-danger-text">*</span>
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+              className="w-full px-3 py-2 border border-border-strong rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
               placeholder="e.g., Report Manager"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-text-secondary mb-1">
               Description
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+              className="w-full px-3 py-2 border border-border-strong rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
               placeholder="Optional description of this role's purpose"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Permission Sets <span className="text-red-500">*</span>
-              <span className="font-normal text-gray-500 ml-2">
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              Permission Sets <span className="text-danger-text">*</span>
+              <span className="font-normal text-text-secondary ml-2">
                 ({selectedPermissionSets.length} selected)
               </span>
             </label>
-            <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
+            <div className="border border-border-default rounded-lg max-h-64 overflow-y-auto">
               {allPermissionSets.length === 0 ? (
-                <div className="p-4 text-sm text-gray-500 text-center">
+                <div className="p-4 text-sm text-text-secondary text-center">
                   No permission sets available
                 </div>
               ) : (
                 allPermissionSets.map((ps) => (
                   <label
                     key={ps.id}
-                    className="flex items-start gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                    className="flex items-start gap-3 px-3 py-2 hover:bg-surface-secondary cursor-pointer border-b border-border-subtle last:border-b-0"
                   >
                     <input
                       type="checkbox"
                       checked={selectedPermissionSets.includes(ps.code)}
                       onChange={() => handleTogglePermissionSet(ps.code)}
-                      className="w-4 h-4 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="w-4 h-4 mt-0.5 rounded border-border-strong text-accent-blue focus:ring-accent-blue"
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-text-primary">
                         {ps.name}
                       </div>
                       {ps.description && (
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-text-secondary">
                           {ps.description}
                         </div>
                       )}
@@ -165,13 +165,13 @@ const RoleEditModal = ({
                         {ps.permissions.slice(0, 3).map((p) => (
                           <span
                             key={p.code}
-                            className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs"
+                            className="px-1.5 py-0.5 bg-surface-tertiary text-text-secondary rounded text-xs"
                           >
                             {p.code}
                           </span>
                         ))}
                         {ps.permissions.length > 3 && (
-                          <span className="px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded text-xs">
+                          <span className="px-1.5 py-0.5 bg-surface-hover text-text-secondary rounded text-xs">
                             +{ps.permissions.length - 3} more
                           </span>
                         )}
@@ -184,7 +184,7 @@ const RoleEditModal = ({
           </div>
         </div>
 
-        <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+        <div className="p-4 border-t border-border-default flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>
@@ -313,32 +313,32 @@ const RoleManagement = () => {
     {
       header: "Name",
       accessor: "name" as keyof Role,
-      className: "text-sm text-gray-900 font-medium",
-      headerClassName: "text-sm font-medium text-gray-700",
+      className: "text-sm text-text-primary font-medium",
+      headerClassName: "text-sm font-medium text-text-secondary",
     },
     {
       header: "Description",
       accessor: "description" as keyof Role,
-      className: "text-sm text-gray-600",
-      headerClassName: "text-sm font-medium text-gray-700",
+      className: "text-sm text-text-secondary",
+      headerClassName: "text-sm font-medium text-text-secondary",
       render: (role: Role) => role.description || "-",
     },
     {
       header: "Permission Sets",
-      headerClassName: "text-sm font-medium text-gray-700",
-      className: "text-sm text-gray-600",
+      headerClassName: "text-sm font-medium text-text-secondary",
+      className: "text-sm text-text-secondary",
       render: (role: Role) => (
         <div className="flex flex-wrap gap-1">
           {role.permission_sets.slice(0, 3).map((ps) => (
             <span
               key={ps.id}
-              className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs"
+              className="px-2 py-0.5 bg-surface-tertiary text-text-secondary rounded text-xs"
             >
               {ps.name}
             </span>
           ))}
           {role.permission_sets.length > 3 && (
-            <span className="px-2 py-0.5 bg-gray-200 text-gray-600 rounded text-xs">
+            <span className="px-2 py-0.5 bg-surface-hover text-text-secondary rounded text-xs">
               +{role.permission_sets.length - 3} more
             </span>
           )}
@@ -350,7 +350,7 @@ const RoleManagement = () => {
       ? [
           {
             header: "Actions",
-            headerClassName: "text-sm font-medium text-gray-700",
+            headerClassName: "text-sm font-medium text-text-secondary",
             render: (role: Role) => (
               <div className="flex gap-2">
                 {canEdit && canViewPermissionSets && (
@@ -386,8 +386,8 @@ const RoleManagement = () => {
           description="Manage roles and their permission sets."
         />
         <div className="animate-pulse space-y-4">
-          <div className="h-10 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
+          <div className="h-10 bg-surface-hover rounded w-1/4"></div>
+          <div className="h-64 bg-surface-hover rounded"></div>
         </div>
       </div>
     );
@@ -401,24 +401,24 @@ const RoleManagement = () => {
       />
 
       {error && (
-        <div className="p-3 bg-red-50 text-sm text-red-700 border border-red-200 rounded">
+        <div className="p-3 bg-danger-subtle text-sm text-danger-text border border-danger rounded">
           {error}
         </div>
       )}
 
       {!canViewPermissionSets && (canCreate || canEdit) && (
-        <div className="p-3 bg-yellow-50 text-sm text-yellow-800 border border-yellow-200 rounded">
+        <div className="p-3 bg-warning-subtle text-sm text-warning-text border border-warning-border rounded">
           You have role management permissions but cannot view permission sets.
           Create/Edit functionality is limited. Contact an administrator to grant you the
           "permission_set.view" permission.
         </div>
       )}
 
-      <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+      <section className="border border-border-default rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Roles</h3>
-            <p className="text-xs text-gray-600">
+            <h3 className="text-sm font-semibold text-text-primary">Roles</h3>
+            <p className="text-xs text-text-secondary">
               {roles.length} role(s) configured
             </p>
           </div>
@@ -435,48 +435,48 @@ const RoleManagement = () => {
         </div>
 
         {roles.length === 0 ? (
-          <div className="p-6 text-center text-gray-500 text-sm rounded-lg bg-gray-50 border border-gray-200">
+          <div className="p-6 text-center text-text-secondary text-sm rounded-lg bg-surface-secondary border border-border-default">
             No roles configured.
           </div>
         ) : (
-          <div className="overflow-x-auto bg-white rounded-lg shadow-sm">
+          <div className="overflow-x-auto bg-surface-primary rounded-lg shadow-sm">
             <ConfigurableTable
               columns={columns}
               data={roles}
               keyExtractor={(role) => role.id}
-              headerRowClassName="bg-gray-50"
-              rowClassName="border-t border-gray-200 hover:bg-gray-50"
+              headerRowClassName="bg-surface-secondary"
+              rowClassName="border-t border-border-default hover:bg-surface-secondary"
             />
           </div>
         )}
       </section>
 
-      {/* <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+      {/* <section className="border border-border-default rounded-lg p-4 space-y-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">
+          <h3 className="text-sm font-semibold text-text-primary">
             Permission Hierarchy
           </h3>
         </div>
-        <div className="flex flex-wrap gap-4 text-xs text-gray-600">
+        <div className="flex flex-wrap gap-4 text-xs text-text-secondary">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">
+            <span className="px-2 py-1 bg-info-subtle text-info-text rounded">
               Permissions
             </span>
             <span>&rarr;</span>
-            <span className="px-2 py-1 bg-green-100 text-green-700 rounded">
+            <span className="px-2 py-1 bg-success-subtle text-success-text rounded">
               Permission Sets
             </span>
             <span>&rarr;</span>
-            <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded">
+            <span className="px-2 py-1 bg-surface-tertiary text-text-primary rounded">
               Roles
             </span>
             <span>&rarr;</span>
-            <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded">
+            <span className="px-2 py-1 bg-warning-subtle text-warning-text rounded">
               Users
             </span>
           </div>
         </div>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-text-secondary">
           Users can have multiple roles. Their effective permissions are the
           union of all permissions from all assigned roles.
         </p>

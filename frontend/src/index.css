@@ -8,8 +8,8 @@ body,
 }
 
 body {
-  color: var(--color-appblack);
-  background-color: var(--color-appgray);
+  color: var(--color-text-primary);
+  background-color: var(--color-surface-secondary);
   width: 100%;
   margin: 0;
 }
@@ -26,6 +26,8 @@ body {
   --color-surface-secondary: #f9fafb;
   --color-surface-tertiary: #f3f4f6;
   --color-surface-sidebar: #f5f6f7;
+  --color-surface-hover: #e5e7eb;
+  --color-surface-overlay: #ffffff;
 
   /* Borders */
   --color-border-default: #e5e7eb;
@@ -37,16 +39,39 @@ body {
   --color-text-secondary: #6b7280;
   --color-text-tertiary: #9ca3af;
   --color-text-inverse: #ffffff;
+  --color-text-muted: #5c5c5c;
 
   /* Interactive */
   --color-accent: #374151;
   --color-accent-hover: #1f2937;
   --color-accent-subtle: #f3f4f6;
+  --color-accent-blue: #2563eb;
+  --color-accent-blue-hover: #1d4ed8;
+  --color-accent-purple: #7c3aed;
+  --color-accent-purple-hover: #6d28d9;
+
+  /* Button-specific (match base feedback tokens in light) */
+  --color-btn-secondary: #6b7280;
+  --color-btn-secondary-hover: #121212;
+  --color-btn-success: #059669;
+  --color-btn-success-hover: #047857;
+  --color-btn-danger: #dc2626;
+  --color-btn-danger-hover: #b91c1c;
 
   /* Feedback */
   --color-success: #059669;
+  --color-success-subtle: #d1fae5;
+  --color-success-text: #065f46;
   --color-danger: #dc2626;
+  --color-danger-subtle: #fef2f2;
+  --color-danger-text: #991b1b;
   --color-warning: #d97706;
+  --color-warning-subtle: #fffbeb;
+  --color-warning-text: #92400e;
+  --color-warning-border: #fde68a;
+  --color-info-subtle: #eff6ff;
+  --color-info-border: #bfdbfe;
+  --color-info-text: #1e40af;
 
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -59,6 +84,79 @@ body {
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
+}
+
+/* ── Dark Mode  (zinc-based, ShadCN-inspired) ──────────── */
+.dark {
+  --color-appgray: #0c0c0e;
+  --color-appblack: #ececef;
+  --color-bubblegray: #232327;
+  --color-bubbleblue: #3b82f6;
+
+  /* Surfaces — lifted from pure black for a softer feel */
+  --color-surface-primary: #18181b;   /* zinc-900  – cards, modals   */
+  --color-surface-secondary: #101012; /* page background (softer)    */
+  --color-surface-tertiary: #27272a;  /* zinc-800  – muted areas     */
+  --color-surface-sidebar: #131316;
+  --color-surface-hover: #3f3f46;     /* zinc-700  – hover states    */
+  --color-surface-overlay: #18181b;
+
+  /* Borders */
+  --color-border-default: #2a2a2e;    /* slightly visible dividers   */
+  --color-border-subtle: #1e1e22;
+  --color-border-strong: #3f3f46;     /* zinc-700 */
+
+  /* Text — toned down from pure white to reduce contrast glare */
+  --color-text-primary: #ececef;
+  --color-text-secondary: #a1a1aa;    /* zinc-400 */
+  --color-text-tertiary: #71717a;     /* zinc-500 */
+  --color-text-inverse: #0c0c0e;
+  --color-text-muted: #a1a1aa;        /* zinc-400 */
+
+  /* Interactive */
+  --color-accent: #e4e4e7;            /* zinc-200  – toned-down primary */
+  --color-accent-hover: #d4d4d8;      /* zinc-300  – darkens on hover  */
+  --color-accent-subtle: #27272a;
+  --color-accent-blue: #3b82f6;       /* blue-500 */
+  --color-accent-blue-hover: #60a5fa; /* blue-400 */
+  --color-accent-purple: #7c3aed;     /* violet-600 — same as light */
+  --color-accent-purple-hover: #6d28d9; /* violet-700 */
+
+  /* Button-specific — real colors so buttons stay vivid */
+  --color-btn-secondary: #3f3f46;     /* zinc-700 */
+  --color-btn-secondary-hover: #52525b; /* zinc-600 */
+  --color-btn-success: #059669;       /* emerald-600 */
+  --color-btn-success-hover: #047857; /* emerald-700 */
+  --color-btn-danger: #dc2626;        /* red-600 */
+  --color-btn-danger-hover: #b91c1c;  /* red-700 */
+
+  /* Feedback — zinc-tinted bgs (~10%), color-900 borders, 400 text */
+  --color-success: #1a3329;           /* muted green border */
+  --color-success-subtle: #1c2621;    /* zinc-900 + 10% green */
+  --color-success-text: #4ade80;      /* green-400 */
+  --color-danger: #3b2024;            /* muted red border */
+  --color-danger-subtle: #261c1e;     /* zinc-900 + 10% red */
+  --color-danger-text: #f87171;       /* red-400 */
+  --color-warning: #3b3020;           /* muted amber border */
+  --color-warning-subtle: #26231c;    /* zinc-900 + 10% amber */
+  --color-warning-text: #fbbf24;      /* amber-400 */
+  --color-warning-border: #3b3020;
+  --color-info-subtle: #1c2130;       /* zinc-900 + 10% blue */
+  --color-info-border: #1e2d4a;       /* muted blue border */
+  --color-info-text: #60a5fa;         /* blue-400 */
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.25);
+  --shadow-input: 0 1px 2px 0 rgb(0 0 0 / 0.25);
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.25);
+  --shadow-dropdown: 0 4px 6px -1px rgb(0 0 0 / 0.35), 0 2px 4px -2px rgb(0 0 0 / 0.25);
+
+  color-scheme: dark;
+}
+
+/* Invert SVG icons loaded via <img> in dark mode so currentColor (black) becomes visible */
+.dark .icon-adaptive {
+  filter: invert(1) brightness(0.95);
 }
 
 @keyframes spinner-fade {
@@ -101,11 +199,11 @@ body {
 .shimmer-text {
   background: linear-gradient(
     90deg,
-    #6b7280 0%,
-    #6b7280 40%,
-    #9ca3af 50%,
-    #6b7280 60%,
-    #6b7280 100%
+    var(--color-text-secondary) 0%,
+    var(--color-text-secondary) 40%,
+    var(--color-text-tertiary) 50%,
+    var(--color-text-secondary) 60%,
+    var(--color-text-secondary) 100%
   );
   background-size: 200% 100%;
   -webkit-background-clip: text;

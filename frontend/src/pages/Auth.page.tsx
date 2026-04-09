@@ -111,21 +111,21 @@ const AuthPage = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-        <h1 className="text-2xl font-semibold text-center text-gray-900">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-surface-secondary">
+      <div className="w-full max-w-md p-8 space-y-6 bg-surface-primary rounded-lg shadow-card">
+        <h1 className="text-2xl font-semibold text-center text-text-primary">
           Log in or Sign up
         </h1>
         <div className="space-y-3">
           {!fetchingProviders && providers.length === 0 && (
-            <div className="text-center text-gray-500 py-4">
+            <div className="text-center text-text-secondary py-4">
               No authentication methods enabled.
             </div>
           )}
           {providers.includes("google") && (
             <Button
               onClick={() => handleOAuthLogin("google")}
-              className="w-full flex justify-center items-center gap-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
+              className="w-full flex justify-center items-center gap-3 bg-surface-primary text-text-secondary border border-border-default hover:bg-surface-tertiary transition-colors"
             >
               <img src={GoogleIcon} alt="Google" className="w-5 h-5" />
               <span>Continue with Google</span>
@@ -134,16 +134,16 @@ const AuthPage = () => {
           {providers.includes("github") && (
             <Button
               onClick={() => handleOAuthLogin("github")}
-              className="w-full flex justify-center items-center gap-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
+              className="w-full flex justify-center items-center gap-3 bg-surface-primary text-text-secondary border border-border-default hover:bg-surface-tertiary transition-colors"
             >
-              <img src={GithubIcon} alt="GitHub" className="w-5 h-5" />
+              <img src={GithubIcon} alt="GitHub" className="w-5 h-5 icon-adaptive" />
               <span>Continue with GitHub</span>
             </Button>
           )}
           {providers.includes("microsoft") && (
             <Button
               onClick={() => handleOAuthLogin("microsoft")}
-              className="w-full flex justify-center items-center gap-3 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
+              className="w-full flex justify-center items-center gap-3 bg-surface-primary text-text-secondary border border-border-default hover:bg-surface-tertiary transition-colors"
             >
               <img src={MicrosoftIcon} alt="Microsoft" className="w-5 h-5" />
               <span>Continue with Microsoft</span>
@@ -154,10 +154,10 @@ const AuthPage = () => {
         {providers.includes("local") && providers.some(p => ["google", "github", "microsoft"].includes(p)) && (
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
+              <div className="w-full border-t border-border-default"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">OR</span>
+              <span className="px-2 bg-surface-primary text-text-secondary">OR</span>
             </div>
           </div>
         )}
@@ -187,7 +187,7 @@ const AuthPage = () => {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full !bg-gray-900 hover:!bg-gray-800 !text-white font-medium py-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full !bg-accent hover:!bg-accent-hover !text-text-inverse font-medium py-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Loading..." : "Continue"}
             </Button>

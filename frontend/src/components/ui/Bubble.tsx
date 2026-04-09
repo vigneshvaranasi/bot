@@ -13,9 +13,9 @@ type BubbleProps = {
 const Bubble = ({ variant = "bot", content, streaming = false, stopped = false, statusMessage }: BubbleProps) => {
   const variantClasses = {
     bot: "border-none bg-transparent max-w-[95%] min-w-0",
-    user: "border border-0.5 border-gray-200 bg-bubblegray max-w-[75%] px-4 py-2.5 rounded-3xl rounded-br-none",
+    user: "border border-border-default bg-bubblegray max-w-[75%] px-4 py-2.5 rounded-3xl rounded-br-none",
   };
-  const defaultClass = "border border-gray-300 text-gray-900";
+  const defaultClass = "border border-border-strong text-text-primary";
   const [renderedContent, setRenderedContent] = useState("");
 
   marked.setOptions({
@@ -92,7 +92,7 @@ const Bubble = ({ variant = "bot", content, streaming = false, stopped = false, 
             <span className="shimmer-text text-base">{statusMessage}</span>
           </div>
         ) : stopped && !content ? (
-          <div className="flex items-center gap-1.5 text-gray-400 text-sm italic">
+          <div className="flex items-center gap-1.5 text-text-tertiary text-sm italic">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
             Response stopped
           </div>
@@ -103,7 +103,7 @@ const Bubble = ({ variant = "bot", content, streaming = false, stopped = false, 
               dangerouslySetInnerHTML={{ __html: renderedContent }}
             />
             {stopped && content && (
-              <div className="mt-2 pt-2 border-t border-gray-200 text-gray-400 text-xs italic">
+              <div className="mt-2 pt-2 border-t border-border-default text-text-tertiary text-xs italic">
                 — Response stopped
               </div>
             )}

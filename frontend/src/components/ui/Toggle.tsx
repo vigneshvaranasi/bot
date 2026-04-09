@@ -17,7 +17,7 @@ const Toggle: React.FC<ToggleProps> = ({ enabled, onChange, label, id, disabled 
       {label && <span>{label}</span>}
 
         <div
-          className={`relative w-[40px] h-[22px] rounded-[2px] p-[2px] bg-white transition-colors duration-200 border-2 ${enabled ? "border-[#1B7F9E]" : "border-[#72777D]"}`}
+          className={`relative w-[40px] h-[22px] rounded-[2px] p-[2px] bg-surface-primary transition-colors duration-200 border-2 ${enabled ? "border-accent-blue" : "border-border-strong"}`}
         >
         <input
           id={id}
@@ -30,7 +30,7 @@ const Toggle: React.FC<ToggleProps> = ({ enabled, onChange, label, id, disabled 
 
           <div
             className={`absolute top-[1px] bottom-[1px] flex items-center justify-center w-4 rounded-[2px] transition-all duration-200
-              ${enabled ? "left-[19px] bg-[#1B7F9E]" : "left-[2px] bg-gray-600"}`}
+              ${enabled ? "left-[19px] bg-accent-blue" : "left-[2px] bg-text-secondary"}`}
           >
           {enabled && (
             <svg

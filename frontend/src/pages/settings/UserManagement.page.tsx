@@ -334,26 +334,26 @@ const UserManagement: React.FC = () => {
     {
       header: "Email",
       accessor: "email" as keyof AdminUser,
-      className: "text-xs md:text-sm text-gray-900",
-      headerClassName: "text-xs md:text-sm font-medium text-gray-700",
+      className: "text-xs md:text-sm text-text-primary",
+      headerClassName: "text-xs md:text-sm font-medium text-text-secondary",
     },
     {
       header: "Roles",
-      headerClassName: "text-xs md:text-sm font-medium text-gray-700",
-      className: "text-xs md:text-sm text-gray-900",
+      headerClassName: "text-xs md:text-sm font-medium text-text-secondary",
+      className: "text-xs md:text-sm text-text-primary",
       render: (user: AdminUser) => (
         <div className="flex flex-wrap gap-1">
           {user.roles.length > 0 ? (
             user.roles.map((role) => (
               <span
                 key={role.role_id}
-                className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs"
+                className="px-2 py-0.5 bg-info-subtle text-info-text rounded text-xs"
               >
                 {role.role_name}
               </span>
             ))
           ) : (
-            <span className="text-gray-400 text-xs">No roles</span>
+            <span className="text-text-tertiary text-xs">No roles</span>
           )}
         </div>
       ),
@@ -384,11 +384,11 @@ const UserManagement: React.FC = () => {
             </Button>
           )}
           {!canEditUser && !canDeleteUser && (
-            <span className="text-xs text-gray-400">View only</span>
+            <span className="text-xs text-text-tertiary">View only</span>
           )}
         </div>
       ),
-      headerClassName: "text-xs md:text-sm font-medium text-gray-700",
+      headerClassName: "text-xs md:text-sm font-medium text-text-secondary",
     },
   ];
 
@@ -412,14 +412,14 @@ const UserManagement: React.FC = () => {
         description="Manage authentication methods, users, roles, and access."
       />
 
-      <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+      <section className="border border-border-default rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-1">
-              <h3 className="text-sm font-semibold text-gray-900">Authentication Methods</h3>
+              <h3 className="text-sm font-semibold text-text-primary">Authentication Methods</h3>
               <InfoHint text="Toggling a provider off prevents all users from creating new login sessions with that method. Existing sessions aren't affected." />
             </div>
-            <p className="text-xs text-gray-600">Toggle available login providers for the org.</p>
+            <p className="text-xs text-text-secondary">Toggle available login providers for the org.</p>
           </div>
           {canEditAuth && (
             <Button variant="blue" size="sm" onClick={handleSaveAuth} disabled={authSaving}>
@@ -431,7 +431,7 @@ const UserManagement: React.FC = () => {
           {authSettingsLoaded ? (
             <>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-900">Basic Authentication</span>
+                <span className="text-sm text-text-primary">Basic Authentication</span>
                 <Toggle
                   enabled={authLocalEnabled}
                   onChange={canEditAuth ? setAuthLocalEnabled : undefined}
@@ -440,7 +440,7 @@ const UserManagement: React.FC = () => {
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-900">Google Authentication</span>
+                <span className="text-sm text-text-primary">Google Authentication</span>
                 <Toggle
                   enabled={authGoogleEnabled}
                   onChange={canEditAuth ? setAuthGoogleEnabled : undefined}
@@ -449,7 +449,7 @@ const UserManagement: React.FC = () => {
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-900">GitHub Authentication</span>
+                <span className="text-sm text-text-primary">GitHub Authentication</span>
                 <Toggle
                   enabled={authGithubEnabled}
                   onChange={canEditAuth ? setAuthGithubEnabled : undefined}
@@ -458,7 +458,7 @@ const UserManagement: React.FC = () => {
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-900">Microsoft Authentication</span>
+                <span className="text-sm text-text-primary">Microsoft Authentication</span>
                 <Toggle
                   enabled={authMicrosoftEnabled}
                   onChange={canEditAuth ? setAuthMicrosoftEnabled : undefined}
@@ -484,26 +484,26 @@ const UserManagement: React.FC = () => {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Search by email"
-          className="w-full sm:max-w-xs rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none focus:ring-0"
+          className="w-full sm:max-w-xs rounded-md border border-border-default px-3 py-2 text-sm focus:border-border-strong focus:outline-none focus:ring-0"
         />
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-text-secondary">
           {showUsersLoading ? "Loading..." : `${totalUsers} users`}
         </div>
       </div>
 
-      <div className="overflow-x-auto bg-white rounded-lg border border-gray-200 shadow-sm">
+      <div className="overflow-x-auto bg-surface-primary rounded-lg border border-border-default shadow-sm">
         {users.length === 0 && !loading && !loadingUsers ? (
-          <div className="p-4 text-sm text-gray-600">No users match this search.</div>
+          <div className="p-4 text-sm text-text-secondary">No users match this search.</div>
         ) : showUsersLoading && users.length === 0 ? (
-          <div className="p-4 text-sm text-gray-400 text-center">Loading users...</div>
+          <div className="p-4 text-sm text-text-tertiary text-center">Loading users...</div>
         ) : (
           <ConfigurableTable
             columns={columns}
             data={users}
             keyExtractor={(user) => user.id}
             tableClassName="min-w-full"
-            headerRowClassName="bg-gray-50 sticky top-0"
-            rowClassName="bg-white border-t border-gray-200 hover:bg-gray-50"
+            headerRowClassName="bg-surface-secondary sticky top-0"
+            rowClassName="bg-surface-primary border-t border-border-default hover:bg-surface-secondary"
           />
         )}
       </div>
@@ -522,15 +522,15 @@ const UserManagement: React.FC = () => {
 
       {isEditModalOpen && editingUser && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl border border-gray-200 max-h-[90vh] flex flex-col">
+          <div className="bg-surface-primary p-6 rounded-lg shadow-xl w-full max-w-2xl border border-border-default max-h-[90vh] flex flex-col">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Edit User Permissions</h2>
-                <p className="text-sm text-gray-600 truncate">{editingUser.email}</p>
+                <h2 className="text-lg font-semibold text-text-primary">Edit User Permissions</h2>
+                <p className="text-sm text-text-secondary truncate">{editingUser.email}</p>
               </div>
               <Button
                 variant="secondary"
-                className="bg-gray-200 text-gray-800 hover:bg-gray-300 px-3 py-1"
+                className="bg-surface-hover text-text-primary hover:bg-surface-tertiary px-3 py-1"
                 onClick={() => setIsEditModalOpen(false)}
               >
                 Close
@@ -538,13 +538,13 @@ const UserManagement: React.FC = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex overflow-x-auto border-b border-gray-200 mb-4">
+            <div className="flex overflow-x-auto border-b border-border-default mb-4">
               <button
                 onClick={() => setActiveTab("roles")}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === "roles"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
+                    ? "border-accent-blue text-accent-blue"
+                    : "border-transparent text-text-secondary hover:text-text-secondary"
                 }`}
               >
                 Roles ({selectedRoleIds.length})
@@ -553,8 +553,8 @@ const UserManagement: React.FC = () => {
                 onClick={() => setActiveTab("permissionSets")}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === "permissionSets"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
+                    ? "border-accent-blue text-accent-blue"
+                    : "border-transparent text-text-secondary hover:text-text-secondary"
                 }`}
               >
                 Direct Sets ({selectedDirectPermissionSetIds.length})
@@ -563,8 +563,8 @@ const UserManagement: React.FC = () => {
                 onClick={() => setActiveTab("permissions")}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === "permissions"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
+                    ? "border-accent-blue text-accent-blue"
+                    : "border-transparent text-text-secondary hover:text-text-secondary"
                 }`}
               >
                 Direct Perms ({selectedDirectPermissionIds.length})
@@ -575,40 +575,40 @@ const UserManagement: React.FC = () => {
             <div className="flex-1 overflow-y-auto min-h-0">
               {loadingDirectPerms ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-                  <span className="ml-2 text-sm text-gray-500">Loading permissions...</span>
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent-blue"></div>
+                  <span className="ml-2 text-sm text-text-secondary">Loading permissions...</span>
                 </div>
               ) : (
                 <>
                   {/* Roles Tab */}
                   {activeTab === "roles" && (
                     <div>
-                      <p className="text-xs text-gray-500 mb-2">
+                      <p className="text-xs text-text-secondary mb-2">
                         Assign roles to this user. Roles grant permission sets.
                       </p>
-                      <div className="border border-gray-200 rounded-lg max-h-72 overflow-y-auto">
+                      <div className="border border-border-default rounded-lg max-h-72 overflow-y-auto">
                         {roles.map((role) => (
                           <label
                             key={role.id}
-                            className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            className="flex items-center gap-3 px-3 py-2 hover:bg-surface-secondary cursor-pointer border-b border-border-subtle last:border-b-0"
                           >
                             <input
                               type="checkbox"
                               checked={selectedRoleIds.includes(role.id)}
                               onChange={() => handleToggleRole(role.id)}
-                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              className="w-4 h-4 rounded border-border-strong text-accent-blue focus:ring-accent-blue"
                             />
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-gray-900">{role.name}</div>
+                              <div className="text-sm font-medium text-text-primary">{role.name}</div>
                               {role.description && (
-                                <div className="text-xs text-gray-500 truncate">{role.description}</div>
+                                <div className="text-xs text-text-secondary truncate">{role.description}</div>
                               )}
                             </div>
                           </label>
                         ))}
                       </div>
                       {selectedRoleIds.length === 0 && (
-                        <p className="text-xs text-red-500 mt-1">At least one role is required</p>
+                        <p className="text-xs text-danger-text mt-1">At least one role is required</p>
                       )}
                     </div>
                   )}
@@ -616,32 +616,32 @@ const UserManagement: React.FC = () => {
                   {/* Permission Sets Tab */}
                   {activeTab === "permissionSets" && (
                     <div>
-                      <p className="text-xs text-gray-500 mb-2">
+                      <p className="text-xs text-text-secondary mb-2">
                         Assign permission sets directly (bypasses roles).
                       </p>
-                      <div className="border border-gray-200 rounded-lg max-h-72 overflow-y-auto">
+                      <div className="border border-border-default rounded-lg max-h-72 overflow-y-auto">
                         {allPermissionSets.length === 0 ? (
-                          <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                          <div className="px-3 py-4 text-sm text-text-secondary text-center">
                             No permission sets available
                           </div>
                         ) : (
                           allPermissionSets.map((permSet) => (
                             <label
                               key={permSet.id}
-                              className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                              className="flex items-center gap-3 px-3 py-2 hover:bg-surface-secondary cursor-pointer border-b border-border-subtle last:border-b-0"
                             >
                               <input
                                 type="checkbox"
                                 checked={selectedDirectPermissionSetIds.includes(permSet.id)}
                                 onChange={() => handleToggleDirectPermissionSet(permSet.id)}
-                                className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                className="w-4 h-4 rounded border-border-strong text-accent-blue focus:ring-accent-blue"
                               />
                               <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium text-gray-900">{permSet.name}</div>
+                                <div className="text-sm font-medium text-text-primary">{permSet.name}</div>
                                 {permSet.description && (
-                                  <div className="text-xs text-gray-500 truncate">{permSet.description}</div>
+                                  <div className="text-xs text-text-secondary truncate">{permSet.description}</div>
                                 )}
-                                <div className="text-xs text-gray-400 mt-0.5">
+                                <div className="text-xs text-text-tertiary mt-0.5">
                                   {permSet.permissions.length} permission{permSet.permissions.length !== 1 ? "s" : ""}
                                 </div>
                               </div>
@@ -655,19 +655,19 @@ const UserManagement: React.FC = () => {
                   {/* Permissions Tab */}
                   {activeTab === "permissions" && (
                     <div>
-                      <p className="text-xs text-gray-500 mb-2">
+                      <p className="text-xs text-text-secondary mb-2">
                         Assign individual permissions directly (bypasses roles and sets).
                       </p>
-                      <div className="border border-gray-200 rounded-lg max-h-72 overflow-y-auto">
+                      <div className="border border-border-default rounded-lg max-h-72 overflow-y-auto">
                         {Object.keys(permissionsByCategory).length === 0 ? (
-                          <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                          <div className="px-3 py-4 text-sm text-text-secondary text-center">
                             No permissions available
                           </div>
                         ) : (
                           Object.entries(permissionsByCategory).map(([category, perms]) => (
-                            <div key={category} className="border-b border-gray-100 last:border-b-0">
+                            <div key={category} className="border-b border-border-subtle last:border-b-0">
                               {/* Category Header */}
-                              <label className="flex items-center gap-3 px-3 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100">
+                              <label className="flex items-center gap-3 px-3 py-2 bg-surface-secondary cursor-pointer hover:bg-surface-tertiary">
                                 <input
                                   type="checkbox"
                                   checked={isCategoryFullySelected(category)}
@@ -675,12 +675,12 @@ const UserManagement: React.FC = () => {
                                     if (el) el.indeterminate = isCategoryPartiallySelected(category);
                                   }}
                                   onChange={() => handleToggleCategory(category)}
-                                  className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                  className="w-4 h-4 rounded border-border-strong text-success-text focus:ring-accent-blue"
                                 />
-                                <span className="text-sm font-medium text-gray-700">
+                                <span className="text-sm font-medium text-text-secondary">
                                   {PERMISSION_CATEGORIES[category as PermissionCategory] || category}
                                 </span>
-                                <span className="text-xs text-gray-400">
+                                <span className="text-xs text-text-tertiary">
                                   ({perms.filter((p) => selectedDirectPermissionIds.includes(p.id)).length}/{perms.length})
                                 </span>
                               </label>
@@ -689,21 +689,21 @@ const UserManagement: React.FC = () => {
                                 {perms.map((perm) => (
                                   <label
                                     key={perm.id}
-                                    className="flex items-center gap-3 px-3 py-1.5 hover:bg-gray-50 cursor-pointer"
+                                    className="flex items-center gap-3 px-3 py-1.5 hover:bg-surface-secondary cursor-pointer"
                                   >
                                     <input
                                       type="checkbox"
                                       checked={selectedDirectPermissionIds.includes(perm.id)}
                                       onChange={() => handleToggleDirectPermission(perm.id)}
-                                      className="w-3.5 h-3.5 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                                      className="w-3.5 h-3.5 rounded border-border-strong text-success-text focus:ring-accent-blue"
                                     />
                                     <div className="flex-1 min-w-0">
-                                      <div className="text-xs font-medium text-gray-800">{perm.name}</div>
+                                      <div className="text-xs font-medium text-text-primary">{perm.name}</div>
                                       {perm.description && (
-                                        <div className="text-xs text-gray-400 truncate">{perm.description}</div>
+                                        <div className="text-xs text-text-tertiary truncate">{perm.description}</div>
                                       )}
                                     </div>
-                                    <code className="text-xs text-gray-400 bg-gray-100 px-1 rounded shrink-0 hidden sm:inline">
+                                    <code className="text-xs text-text-tertiary bg-surface-tertiary px-1 rounded shrink-0 hidden sm:inline">
                                       {perm.code}
                                     </code>
                                   </label>
@@ -720,11 +720,11 @@ const UserManagement: React.FC = () => {
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200">
+            <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-border-default">
               <Button
                 variant="secondary"
                 onClick={() => setIsEditModalOpen(false)}
-                className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+                className="bg-surface-hover text-text-primary hover:bg-surface-tertiary"
               >
                 Cancel
               </Button>

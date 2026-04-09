@@ -28,7 +28,7 @@ export const Skeleton: FC<SkeletonProps> = ({
 
   return (
     <div
-      className={`${shimmer ? "skeleton-shimmer" : "animate-pulse bg-gray-200"} ${roundedClasses[rounded]} ${className}`}
+      className={`${shimmer ? "skeleton-shimmer" : "animate-pulse bg-surface-tertiary"} ${roundedClasses[rounded]} ${className}`}
       style={{
         width: typeof width === "number" ? `${width}px` : width,
         height: typeof height === "number" ? `${height}px` : height,
@@ -78,7 +78,7 @@ export const SkeletonTableRow: FC<SkeletonTableRowProps> = ({
   className = "",
 }) => {
   return (
-    <tr className={`bg-white border-t border-gray-200 ${className}`}>
+    <tr className={`bg-surface-primary border-t border-border-default ${className}`}>
       {Array.from({ length: columns }).map((_, i) => (
         <td key={i} className="px-4 py-3">
           <Skeleton height={16} width={i === 0 ? "80%" : i === columns - 1 ? 60 : "70%"} />
@@ -105,11 +105,11 @@ export const SkeletonTable: FC<SkeletonTableProps> = ({
   className = "",
 }) => {
   return (
-    <div className={`overflow-x-auto bg-white rounded-lg border border-gray-300 ${className}`}>
+    <div className={`overflow-x-auto bg-surface-primary rounded-lg border border-border-strong ${className}`}>
       <table className="min-w-full" style={{ borderSpacing: 0 }}>
         {showHeader && (
           <thead>
-            <tr className="bg-gray-50">
+            <tr className="bg-surface-secondary">
               {Array.from({ length: columns }).map((_, i) => (
                 <th key={i} className="px-4 py-3 text-left">
                   <Skeleton height={14} width={80} />
@@ -209,7 +209,7 @@ export const SkeletonCard: FC<SkeletonCardProps> = ({
   contentLines = 3,
 }) => {
   return (
-    <div className={`border border-gray-200 rounded-lg p-4 space-y-4 ${className}`}>
+    <div className={`border border-border-default rounded-lg p-4 space-y-4 ${className}`}>
       {showHeader && (
         <div className="flex items-center justify-between">
           <Skeleton height={20} width={150} />
@@ -277,7 +277,7 @@ export const SkeletonIntegrationCard: FC<SkeletonIntegrationCardProps> = ({
   className = "",
 }) => {
   return (
-    <div className={`border border-gray-200 rounded-lg p-4 space-y-4 ${className}`}>
+    <div className={`border border-border-default rounded-lg p-4 space-y-4 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -291,13 +291,13 @@ export const SkeletonIntegrationCard: FC<SkeletonIntegrationCardProps> = ({
       </div>
 
       {/* Status section */}
-      <div className="space-y-2 py-2 border-t border-gray-100">
+      <div className="space-y-2 py-2 border-t border-border-subtle">
         <Skeleton height={14} width={100} />
         <Skeleton height={12} width={150} />
       </div>
 
       {/* Config section */}
-      <div className="space-y-3 pt-2 border-t border-gray-100">
+      <div className="space-y-3 pt-2 border-t border-border-subtle">
         <Skeleton height={14} width={80} />
         <Skeleton height={36} width="100%" rounded="lg" />
         <Skeleton height={36} width="100%" rounded="lg" />
@@ -344,7 +344,7 @@ export const SkeletonSection: FC<SkeletonSectionProps> = ({
   hasButton = true,
 }) => {
   return (
-    <div className={`border border-gray-200 rounded-lg p-4 space-y-4 ${className}`}>
+    <div className={`border border-border-default rounded-lg p-4 space-y-4 ${className}`}>
       {/* Section header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
@@ -406,14 +406,14 @@ export const SkeletonMessage: FC<SkeletonMessageProps> = ({
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} ${className}`}>
       <div
         className={`rounded-2xl p-4 space-y-2 ${
-          isUser ? "bg-blue-100 max-w-[70%]" : "bg-gray-100 max-w-[85%]"
+          isUser ? "bg-info-subtle max-w-[70%]" : "bg-surface-tertiary max-w-[85%]"
         }`}
       >
-        <Skeleton height={14} width={isUser ? 150 : 280} shimmer={false} className="bg-gray-200/60" />
+        <Skeleton height={14} width={isUser ? 150 : 280} shimmer={false} className="bg-surface-tertiary/60" />
         {!isUser && (
           <>
-            <Skeleton height={14} width={320} shimmer={false} className="bg-gray-200/60" />
-            <Skeleton height={14} width={200} shimmer={false} className="bg-gray-200/60" />
+            <Skeleton height={14} width={320} shimmer={false} className="bg-surface-tertiary/60" />
+            <Skeleton height={14} width={200} shimmer={false} className="bg-surface-tertiary/60" />
           </>
         )}
       </div>
@@ -456,7 +456,7 @@ export const SkeletonAiMlSettings: FC<SkeletonAiMlSettingsProps> = ({ className 
   return (
     <div className={`space-y-8 ${className}`}>
       {/* Model & Generation section */}
-      <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+      <div className="border border-border-default rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <Skeleton height={18} width={160} />
@@ -477,7 +477,7 @@ export const SkeletonAiMlSettings: FC<SkeletonAiMlSettingsProps> = ({ className 
       </div>
 
       {/* Safety & Observability section */}
-      <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+      <div className="border border-border-default rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <Skeleton height={18} width={180} />
@@ -540,7 +540,7 @@ export const SkeletonAudit: FC<SkeletonAuditProps> = ({ className = "" }) => {
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Settings History section */}
-      <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+      <div className="border border-border-default rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <Skeleton height={18} width={140} />
@@ -552,7 +552,7 @@ export const SkeletonAudit: FC<SkeletonAuditProps> = ({ className = "" }) => {
       </div>
 
       {/* Legend section */}
-      <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+      <div className="border border-border-default rounded-lg p-4 space-y-4">
         <Skeleton height={16} width={60} />
         <Skeleton height={12} width={180} />
         <div className="flex flex-wrap gap-4">

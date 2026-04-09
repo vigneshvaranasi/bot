@@ -129,10 +129,10 @@ export const PROVIDER_LABELS: Record<ProviderType, string> = {
  * Provider type colors for badges.
  */
 export const PROVIDER_COLORS: Record<ProviderType, string> = {
-  anthropic: 'bg-orange-100 text-orange-800',
-  openai: 'bg-green-100 text-green-800',
-  google: 'bg-blue-100 text-blue-800',
-  custom: 'bg-purple-100 text-purple-800',
+  anthropic: 'bg-warning-subtle text-warning-text',
+  openai: 'bg-success-subtle text-success-text',
+  google: 'bg-info-subtle text-info-text',
+  custom: 'bg-surface-tertiary text-text-secondary',
 };
 
 /**

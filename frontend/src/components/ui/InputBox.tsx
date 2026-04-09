@@ -23,8 +23,24 @@ type InputBoxProps = {
 }
 
 const variantClasses: Record<'primary' | 'multiline', string> = {
-  primary: 'border-b border-gray-300',
-  multiline:'border border-gray-200 rounded-xl shadow-sm'
+  primary: 'border-b border-border-strong',
+  multiline:'border border-border-default rounded-xl shadow-sm'
+}
+
+const resolveBackgroundColor = (color: string) => {
+  if (color === 'transparent') return color
+  if (
+    color.startsWith('#') ||
+    color.startsWith('var(') ||
+    color.startsWith('rgb') ||
+    color.startsWith('hsl')
+  ) {
+    return color
+  }
+  if (/^[0-9a-fA-F]{3,8}$/.test(color)) {
+    return `#${color}`
+  }
+  return `var(--color-${color})`
 }
 
 const InputBox = ({
@@ -37,7 +53,7 @@ const InputBox = ({
   icon,
   className = '',
   variant = 'primary',
-  backgroundColor = 'fff',
+  backgroundColor = 'surface-primary',
   type = 'text',
   rows = 1,
   autoGrow = true,
@@ -52,6 +68,7 @@ const InputBox = ({
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
   const [isOverflowing, setIsOverflowing] = useState(false)
   const isNonEditable = disabled || readOnly
+  const resolvedBackgroundColor = resolveBackgroundColor(backgroundColor)
 
   // Auto resize textarea height based on content
   useEffect(() => {
@@ -82,9 +99,9 @@ const InputBox = ({
   return (
     <div className={`relative w-full ${className}`}>
       {icon && (
-        <div className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-500'>
+        <div className='absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary'>
           {typeof icon === 'string' ? (
-            <img src={icon} className='w-4' alt='' />
+            <img src={icon} className='w-4 icon-adaptive' alt='' />
           ) : (
             icon
           )}
@@ -106,11 +123,11 @@ const InputBox = ({
           disabled={disabled}
           aria-readonly={readOnly}
           aria-disabled={disabled}
-          className={`w-full px-3 py-2.5 leading-6 placeholder-gray-400 focus:outline-none transition ${
+          className={`w-full px-3 py-2.5 leading-6 text-text-primary placeholder-text-tertiary focus:outline-none transition ${
             icon ? 'pl-10' : ''
-          } ${variantClass} resize-none min-h-[44px] ${autoGrow ? (isOverflowing ? 'overflow-y-auto' : 'overflow-y-hidden') : ''} ${isNonEditable ? 'cursor-not-allowed' : ''} ${backgroundColor === 'surface-secondary' ? 'bg-surface-secondary' : ''}`}
+          } ${variantClass} resize-none min-h-[44px] ${autoGrow ? (isOverflowing ? 'overflow-y-auto' : 'overflow-y-hidden') : ''} ${isNonEditable ? 'cursor-not-allowed' : ''}`}
           style={{
-            ...(backgroundColor !== 'surface-secondary' ? { backgroundColor: `#${backgroundColor}` } : {}),
+            backgroundColor: resolvedBackgroundColor,
             maxHeight: autoGrow ? `${maxHeight}px` : undefined
           }}
         />
@@ -132,8 +149,8 @@ const InputBox = ({
           disabled={disabled}
           aria-readonly={readOnly}
           aria-disabled={disabled}
-          className={`w-full px-2 py-2 focus:outline-none transition ${icon ? 'pl-10' : ''} ${variantClass} ${isNonEditable ? 'cursor-not-allowed' : ''} ${backgroundColor === 'surface-secondary' ? 'bg-surface-secondary' : ''}`}
-          style={backgroundColor !== 'surface-secondary' ? { backgroundColor: `#${backgroundColor}` } : undefined}
+          className={`w-full px-2 py-2 text-text-primary placeholder-text-tertiary focus:outline-none transition ${icon ? 'pl-10' : ''} ${variantClass} ${isNonEditable ? 'cursor-not-allowed' : ''}`}
+          style={{ backgroundColor: resolvedBackgroundColor }}
         />
       )}
     </div>

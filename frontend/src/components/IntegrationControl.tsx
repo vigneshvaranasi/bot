@@ -256,7 +256,7 @@ export default function IntegrationControl({
   };
 
   return (
-    <div className="flex flex-col border border-gray-300 rounded-md p-4 gap-4">
+    <div className="flex flex-col border border-border-strong rounded-md p-4 gap-4">
       {/* Header */}
       <div className="flex flex-wrap justify-between items-center gap-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -265,7 +265,7 @@ export default function IntegrationControl({
               ref={nameInputRef}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+              className="border border-border-strong rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
               placeholder="Enter service name"
             />
           ) : (
@@ -282,7 +282,7 @@ export default function IntegrationControl({
             </h3>
           )}
           {readOnly && (
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">View only</span>
+            <span className="text-xs text-text-secondary bg-surface-tertiary px-2 py-0.5 rounded">View only</span>
           )}
         </div>
 
@@ -308,29 +308,29 @@ export default function IntegrationControl({
       </div>
 
       {/* Status */}
-      <div className="text-sm text-gray-700 flex flex-wrap justify-between gap-2">
+      <div className="text-sm text-text-secondary flex flex-wrap justify-between gap-2">
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
             <span>Status:</span>
             {syncStatus === "success" && (
-              <span className="text-green-600 font-medium">✔ Success</span>
+              <span className="text-success-text font-medium">✔ Success</span>
             )}
             {syncStatus === "error" && (
-              <span className="text-red-600 font-medium">✖ Failed</span>
+              <span className="text-danger-text font-medium">✖ Failed</span>
             )}
             {syncStatus === "never" && (
-              <span className="text-gray-500">Never synced</span>
+              <span className="text-text-secondary">Never synced</span>
             )}
           </div>
 
           {lastSyncedAt && (
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-text-secondary">
               Last synced: {lastSyncedAt}
             </div>
           )}
 
           {lastError && (
-            <div className="text-xs text-red-500">Last error: {lastError}</div>
+            <div className="text-xs text-danger-text">Last error: {lastError}</div>
           )}
         </div>
 
@@ -348,9 +348,9 @@ export default function IntegrationControl({
 
       {/* Sync Progress */}
       {syncProgress && (
-        <div className="flex flex-col gap-2 px-4 py-3 bg-blue-50 border border-blue-200 rounded-md">
-          <div className="flex items-center gap-2 text-sm text-blue-700">
-            <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <div className="flex flex-col gap-2 px-4 py-3 bg-info-subtle border border-info-border rounded-md">
+          <div className="flex items-center gap-2 text-sm text-info-text">
+            <svg className="animate-spin h-4 w-4 text-accent-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
@@ -359,18 +359,18 @@ export default function IntegrationControl({
           
           {totalBatches > 0 && (
             <div className="space-y-1">
-              <div className="flex justify-between text-xs text-blue-600">
+              <div className="flex justify-between text-xs text-accent-blue">
                 <span>Batch {currentBatch} of {totalBatches}</span>
                 <span>{Math.round((currentBatch / totalBatches) * 100)}%</span>
               </div>
-              <div className="w-full bg-blue-200 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-surface-hover rounded-full h-2 overflow-hidden">
                 <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                  className="bg-accent-blue h-2 rounded-full transition-all duration-300 ease-out"
                   style={{ width: `${Math.min((currentBatch / totalBatches) * 100, 100)}%` }}
                 />
               </div>
               {totalIncidents > 0 && (
-                <div className="text-xs text-blue-600 mt-1">
+                <div className="text-xs text-accent-blue mt-1">
                   Processing {totalIncidents} incidents...
                 </div>
               )}
@@ -381,7 +381,7 @@ export default function IntegrationControl({
 
       {/* Config */}
       {isConfigOpen && (
-        <div className="flex flex-col gap-3 border-t border-gray-200 pt-4">
+        <div className="flex flex-col gap-3 border-t border-border-default pt-4">
           <label className="text-sm font-medium">Authentication Type</label>
           <Dropdown
             options={authOptions}
@@ -402,7 +402,7 @@ export default function IntegrationControl({
                     <label className="text-xs font-medium">
                       {field.label}
                       {field.required && (
-                        <span className="text-red-500"> *</span>
+                        <span className="text-danger-text"> *</span>
                       )}
                     </label>
 
@@ -429,9 +429,9 @@ export default function IntegrationControl({
             </>
           )}
 
-          {error && <span className="text-xs text-red-500">{error}</span>}
+          {error && <span className="text-xs text-danger-text">{error}</span>}
           {readOnly && (
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-text-secondary mt-2">
               You don't have permission to edit this integration.
             </p>
           )}
@@ -473,7 +473,7 @@ export default function IntegrationControl({
         isLoading={isDeleting}
       />
       {!readOnly && isConfigOpen && !isDirty && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-text-secondary">
           No changes to save.
         </p>
       )}

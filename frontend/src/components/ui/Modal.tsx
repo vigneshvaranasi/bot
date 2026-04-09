@@ -104,17 +104,17 @@ export default function Modal({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.97 }}
             transition={{ duration: 0.15 }}
-            className={`relative bg-white rounded-lg shadow-xl w-full mx-4 ${sizeClasses[size]} max-h-[90vh] flex flex-col`}
+            className={`relative bg-surface-primary rounded-lg shadow-xl w-full mx-4 ${sizeClasses[size]} max-h-[90vh] flex flex-col`}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-              <h2 id="modal-title" className="text-lg font-semibold text-gray-900">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border-default">
+              <h2 id="modal-title" className="text-lg font-semibold text-text-primary">
                 {title}
               </h2>
               <button
                 type="button"
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-md hover:bg-gray-100"
+                className="text-text-tertiary hover:text-text-primary transition-colors p-1 rounded-md hover:bg-surface-tertiary"
                 aria-label="Close modal"
               >
                 <svg
@@ -138,7 +138,7 @@ export default function Modal({
 
             {/* Footer */}
             {footer && (
-              <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-200 bg-surface-secondary rounded-b-lg">
+              <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border-default bg-surface-secondary rounded-b-lg">
                 {footer}
               </div>
             )}
@@ -194,7 +194,7 @@ export function ConfirmModal({
         </>
       }
     >
-      <div className="text-sm text-gray-600">{message}</div>
+      <div className="text-sm text-text-secondary">{message}</div>
     </Modal>
   );
 }
@@ -269,15 +269,15 @@ export function InputModal({
       }
     >
       <form onSubmit={handleFormSubmit}>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-text-secondary mb-1">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-danger-text ml-1">*</span>}
         </label>
         {multiline ? (
           <textarea
             ref={inputRef as React.RefObject<HTMLTextAreaElement>}
             placeholder={placeholder}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+            className="w-full px-3 py-2 border border-border-default bg-surface-primary text-text-primary rounded-md focus:outline-none focus:ring-1 focus:ring-accent-blue resize-none"
             rows={3}
           />
         ) : (
@@ -285,7 +285,7 @@ export function InputModal({
             ref={inputRef as React.RefObject<HTMLInputElement>}
             type="text"
             placeholder={placeholder}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border-default bg-surface-primary text-text-primary rounded-md focus:outline-none focus:ring-1 focus:ring-accent-blue"
           />
         )}
       </form>

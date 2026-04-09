@@ -59,15 +59,15 @@ const FieldMappingPanel = ({ fileFields, onApply, onCancel, isLoading }: Props) 
 
   return (
     <div className="space-y-4">
-      <div className="p-3 rounded-lg border border-blue-200 bg-blue-50">
-        <p className="text-xs text-blue-700">
+      <div className="p-3 rounded-lg border border-info-border bg-info-subtle">
+        <p className="text-xs text-info-text">
           Map your source fields to the expected incident schema fields.
           Fields with matching names have been auto-mapped. Only files with unmapped fields are shown.
         </p>
       </div>
 
       {filesNeedingMapping.length === 0 && (
-        <div className="p-4 text-center text-sm text-gray-500">
+        <div className="p-4 text-center text-sm text-text-secondary">
           All fields across all files are already mapped. Click "Apply & Re-validate" to proceed.
         </div>
       )}
@@ -75,42 +75,42 @@ const FieldMappingPanel = ({ fileFields, onApply, onCancel, isLoading }: Props) 
       {filesNeedingMapping.map(([filename, fields]) => (
         <div key={filename} className="space-y-2">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 font-mono">
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-tertiary text-text-secondary font-mono">
               {filename}
             </span>
-            <span className="text-xs text-gray-400">{fields.length} fields</span>
+            <span className="text-xs text-text-tertiary">{fields.length} fields</span>
           </div>
 
-          <div className="rounded-lg border border-gray-200 overflow-hidden">
+          <div className="rounded-lg border border-border-default overflow-hidden">
             <table className="min-w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-surface-secondary">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 border-b border-gray-200">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-text-secondary border-b border-border-default">
                     Source Field
                   </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 border-b border-gray-200">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-text-secondary border-b border-border-default">
                     Target Field
                   </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 border-b border-gray-200 w-16">
+                  <th className="px-4 py-2 text-left text-xs font-medium text-text-secondary border-b border-border-default w-16">
                     Status
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border-default">
                 {fields.map((src) => {
                   const isAutoMapped = TARGET_FIELDS.includes(src);
                   const isMapped = !!mapping[src];
                   return (
-                    <tr key={src} className={isAutoMapped ? "bg-green-50/50" : "hover:bg-gray-50"}>
-                      <td className="px-4 py-2 text-xs text-gray-900 font-mono">{src}</td>
+                    <tr key={src} className={isAutoMapped ? "bg-success-subtle/50" : "hover:bg-surface-secondary"}>
+                      <td className="px-4 py-2 text-xs text-text-primary font-mono">{src}</td>
                       <td className="px-4 py-2">
                         {isAutoMapped ? (
-                          <span className="text-xs text-green-700 font-mono">{src}</span>
+                          <span className="text-xs text-success-text font-mono">{src}</span>
                         ) : (
                           <select
                             value={mapping[src] || ""}
                             onChange={(e) => handleChange(src, e.target.value)}
-                            className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            className="w-full text-xs border border-border-strong rounded px-2 py-1 bg-surface-primary text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-blue"
                           >
                             <option value="">-- skip --</option>
                             {TARGET_FIELDS.map((t) => (
@@ -123,9 +123,9 @@ const FieldMappingPanel = ({ fileFields, onApply, onCancel, isLoading }: Props) 
                       </td>
                       <td className="px-4 py-2 text-center">
                         {isAutoMapped || isMapped ? (
-                          <span className="inline-block w-2 h-2 rounded-full bg-green-500" title="Mapped" />
+                          <span className="inline-block w-2 h-2 rounded-full bg-success" title="Mapped" />
                         ) : (
-                          <span className="inline-block w-2 h-2 rounded-full bg-yellow-400" title="Unmapped" />
+                          <span className="inline-block w-2 h-2 rounded-full bg-warning" title="Unmapped" />
                         )}
                       </td>
                     </tr>

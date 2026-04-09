@@ -109,7 +109,7 @@ export const ChatAction: React.FC<ChatActionButtonProps> = ({
           <img
             src={icon}
             alt={tooltip}
-            className={`h-5 w-5 ${
+            className={`h-5 w-5 icon-adaptive ${
               loading && type === 'retry' ? 'animate-spin' : ''
             }`}
           />
@@ -121,7 +121,7 @@ export const ChatAction: React.FC<ChatActionButtonProps> = ({
         <div
           className='absolute left-full ml-2 top-1/2 -translate-y-1/2
              opacity-0 group-hover:opacity-100 pointer-events-none
-             bg-black/70 text-white text-xs rounded px-2 py-1
+             bg-surface-tertiary text-text-primary text-xs rounded px-2 py-1
              transition-opacity duration-200 whitespace-nowrap'
         >
           {responseMetrics &&
@@ -171,7 +171,7 @@ export const ChatAction: React.FC<ChatActionButtonProps> = ({
         <div
           className='absolute top-full mt-2 left-1/2 -translate-x-1/2
              opacity-0 group-hover:opacity-100 pointer-events-none
-             bg-black text-white text-xs rounded px-2 py-1
+             bg-surface-tertiary text-text-primary text-xs rounded px-2 py-1
              transition-opacity duration-200 whitespace-nowrap'
         >
           {loading && type === 'retry' ? 'Retrying...' : tooltip}

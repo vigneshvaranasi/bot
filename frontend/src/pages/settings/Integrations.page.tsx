@@ -234,7 +234,7 @@ const IntegrationsPage = () => {
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full justify-between">
           <span className="flex flex-row items-center gap-1">
-            <span className="text-sm md:text-medium text-black flex-1">
+            <span className="text-sm md:text-medium text-text-primary flex-1">
               Manage integrations with external data sources
             </span>
             <InfoHint text="Connect external platforms like ServiceNow or Jira to automatically sync incident data into the knowledge base." />
@@ -242,7 +242,7 @@ const IntegrationsPage = () => {
           {canCreate && (
             <Button
               variant="primary"
-              className="font-semibold text-xs px-4 py-1 transition-colors duration-200 text-white rounded-md cursor-pointer w-full sm:w-auto"
+              className="font-semibold text-xs px-4 py-1 transition-colors duration-200 rounded-md cursor-pointer w-full sm:w-auto"
               onClick={handleAddIntegration}
             >
               Add
@@ -251,11 +251,11 @@ const IntegrationsPage = () => {
         </div>
         <div className="flex flex-col gap-3">
           {integrationsError ? (
-            <span className="text-sm text-red-500 ">{integrationsError}</span>
+            <span className="text-sm text-danger-text ">{integrationsError}</span>
           ) : null}
 
           {!integrationsLoading && !integrationsError && integrations.length === 0 ? (
-            <span className="text-sm text-gray-600">No integrations configured yet.</span>
+            <span className="text-sm text-text-secondary">No integrations configured yet.</span>
           ) : null}
 
           {integrations.map((integration) => (
@@ -303,7 +303,7 @@ const IntegrationsPage = () => {
       >
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">Service Name <span className="text-red-500">*</span></label>
+            <label className="text-sm font-medium">Service Name <span className="text-danger-text">*</span></label>
             <InputBox
               value={newName}
               placeholder="e.g. ServiceNow, Jira"
@@ -313,7 +313,7 @@ const IntegrationsPage = () => {
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">Authentication Type <span className="text-red-500">*</span></label>
+            <label className="text-sm font-medium">Authentication Type <span className="text-danger-text">*</span></label>
             <Dropdown
               options={authOptions}
               value={newAuthType}
@@ -332,7 +332,7 @@ const IntegrationsPage = () => {
                 <div key={field.key} className="flex flex-col gap-1">
                   <label className="text-xs font-medium">
                     {field.label}
-                    {field.required && <span className="text-red-500"> *</span>}
+                    {field.required && <span className="text-danger-text"> *</span>}
                   </label>
                   <InputBox
                     value={String(newConfig[field.key] || "")}
@@ -348,7 +348,7 @@ const IntegrationsPage = () => {
             </div>
           )}
 
-          {addError && <span className="text-xs text-red-500">{addError}</span>}
+          {addError && <span className="text-xs text-danger-text">{addError}</span>}
         </div>
       </Modal>
     </div>

@@ -13,8 +13,8 @@ const baseClasses =
   "flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors";
 
 const activeClasses = "bg-accent-subtle text-accent font-semibold";
-const inactiveClasses = "text-gray-700 hover:bg-gray-100";
-const disabledClasses = "text-gray-400 cursor-not-allowed";
+const inactiveClasses = "text-text-secondary hover:bg-surface-tertiary";
+const disabledClasses = "text-text-tertiary cursor-not-allowed";
 
 const highlightLabel = (label: string, query?: string) => {
   if (!query) return label;
@@ -26,7 +26,7 @@ const highlightLabel = (label: string, query?: string) => {
   return (
     <span>
       {before}
-      <span className="font-semibold text-gray-900">{match}</span>
+      <span className="font-semibold text-text-primary">{match}</span>
       {after}
     </span>
   );

@@ -7,7 +7,7 @@ const Navbar = () => {
     <div className='relative flex items-center justify-between p-3 md:justify-start md:gap-4 border-b border-border-default'>
       <img
         src={hamburger}
-        className={`${isSidebarOpen ? 'hidden' : 'w-6 md:hidden'}`}
+        className={`icon-adaptive ${isSidebarOpen ? 'hidden' : 'w-6 md:hidden'}`}
         alt='menu'
         onClick={() => toggleSidebar()}
       />

@@ -368,12 +368,12 @@ const FeedbackDashboard: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      pending: 'bg-amber-50 text-amber-700 border border-amber-200',
-      auto_approved: 'bg-sky-50 text-sky-700 border border-sky-200',
-      ai_approved: 'bg-violet-50 text-violet-700 border border-violet-200',
-      ai_rejected: 'bg-rose-50 text-rose-700 border border-rose-200',
-      reviewed: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-      dismissed: 'bg-slate-50 text-slate-600 border border-slate-200',
+      pending: 'bg-warning-subtle text-warning-text border border-warning-border',
+      auto_approved: 'bg-info-subtle text-info-text border border-info-border',
+      ai_approved: 'bg-info-subtle text-info-text border border-info-border',
+      ai_rejected: 'bg-danger-subtle text-danger-text border border-danger',
+      reviewed: 'bg-success-subtle text-success-text border border-success',
+      dismissed: 'bg-surface-tertiary text-text-secondary border border-border-default',
     };
     const labels: Record<string, string> = {
       pending: 'Pending',
@@ -384,7 +384,7 @@ const FeedbackDashboard: React.FC = () => {
       dismissed: 'Dismissed',
     };
     return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${styles[status] || 'bg-slate-50 text-slate-600'}`}>
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${styles[status] || 'bg-surface-tertiary text-text-secondary'}`}>
         {labels[status] || status}
       </span>
     );
@@ -392,11 +392,11 @@ const FeedbackDashboard: React.FC = () => {
 
   const getTypeBadge = (type: string) => {
     return type === 'positive' ? (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-subtle text-success-text border border-success">
         Positive
       </span>
     ) : (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-danger-subtle text-danger-text border border-danger">
         Negative
       </span>
     );
@@ -409,7 +409,7 @@ const FeedbackDashboard: React.FC = () => {
           title="Feedback Dashboard"
           description="Review and manage user feedback on AI responses"
         />
-        <div className="border border-gray-200 rounded-lg p-4">
+        <div className="border border-border-default rounded-lg p-4">
           <SkeletonTable rows={5} columns={6} />
         </div>
       </div>
@@ -423,15 +423,15 @@ const FeedbackDashboard: React.FC = () => {
           title="Feedback Dashboard"
           description="Review and manage user feedback on AI responses"
         />
-        <div className="border border-gray-200 rounded-lg p-6 text-center">
-          <div className="text-gray-400 mb-2">
+        <div className="border border-border-default rounded-lg p-6 text-center">
+          <div className="text-text-tertiary mb-2">
             <svg className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-1">Access Denied</h3>
-          <p className="text-sm text-gray-500">You don't have permission to view the Feedback Dashboard.</p>
-          <p className="text-xs text-gray-400 mt-2">Required permission: feedback.view</p>
+          <h3 className="text-lg font-medium text-text-primary mb-1">Access Denied</h3>
+          <p className="text-sm text-text-secondary">You don't have permission to view the Feedback Dashboard.</p>
+          <p className="text-xs text-text-tertiary mt-2">Required permission: feedback.view</p>
         </div>
       </div>
     );
@@ -445,34 +445,34 @@ const FeedbackDashboard: React.FC = () => {
       />
 
       {stats && (
-        <section className="border border-gray-200 rounded-lg p-4">
+        <section className="border border-border-default rounded-lg p-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-gray-900">Overview</h3>
+            <h3 className="text-sm font-semibold text-text-primary">Overview</h3>
             <Button variant="secondary" onClick={() => { loadData(); loadFeedbackList(); }} className="text-xs">
               Refresh
             </Button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-              <p className="text-2xl font-semibold text-slate-900">{stats.total_feedback}</p>
-              <p className="text-xs text-slate-500 mt-1">Total Feedback</p>
+            <div className="p-3 rounded-lg bg-surface-tertiary border border-border-default">
+              <p className="text-2xl font-semibold text-text-primary">{stats.total_feedback}</p>
+              <p className="text-xs text-text-secondary mt-1">Total Feedback</p>
             </div>
-            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-              <p className="text-2xl font-semibold text-amber-700">{stats.pending_count}</p>
-              <p className="text-xs text-amber-600 mt-1">Pending Review</p>
+            <div className="p-3 rounded-lg bg-warning-subtle border border-warning-border">
+              <p className="text-2xl font-semibold text-warning-text">{stats.pending_count}</p>
+              <p className="text-xs text-warning-text mt-1">Pending Review</p>
             </div>
-            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-              <p className="text-2xl font-semibold text-emerald-700">{stats.positive_count}</p>
-              <p className="text-xs text-emerald-600 mt-1">Positive</p>
+            <div className="p-3 rounded-lg bg-success-subtle border border-success">
+              <p className="text-2xl font-semibold text-success-text">{stats.positive_count}</p>
+              <p className="text-xs text-success-text mt-1">Positive</p>
             </div>
-            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200">
-              <p className="text-2xl font-semibold text-rose-700">{stats.negative_count}</p>
-              <p className="text-xs text-rose-600 mt-1">Negative</p>
+            <div className="p-3 rounded-lg bg-danger-subtle border border-danger">
+              <p className="text-2xl font-semibold text-danger-text">{stats.negative_count}</p>
+              <p className="text-xs text-danger-text mt-1">Negative</p>
             </div>
-            <div className="p-3 rounded-lg bg-violet-50 border border-violet-200">
-              <p className="text-2xl font-semibold text-violet-700">{stats.golden_examples_count}</p>
+            <div className="p-3 rounded-lg bg-info-subtle border border-info-border">
+              <p className="text-2xl font-semibold text-info-text">{stats.golden_examples_count}</p>
               <div className="flex items-center gap-1">
-                <p className="text-xs text-violet-600 mt-1">Golden Examples</p>
+                <p className="text-xs text-info-text mt-1">Golden Examples</p>
                 <InfoHint text="Curated question-answer pairs that teach the AI how to respond better. Built from reviewed user feedback." />
               </div>
             </div>
@@ -481,16 +481,16 @@ const FeedbackDashboard: React.FC = () => {
       )}
 
       {settings && canManageFeedback && (
-        <section className="border border-gray-200 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Auto-Approval Settings</h3>
+        <section className="border border-border-default rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-text-primary mb-3">Auto-Approval Settings</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-white">
+            <div className="flex items-center justify-between p-3 rounded-lg border border-border-default bg-surface-primary">
               <div>
                 <div className="flex items-center gap-1">
-                  <p className="text-sm font-medium text-gray-900">Auto-approve Positive Feedback</p>
+                  <p className="text-sm font-medium text-text-primary">Auto-approve Positive Feedback</p>
                   <InfoHint text="Positive feedback (thumbs up) will skip manual review and automatically become a golden example using the AI's original response." />
                 </div>
-                <p className="text-xs text-gray-500">Automatically add to golden examples</p>
+                <p className="text-xs text-text-secondary">Automatically add to golden examples</p>
               </div>
               <Toggle
                 enabled={settings.auto_approve_positive}
@@ -498,13 +498,13 @@ const FeedbackDashboard: React.FC = () => {
                 disabled={savingSettings}
               />
             </div>
-            <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-white">
+            <div className="flex items-center justify-between p-3 rounded-lg border border-border-default bg-surface-primary">
               <div>
                 <div className="flex items-center gap-1">
-                  <p className="text-sm font-medium text-gray-900">Auto-approve Negative Feedback</p>
+                  <p className="text-sm font-medium text-text-primary">Auto-approve Negative Feedback</p>
                   <InfoHint text="Negative feedback (thumbs down) will be auto-approved using the AI's original response — which was flagged as poor. Manual review is strongly recommended instead." />
                 </div>
-                <p className="text-xs text-amber-600">Not recommended</p>
+                <p className="text-xs text-warning-text">Not recommended</p>
               </div>
               <Toggle
                 enabled={settings.auto_approve_negative}
@@ -512,13 +512,13 @@ const FeedbackDashboard: React.FC = () => {
                 disabled={savingSettings}
               />
             </div>
-            <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-white">
+            <div className="flex items-center justify-between p-3 rounded-lg border border-border-default bg-surface-primary">
               <div>
                 <div className="flex items-center gap-1">
-                  <p className="text-sm font-medium text-gray-900">Auto-approve by AI</p>
+                  <p className="text-sm font-medium text-text-primary">Auto-approve by AI</p>
                   <InfoHint text="AI will validate feedback before auto-approving. If invalid, feedback stays pending with AI's reason. If valid, golden example is auto-created." />
                 </div>
-                <p className="text-xs text-gray-500">AI validates, then auto-generates golden example</p>
+                <p className="text-xs text-text-secondary">AI validates, then auto-generates golden example</p>
               </div>
               <Toggle
                 enabled={settings.auto_approve_by_ai}
@@ -530,17 +530,17 @@ const FeedbackDashboard: React.FC = () => {
         </section>
       )}
 
-      <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+      <section className="border border-border-default rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900">Feedback List</h3>
-          <p className="text-xs text-gray-500">{totalItems} item(s)</p>
+          <h3 className="text-sm font-semibold text-text-primary">Feedback List</h3>
+          <p className="text-xs text-text-secondary">{totalItems} item(s)</p>
         </div>
 
         <div className="flex flex-wrap gap-3 items-center">
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-gray-400 cursor-pointer"
+            className="px-3 py-1.5 text-sm border border-border-strong rounded-md bg-surface-primary text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-blue cursor-pointer"
           >
             <option value="">All Status</option>
             <option value="pending">Pending</option>
@@ -554,7 +554,7 @@ const FeedbackDashboard: React.FC = () => {
           <select
             value={typeFilter}
             onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-gray-400 cursor-pointer"
+            className="px-3 py-1.5 text-sm border border-border-strong rounded-md bg-surface-primary text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-blue cursor-pointer"
           >
             <option value="">All Types</option>
             <option value="positive">Positive</option>
@@ -568,7 +568,7 @@ const FeedbackDashboard: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400"
+              className="flex-1 px-3 py-1.5 text-sm border border-border-strong rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400"
             />
             <Button variant="secondary" onClick={handleSearch} className="text-xs cursor-pointer">
               Search
@@ -579,35 +579,35 @@ const FeedbackDashboard: React.FC = () => {
         {showListLoading ? (
           <SkeletonTable rows={5} columns={6} />
         ) : feedbackList.length === 0 ? (
-          <div className="p-6 text-center text-gray-500 text-sm border border-dashed border-gray-300 rounded-lg bg-gray-50">
+          <div className="p-6 text-center text-text-secondary text-sm border border-dashed border-border-strong rounded-lg bg-surface-secondary">
             No feedback found. User feedback will appear here.
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto bg-white rounded-lg border border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className="overflow-x-auto bg-surface-primary rounded-lg border border-border-default">
+              <table className="min-w-full divide-y divide-border-default">
+                <thead className="bg-surface-secondary">
                   <tr>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Type</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Query</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Reason</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">User</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Query</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Reason</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-border-default">
                   {feedbackList.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={item.id} className="hover:bg-surface-secondary transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap">{getTypeBadge(item.feedback_type)}</td>
                       <td className="px-4 py-3">
-                        <p className="text-sm text-gray-900 max-w-[180px] truncate" title={item.original_query}>
+                        <p className="text-sm text-text-primary max-w-[180px] truncate" title={item.original_query}>
                           {item.original_query}
                         </p>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="text-sm text-gray-500 max-w-[140px] truncate" title={item.reason || item.ai_reason || ''}>
+                        <p className="text-sm text-text-secondary max-w-[140px] truncate" title={item.reason || item.ai_reason || ''}>
                           {item.ai_reason ? `AI: ${item.ai_reason.substring(0, 50)}...` : (item.reason || '—')}
                         </p>
                       </td>
@@ -617,10 +617,10 @@ const FeedbackDashboard: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <p className="text-sm text-gray-600">{item.user_email || 'Anonymous'}</p>
+                        <p className="text-sm text-text-secondary">{item.user_email || 'Anonymous'}</p>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <p className="text-sm text-gray-500">{new Date(item.created_at).toLocaleDateString()}</p>
+                        <p className="text-sm text-text-secondary">{new Date(item.created_at).toLocaleDateString()}</p>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <Button
@@ -664,7 +664,7 @@ const FeedbackDashboard: React.FC = () => {
                       type="button"
                       onClick={() => setIsDeleteConfirmOpen(true)}
                       disabled={isSubmitting}
-                      className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
+                      className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-danger-text hover:bg-danger-subtle rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
                     >
                       Delete
                     </button>
@@ -674,7 +674,7 @@ const FeedbackDashboard: React.FC = () => {
                       type="button"
                       onClick={handleDismiss}
                       disabled={isSubmitting}
-                      className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
+                      className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-secondary hover:bg-surface-tertiary rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
                     >
                       Dismiss
                     </button>
@@ -700,7 +700,7 @@ const FeedbackDashboard: React.FC = () => {
                       type="button"
                       onClick={() => setIsDeleteConfirmOpen(true)}
                       disabled={isSubmitting}
-                      className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
+                      className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-danger-text hover:bg-danger-subtle rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
                     >
                       Delete
                     </button>
@@ -726,7 +726,7 @@ const FeedbackDashboard: React.FC = () => {
                       type="button"
                       onClick={() => setIsDeleteConfirmOpen(true)}
                       disabled={isSubmitting}
-                      className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
+                      className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-danger-text hover:bg-danger-subtle rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
                     >
                       Delete
                     </button>
@@ -744,15 +744,15 @@ const FeedbackDashboard: React.FC = () => {
               {getTypeBadge(selectedFeedback.feedback_type)}
               {getStatusBadge(selectedFeedback.status)}
               {selectedFeedback.has_golden_example && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200">
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-info-subtle text-info-text border border-info-border">
                   Has Golden Example
                 </span>
               )}
               {selectedFeedback.query_type && (
                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                   selectedFeedback.query_type === 'temporal'
-                    ? 'bg-orange-50 text-orange-700 border border-orange-200'
-                    : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                    ? 'bg-warning-subtle text-warning-text border border-warning-border'
+                    : 'bg-info-subtle text-info-text border border-info-border'
                 }`}>
                   {selectedFeedback.query_type === 'temporal' ? 'Temporal Query' : 'Static Query'}
                 </span>
@@ -760,20 +760,20 @@ const FeedbackDashboard: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label className="block text-sm font-medium text-text-secondary mb-1.5">
                 User Query
               </label>
-              <div className="p-3 bg-slate-50 rounded-lg text-sm border border-slate-200 text-gray-900">
+              <div className="p-3 bg-surface-tertiary rounded-lg text-sm border border-border-default text-text-primary">
                 {selectedFeedback.original_query}
               </div>
             </div>
 
             {selectedFeedback.reason && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label className="block text-sm font-medium text-text-secondary mb-1.5">
                   User's Feedback Reason
                 </label>
-                <div className="p-3 bg-amber-50 rounded-lg text-sm border border-amber-200 text-amber-800">
+                <div className="p-3 bg-warning-subtle rounded-lg text-sm border border-warning-border text-warning-text">
                   {selectedFeedback.reason}
                 </div>
               </div>
@@ -783,10 +783,10 @@ const FeedbackDashboard: React.FC = () => {
               <div
                 className={`rounded-lg overflow-hidden border ${
                   aiValidationAccepted(selectedFeedback.ai_validated)
-                    ? "border-emerald-200"
+                    ? "border-success"
                     : aiValidationRejected(selectedFeedback.ai_validated)
-                      ? "border-rose-200"
-                      : "border-gray-200"
+                      ? "border-danger"
+                      : "border-border-default"
                 }`}
               >
                 <button
@@ -794,19 +794,19 @@ const FeedbackDashboard: React.FC = () => {
                   onClick={() => setIsAiValidationExpanded(!isAiValidationExpanded)}
                   className={`w-full flex items-center justify-between px-4 py-3 transition-colors text-left cursor-pointer ${
                     aiValidationAccepted(selectedFeedback.ai_validated)
-                      ? "bg-emerald-50 hover:bg-emerald-100"
+                      ? "bg-success-subtle hover:bg-success-subtle/80"
                       : aiValidationRejected(selectedFeedback.ai_validated)
-                        ? "bg-rose-50 hover:bg-rose-100"
-                        : "bg-gray-50 hover:bg-gray-100"
+                        ? "bg-danger-subtle hover:bg-danger-subtle/80"
+                        : "bg-surface-secondary hover:bg-surface-tertiary"
                   }`}
                 >
                   <span
                     className={`text-sm font-medium min-w-0 ${
                       aiValidationAccepted(selectedFeedback.ai_validated)
-                        ? "text-emerald-800"
+                        ? "text-success-text"
                         : aiValidationRejected(selectedFeedback.ai_validated)
-                          ? "text-rose-800"
-                          : "text-gray-700"
+                          ? "text-danger-text"
+                          : "text-text-secondary"
                     }`}
                   >
                     AI validation
@@ -814,10 +814,10 @@ const FeedbackDashboard: React.FC = () => {
                   <svg
                     className={`w-5 h-5 shrink-0 ml-2 transition-transform ${
                       aiValidationAccepted(selectedFeedback.ai_validated)
-                        ? "text-emerald-600"
+                        ? "text-success-text"
                         : aiValidationRejected(selectedFeedback.ai_validated)
-                          ? "text-rose-600"
-                          : "text-gray-500"
+                          ? "text-danger-text"
+                          : "text-text-secondary"
                     } ${isAiValidationExpanded ? "rotate-180" : ""}`}
                     fill="none"
                     viewBox="0 0 24 24"
@@ -835,10 +835,10 @@ const FeedbackDashboard: React.FC = () => {
                   <div
                     className={`p-4 border-t text-sm ${
                       aiValidationAccepted(selectedFeedback.ai_validated)
-                        ? "bg-white border-emerald-200 text-emerald-900"
+                        ? "bg-surface-primary border-success text-success-text"
                         : aiValidationRejected(selectedFeedback.ai_validated)
-                          ? "bg-white border-rose-200 text-rose-900"
-                          : "bg-white border-gray-200 text-gray-800"
+                          ? "bg-surface-primary border-danger text-danger-text"
+                          : "bg-surface-primary border-border-default text-text-primary"
                     }`}
                   >
                     {selectedFeedback.ai_reason ? (
@@ -846,7 +846,7 @@ const FeedbackDashboard: React.FC = () => {
                         {selectedFeedback.ai_reason}
                       </p>
                     ) : (
-                      <p className="text-gray-500 italic">
+                      <p className="text-text-secondary italic">
                         No written explanation was stored for this verdict.
                       </p>
                     )}
@@ -855,15 +855,15 @@ const FeedbackDashboard: React.FC = () => {
               </div>
             )}
 
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="border border-border-default rounded-lg overflow-hidden">
               <button
                 type="button"
                 onClick={() => setIsAiResponseExpanded(!isAiResponseExpanded)}
-                className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left cursor-pointer"
+                className="w-full flex items-center justify-between px-4 py-3 bg-surface-secondary hover:bg-surface-tertiary transition-colors text-left cursor-pointer"
               >
-                <span className="text-sm font-medium text-gray-700">AI Response</span>
+                <span className="text-sm font-medium text-text-secondary">AI Response</span>
                 <svg
-                  className={`w-5 h-5 text-gray-500 transition-transform ${isAiResponseExpanded ? 'rotate-180' : ''}`}
+                  className={`w-5 h-5 text-text-secondary transition-transform ${isAiResponseExpanded ? 'rotate-180' : ''}`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -873,7 +873,7 @@ const FeedbackDashboard: React.FC = () => {
               </button>
               {isAiResponseExpanded && (
                 <div 
-                  className="p-4 bg-white max-h-[350px] overflow-y-auto markdown-body border-t border-gray-200"
+                  className="p-4 bg-surface-primary max-h-[350px] overflow-y-auto markdown-body border-t border-border-default"
                   dangerouslySetInnerHTML={{ 
                     __html: renderMarkdown(selectedFeedback.original_response) 
                   }}
@@ -882,14 +882,14 @@ const FeedbackDashboard: React.FC = () => {
             </div>
 
             {selectedFeedback.has_golden_example && selectedFeedback.golden_response && (selectedFeedback.status === 'ai_approved' || selectedFeedback.status === 'auto_approved' || selectedFeedback.status === 'reviewed') && (
-              <div className="border border-violet-200 rounded-lg overflow-hidden">
+              <div className="border border-info-border rounded-lg overflow-hidden">
                 <button
                   type="button"
                   onClick={() => setIsGoldenResponseExpanded(!isGoldenResponseExpanded)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-violet-50 hover:bg-violet-100 transition-colors text-left cursor-pointer"
+                  className="w-full flex items-center justify-between px-4 py-3 bg-accent-subtle hover:bg-surface-hover transition-colors text-left cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-violet-700">Golden Response</span>
+                    <span className="text-sm font-medium text-text-primary">Golden Response</span>
                     {!isEditing && canEditGoldenExamples && (
                       <button
                         type="button"
@@ -897,14 +897,14 @@ const FeedbackDashboard: React.FC = () => {
                           e.stopPropagation();
                           handleStartEdit();
                         }}
-                        className="text-xs text-violet-500 hover:text-violet-700 hover:bg-violet-100 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                        className="text-xs text-text-secondary hover:text-text-primary hover:bg-surface-hover px-2 py-0.5 rounded transition-colors cursor-pointer"
                       >
                         Edit
                       </button>
                     )}
                   </div>
                   <svg
-                    className={`w-5 h-5 text-violet-500 transition-transform ${isGoldenResponseExpanded ? 'rotate-180' : ''}`}
+                    className={`w-5 h-5 text-text-secondary transition-transform ${isGoldenResponseExpanded ? 'rotate-180' : ''}`}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -913,7 +913,7 @@ const FeedbackDashboard: React.FC = () => {
                   </svg>
                 </button>
                 {isGoldenResponseExpanded && (
-                  <div className="border-t border-violet-200">
+                  <div className="border-t border-info-border">
                     {isEditing ? (
                       <div className="p-4">
                         <div className="flex justify-end mb-2">
@@ -921,7 +921,7 @@ const FeedbackDashboard: React.FC = () => {
                             type="button"
                             onClick={() => handleGenerateResponse(true)}
                             disabled={isGenerating || isSubmitting}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent-purple text-white rounded-lg hover:bg-accent-purple-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                           >
                             {isGenerating ? (
                               <>
@@ -942,15 +942,15 @@ const FeedbackDashboard: React.FC = () => {
                           </button>
                         </div>
                         
-                        <div className="border border-gray-300 rounded-lg overflow-hidden">
-                          <div className="flex border-b border-gray-300 bg-gray-50">
+                        <div className="border border-border-strong rounded-lg overflow-hidden">
+                          <div className="flex border-b border-border-strong bg-surface-secondary">
                             <button
                               type="button"
                               onClick={() => setEditGoldenResponseTab('edit')}
                               className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer ${
                                 editGoldenResponseTab === 'edit'
-                                  ? 'bg-white text-gray-900 border-b-2 border-violet-600 -mb-px'
-                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                                  ? 'bg-surface-primary text-text-primary border-b-2 border-accent-purple -mb-px'
+                                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-tertiary'
                               }`}
                             >
                               Edit
@@ -960,8 +960,8 @@ const FeedbackDashboard: React.FC = () => {
                               onClick={() => setEditGoldenResponseTab('preview')}
                               className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer ${
                                 editGoldenResponseTab === 'preview'
-                                  ? 'bg-white text-gray-900 border-b-2 border-violet-600 -mb-px'
-                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                                  ? 'bg-surface-primary text-text-primary border-b-2 border-accent-purple -mb-px'
+                                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-tertiary'
                               }`}
                             >
                               Preview
@@ -972,40 +972,40 @@ const FeedbackDashboard: React.FC = () => {
                             <textarea
                               value={editedGoldenResponse}
                               onChange={(e) => setEditedGoldenResponse(e.target.value)}
-                              className="w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 text-sm resize-none"
+                              className="w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 text-sm resize-none bg-surface-primary text-text-primary"
                               rows={10}
                               placeholder="Edit the golden response..."
                               disabled={isGenerating}
                             />
                           ) : (
                             <div 
-                              className="p-4 bg-white min-h-[200px] max-h-[350px] overflow-y-auto markdown-body"
+                              className="p-4 bg-surface-primary min-h-[200px] max-h-[350px] overflow-y-auto markdown-body"
                               dangerouslySetInnerHTML={{ 
                                 __html: editedGoldenResponse.trim() 
                                   ? renderMarkdown(editedGoldenResponse) 
-                                  : '<p class="text-gray-400 italic">No content to preview</p>'
+                                  : '<p class="text-text-tertiary italic">No content to preview</p>'
                               }}
                             />
                           )}
                         </div>
                         
                         {generationInfo && (
-                          <p className="text-xs text-violet-600 mt-1.5">
+                          <p className="text-xs text-accent-blue mt-1.5">
                             Generated in {(generationInfo.timeMs / 1000).toFixed(1)}s
                             {generationInfo.toolCalls > 0 && ` (${generationInfo.toolCalls} tool call${generationInfo.toolCalls > 1 ? 's' : ''} made)`}
                           </p>
                         )}
                         
                         <div className="mt-3">
-                          <label className="block text-xs font-medium text-gray-600 mb-1.5">Query Type</label>
+                          <label className="block text-xs font-medium text-text-secondary mb-1.5">Query Type</label>
                           <div className="flex gap-2">
                             <button
                               type="button"
                               onClick={() => setQueryType('static')}
                               className={`px-3 py-1.5 text-xs rounded-lg border transition-colors cursor-pointer ${
                                 queryType === 'static'
-                                  ? 'border-cyan-400 bg-cyan-50 text-cyan-700 font-medium'
-                                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                                  ? 'border-accent-blue bg-info-subtle text-info-text font-medium'
+                                  : 'border-border-default bg-surface-primary text-text-secondary hover:bg-surface-secondary'
                               }`}
                             >
                               Static
@@ -1015,13 +1015,13 @@ const FeedbackDashboard: React.FC = () => {
                               onClick={() => setQueryType('temporal')}
                               className={`px-3 py-1.5 text-xs rounded-lg border transition-colors cursor-pointer ${
                                 queryType === 'temporal'
-                                  ? 'border-orange-400 bg-orange-50 text-orange-700 font-medium'
-                                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                                  ? 'border-warning bg-warning-subtle text-warning-text font-medium'
+                                  : 'border-border-default bg-surface-primary text-text-secondary hover:bg-surface-secondary'
                               }`}
                             >
                               Temporal
                             </button>
-                            <span className="text-xs text-gray-400 self-center ml-1">
+                            <span className="text-xs text-text-tertiary self-center ml-1">
                               {queryType === 'temporal' ? 'AI use as a reference' : 'Can be used as direct answer'}
                             </span>
                           </div>
@@ -1032,7 +1032,7 @@ const FeedbackDashboard: React.FC = () => {
                             type="button"
                             onClick={handleCancelEdit}
                             disabled={isSubmitting || isGenerating}
-                            className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                            className="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-tertiary rounded-lg transition-colors cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -1040,7 +1040,7 @@ const FeedbackDashboard: React.FC = () => {
                             type="button"
                             onClick={handleSaveEdit}
                             disabled={isSubmitting || isGenerating || !editedGoldenResponse.trim()}
-                            className="px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                            className="px-3 py-1.5 text-sm bg-accent-purple text-white rounded-lg hover:bg-accent-purple-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                           >
                             {isSubmitting ? 'Saving...' : 'Save Changes'}
                           </button>
@@ -1048,7 +1048,7 @@ const FeedbackDashboard: React.FC = () => {
                       </div>
                     ) : (
                       <div 
-                        className="p-4 bg-white max-h-[350px] overflow-y-auto markdown-body"
+                        className="p-4 bg-surface-primary max-h-[350px] overflow-y-auto markdown-body"
                         dangerouslySetInnerHTML={{ 
                           __html: renderMarkdown(selectedFeedback.golden_response) 
                         }}
@@ -1062,16 +1062,16 @@ const FeedbackDashboard: React.FC = () => {
             {(selectedFeedback.status === 'pending' || selectedFeedback.status === 'ai_rejected') && selectedFeedback.feedback_type === 'negative' && (
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-text-secondary">
                     Golden Response
-                    <span className="font-normal text-gray-500 ml-1">(Write the ideal response)</span>
+                    <span className="font-normal text-text-secondary ml-1">(Write the ideal response)</span>
                   </label>
                   {canManageFeedback && (
                     <button
                       type="button"
                       onClick={() => handleGenerateResponse(false)}
                       disabled={isGenerating || isSubmitting}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-accent-purple text-white rounded-lg hover:bg-accent-purple-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     >
                       {isGenerating ? (
                         <>
@@ -1093,15 +1093,15 @@ const FeedbackDashboard: React.FC = () => {
                   )}
                 </div>
                 
-                <div className="border border-gray-300 rounded-lg overflow-hidden">
-                  <div className="flex border-b border-gray-300 bg-gray-50">
+                <div className="border border-border-strong rounded-lg overflow-hidden">
+                  <div className="flex border-b border-border-strong bg-surface-secondary">
                     <button
                       type="button"
                       onClick={() => setGoldenResponseTab('edit')}
                       className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer ${
                         goldenResponseTab === 'edit'
-                          ? 'bg-white text-gray-900 border-b-2 border-violet-600 -mb-px'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                          ? 'bg-surface-primary text-text-primary border-b-2 border-accent-purple -mb-px'
+                          : 'text-text-secondary hover:text-text-primary hover:bg-surface-tertiary'
                       }`}
                     >
                       Edit
@@ -1111,8 +1111,8 @@ const FeedbackDashboard: React.FC = () => {
                       onClick={() => setGoldenResponseTab('preview')}
                       className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer ${
                         goldenResponseTab === 'preview'
-                          ? 'bg-white text-gray-900 border-b-2 border-violet-600 -mb-px'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                          ? 'bg-surface-primary text-text-primary border-b-2 border-accent-purple -mb-px'
+                          : 'text-text-secondary hover:text-text-primary hover:bg-surface-tertiary'
                       }`}
                     >
                       Preview
@@ -1123,53 +1123,53 @@ const FeedbackDashboard: React.FC = () => {
                     <textarea
                       value={goldenResponse}
                       onChange={(e) => setGoldenResponse(e.target.value)}
-                      className="w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 text-sm resize-none"
+                      className="w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 text-sm resize-none bg-surface-primary text-text-primary"
                       rows={10}
                       placeholder="Write the ideal response that the AI should have given, or click 'Generate with AI' to auto-generate..."
                       disabled={isGenerating}
                     />
                   ) : (
                     <div 
-                      className="p-4 bg-white min-h-[200px] max-h-[350px] overflow-y-auto markdown-body"
+                      className="p-4 bg-surface-primary min-h-[200px] max-h-[350px] overflow-y-auto markdown-body"
                       dangerouslySetInnerHTML={{ 
                         __html: goldenResponse.trim() 
                           ? renderMarkdown(goldenResponse) 
-                          : '<p class="text-gray-400 italic">No content to preview</p>'
+                          : '<p class="text-text-tertiary italic">No content to preview</p>'
                       }}
                     />
                   )}
                 </div>
                 
                 {generationInfo && (
-                  <p className="text-xs text-violet-600 mt-1.5">
+                  <p className="text-xs text-accent-blue mt-1.5">
                     Generated in {(generationInfo.timeMs / 1000).toFixed(1)}s
                     {generationInfo.toolCalls > 0 && ` (${generationInfo.toolCalls} tool call${generationInfo.toolCalls > 1 ? 's' : ''} made)`}
                   </p>
                 )}
-                <p className="text-xs text-gray-500 mt-1.5">
+                <p className="text-xs text-text-secondary mt-1.5">
                   This response will be used as a golden example to improve future AI responses.
                 </p>
               </div>
             )}
 
             {(selectedFeedback.status === 'pending' || selectedFeedback.status === 'ai_rejected') && selectedFeedback.feedback_type === 'positive' && (
-              <div className="p-3 bg-emerald-50 rounded-lg text-sm text-emerald-700 border border-emerald-200">
+              <div className="p-3 bg-success-subtle rounded-lg text-sm text-success-text border border-success">
                 Approving this will create a golden example using the original AI response shown above.
               </div>
             )}
 
             {(selectedFeedback.status === 'pending' || selectedFeedback.status === 'ai_rejected') && canManageFeedback && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label className="block text-sm font-medium text-text-secondary mb-1.5">
                   Query Type
-                  <span className="font-normal text-gray-500 ml-1">(How should this golden example be used?)</span>
+                  <span className="font-normal text-text-secondary ml-1">(How should this golden example be used?)</span>
                 </label>
                 <div className="flex gap-3">
                   <label
                     className={`flex-1 flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                       queryType === 'static'
-                        ? 'border-cyan-400 bg-cyan-50'
-                        : 'border-gray-200 bg-white hover:bg-gray-50'
+                        ? 'border-accent-blue bg-info-subtle'
+                        : 'border-border-default bg-surface-primary hover:bg-surface-secondary'
                     }`}
                   >
                     <input
@@ -1181,15 +1181,15 @@ const FeedbackDashboard: React.FC = () => {
                       className="mt-0.5"
                     />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Static</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Answer doesn't change over time. Can be used as a direct answer for similar queries.</p>
+                      <p className="text-sm font-medium text-text-primary">Static</p>
+                      <p className="text-xs text-text-secondary mt-0.5">Answer doesn't change over time. Can be used as a direct answer for similar queries.</p>
                     </div>
                   </label>
                   <label
                     className={`flex-1 flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                       queryType === 'temporal'
-                        ? 'border-orange-400 bg-orange-50'
-                        : 'border-gray-200 bg-white hover:bg-gray-50'
+                        ? 'border-warning bg-warning-subtle'
+                        : 'border-border-default bg-surface-primary hover:bg-surface-secondary'
                     }`}
                   >
                     <input
@@ -1201,19 +1201,19 @@ const FeedbackDashboard: React.FC = () => {
                       className="mt-0.5"
                     />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Temporal</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Answer depends on current data (recent incidents, counts, trends). Used as reference</p>
+                      <p className="text-sm font-medium text-text-primary">Temporal</p>
+                      <p className="text-xs text-text-secondary mt-0.5">Answer depends on current data (recent incidents, counts, trends). Used as reference</p>
                     </div>
                   </label>
                 </div>
               </div>
             )}
 
-            <div className="pt-3 border-t border-gray-200 text-xs text-gray-500 space-y-0.5">
-              <p><span className="text-gray-600">User:</span> {selectedFeedback.user_email || 'Anonymous'}</p>
-              <p><span className="text-gray-600">Submitted:</span> {new Date(selectedFeedback.created_at).toLocaleString()}</p>
+            <div className="pt-3 border-t border-border-default text-xs text-text-secondary space-y-0.5">
+              <p><span className="text-text-secondary">User:</span> {selectedFeedback.user_email || 'Anonymous'}</p>
+              <p><span className="text-text-secondary">Submitted:</span> {new Date(selectedFeedback.created_at).toLocaleString()}</p>
               {selectedFeedback.reviewed_at && (
-                <p><span className="text-gray-600">Reviewed:</span> {new Date(selectedFeedback.reviewed_at).toLocaleString()} by {selectedFeedback.reviewer_email}</p>
+                <p><span className="text-text-secondary">Reviewed:</span> {new Date(selectedFeedback.reviewed_at).toLocaleString()} by {selectedFeedback.reviewer_email}</p>
               )}
             </div>
           </div>

@@ -322,7 +322,7 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
             disabled={isLoading}
             className={`flex-none h-10 w-10 rounded-xl mb-1.5 flex items-center justify-center cursor-pointer transition-colors ${
               isRecording
-                ? "border border-red-300 bg-red-50 text-red-600 animate-pulse"
+                ? "border border-danger bg-danger-subtle text-danger-text animate-pulse"
                 : "border border-border-default bg-surface-primary hover:bg-surface-tertiary text-text-secondary"
             } disabled:opacity-50 disabled:cursor-not-allowed`}
           >

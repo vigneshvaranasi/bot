@@ -19,9 +19,9 @@ const DEFAULT_PAGE_SIZE = 15;
 
 // Change type badge colors
 const CHANGE_TYPE_COLORS: Record<ChangeType, string> = {
-  create: "bg-green-100 text-green-800",
-  update: "bg-blue-100 text-blue-800",
-  rollback: "bg-amber-100 text-amber-800",
+  create: "bg-success-subtle text-success-text",
+  update: "bg-info-subtle text-info-text",
+  rollback: "bg-warning-subtle text-warning-text",
 };
 
 const CHANGE_TYPE_LABELS: Record<ChangeType, string> = {
@@ -45,7 +45,7 @@ const formatVersionId = (id: string): string => {
 // Component to display change chips
 const ChangeBadges = ({ changes }: { changes: ChangeDescription[] }) => {
   if (changes.length === 0) {
-    return <span className="text-gray-400 text-xs">No changes</span>;
+    return <span className="text-text-tertiary text-xs">No changes</span>;
   }
 
   // Group by segment for better display
@@ -57,7 +57,7 @@ const ChangeBadges = ({ changes }: { changes: ChangeDescription[] }) => {
       {aimlChanges.map((change) => (
         <span
           key={change.field}
-          className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-purple-50 text-purple-700 border border-purple-200"
+          className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-surface-tertiary text-text-primary border border-border-default"
           title={`${change.old_value} → ${change.new_value}`}
         >
           {change.field_label}
@@ -66,7 +66,7 @@ const ChangeBadges = ({ changes }: { changes: ChangeDescription[] }) => {
       {authChanges.map((change) => (
         <span
           key={change.field}
-          className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-cyan-50 text-cyan-700 border border-cyan-200"
+          className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-info-subtle text-info-text border border-info-border"
           title={`${change.old_value} → ${change.new_value}`}
         >
           {change.field_label}
@@ -212,22 +212,22 @@ const ConfigurationHistoryPage = () => {
       />
 
       {error && (
-        <div className="p-3 bg-red-50 text-sm text-red-700 border border-red-200 rounded">
+        <div className="p-3 bg-danger-subtle text-sm text-danger-text border border-danger rounded">
           {error}
         </div>
       )}
 
-      <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+      <section className="border border-border-default rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Version History</h3>
-            <p className="text-xs text-gray-600">
+            <h3 className="text-sm font-semibold text-text-primary">Version History</h3>
+            <p className="text-xs text-text-secondary">
               {total > 0 ? `${total} version(s) recorded` : "No configuration history available"}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-600">Segment</span>
+              <span className="text-xs text-text-secondary">Segment</span>
               <InfoHint text="Filter by area of change. 'AI/ML' shows model, temperature, and deny list changes. 'Auth' shows login provider changes." />
             </div>
             <Dropdown
@@ -243,14 +243,14 @@ const ConfigurationHistoryPage = () => {
         </div>
 
         {!loading && history.length === 0 && (
-          <div className="p-6 text-center text-gray-500 text-sm border border-dashed border-gray-300 rounded-lg bg-gray-50">
+          <div className="p-6 text-center text-text-secondary text-sm border border-dashed border-border-strong rounded-lg bg-surface-secondary">
             No configuration history available. Changes to settings will appear here.
           </div>
         )}
 
         {history.length > 0 && (
           <>
-            <div className="overflow-x-auto bg-white rounded-lg ">
+            <div className="overflow-x-auto bg-surface-primary rounded-lg ">
               <div className="max-h-[400px] overflow-y-auto">
                 <ConfigurableTable
                   data={history}
@@ -259,8 +259,8 @@ const ConfigurationHistoryPage = () => {
                     {
                       header: "Version",
                       headerClassName:
-                        "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200 min-w-[90px]",
-                      className: "text-xs md:text-sm text-gray-900 py-3 font-mono",
+                        "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default min-w-[90px]",
+                      className: "text-xs md:text-sm text-text-primary py-3 font-mono",
                       render: (item) => {
                         // Only show "Current" badge on page 1, first item
                         const isCurrentVersion = currentPage === 1 && history[0]?.id === item.id;
@@ -268,7 +268,7 @@ const ConfigurationHistoryPage = () => {
                           <div className="flex items-center gap-2">
                             <span title={item.id}>{formatVersionId(item.id)}</span>
                             {isCurrentVersion && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-success-subtle text-success-text">
                                 Current
                               </span>
                             )}
@@ -280,15 +280,15 @@ const ConfigurationHistoryPage = () => {
                     {
                       header: "Date",
                       headerClassName:
-                        "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200 min-w-[140px]",
-                      className: "text-xs md:text-sm text-gray-900 py-3",
+                        "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default min-w-[140px]",
+                      className: "text-xs md:text-sm text-text-primary py-3",
                       render: (item) => formatDate(item.updated_at),
                       searchable: false,
                     },
                     {
                       header: "Type",
                       headerClassName:
-                        "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200 w-24",
+                        "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default w-24",
                       className: "text-xs md:text-sm py-3",
                       render: (item) => (
                         <span
@@ -302,21 +302,21 @@ const ConfigurationHistoryPage = () => {
                     {
                       header: "Changed By",
                       headerClassName:
-                        "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200 min-w-[150px]",
-                      className: "text-xs md:text-sm text-gray-700 py-3",
+                        "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default min-w-[150px]",
+                      className: "text-xs md:text-sm text-text-secondary py-3",
                       render: (item) => item.user_email || "Unknown",
                       searchable: true,
                     },
                     {
                       header: "Changes",
                       headerClassName:
-                        "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200 min-w-[150px]",
+                        "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default min-w-[150px]",
                       className: "text-xs md:text-sm py-3",
                       render: (item) => (
                         <div>
                           <ChangeBadges changes={item.changes} />
                           {item.change_type === "rollback" && item.target_version_id && (
-                            <div className="text-[10px] text-amber-600 mt-1">
+                            <div className="text-[10px] text-warning-text mt-1">
                               Restored from: {formatVersionId(item.target_version_id)}
                             </div>
                           )}
@@ -327,7 +327,7 @@ const ConfigurationHistoryPage = () => {
                     {
                       header: "Actions",
                       headerClassName:
-                        "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200 w-32",
+                        "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default w-32",
                       render: (item, index) => {
                         // Disable rollback only for the very first item on page 1 (current version)
                         const isCurrentVersion = currentPage === 1 && index === 0;
@@ -346,7 +346,7 @@ const ConfigurationHistoryPage = () => {
                               </Button>
                             )}
                             <button
-                              className="text-xs text-gray-500 hover:text-gray-700 underline"
+                              className="text-xs text-text-secondary hover:text-text-secondary underline"
                               onClick={() => {
                                 setSelectedItem(item);
                                 setDetailModalOpen(true);
@@ -362,8 +362,8 @@ const ConfigurationHistoryPage = () => {
                     {
                       header: "Reason",
                       headerClassName:
-                        "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200 min-w-[120px]",
-                      className: "text-xs md:text-sm text-gray-500 py-3",
+                        "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default min-w-[120px]",
+                      className: "text-xs md:text-sm text-text-secondary py-3",
                       render: (item) => (
                         <span title={item.change_reason || ""}>
                           {truncateText(item.change_reason || "-", 25)}
@@ -372,8 +372,8 @@ const ConfigurationHistoryPage = () => {
                       searchable: false,
                     },
                   ]}
-                  headerRowClassName="bg-gray-50 sticky top-0 z-10"
-                  rowClassName="bg-white border-t border-gray-200 hover:bg-gray-50"
+                  headerRowClassName="bg-surface-secondary sticky top-0 z-10"
+                  rowClassName="bg-surface-primary border-t border-border-default hover:bg-surface-secondary"
                 />
               </div>
             </div>
@@ -394,9 +394,9 @@ const ConfigurationHistoryPage = () => {
       </section>
 
       {/* Legend */}
-      <section className="hidden border border-gray-200 rounded-lg p-4 space-y-4">
-        <h3 className="text-sm font-semibold text-gray-900">Legend</h3>
-        <div className="flex flex-wrap gap-6 text-xs text-gray-600">
+      <section className="hidden border border-border-default rounded-lg p-4 space-y-4">
+        <h3 className="text-sm font-semibold text-text-primary">Legend</h3>
+        <div className="flex flex-wrap gap-6 text-xs text-text-secondary">
           <div>
             <span className="font-medium">Change Types:</span>
             <div className="flex gap-2 mt-1">
@@ -408,8 +408,8 @@ const ConfigurationHistoryPage = () => {
           <div>
             <span className="font-medium">Change Badges:</span>
             <div className="flex gap-2 mt-1">
-              <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">AI/ML</span>
-              <span className="px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700 border border-cyan-200">Auth</span>
+              <span className="px-1.5 py-0.5 rounded bg-surface-tertiary text-text-primary border border-border-default">AI/ML</span>
+              <span className="px-1.5 py-0.5 rounded bg-info-subtle text-info-text border border-info-border">Auth</span>
             </div>
           </div>
           <div>
@@ -464,19 +464,19 @@ const ConfigurationHistoryPage = () => {
             {/* Version Info */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="font-medium text-gray-700">Version ID:</span>
-                <p className="font-mono text-gray-600 break-all text-xs mt-1">{selectedItem.id}</p>
+                <span className="font-medium text-text-secondary">Version ID:</span>
+                <p className="font-mono text-text-secondary break-all text-xs mt-1">{selectedItem.id}</p>
               </div>
               <div>
-                <span className="font-medium text-gray-700">Date:</span>
-                <p className="text-gray-600 mt-1">{formatDate(selectedItem.updated_at)}</p>
+                <span className="font-medium text-text-secondary">Date:</span>
+                <p className="text-text-secondary mt-1">{formatDate(selectedItem.updated_at)}</p>
               </div>
               <div>
-                <span className="font-medium text-gray-700">Changed By:</span>
-                <p className="text-gray-600 mt-1">{selectedItem.user_email || "Unknown"}</p>
+                <span className="font-medium text-text-secondary">Changed By:</span>
+                <p className="text-text-secondary mt-1">{selectedItem.user_email || "Unknown"}</p>
               </div>
               <div>
-                <span className="font-medium text-gray-700">Type:</span>
+                <span className="font-medium text-text-secondary">Type:</span>
                 <p className="mt-1">
                   <span className={`text-xs px-2 py-1 rounded-full ${CHANGE_TYPE_COLORS[selectedItem.change_type]}`}>
                     {CHANGE_TYPE_LABELS[selectedItem.change_type]}
@@ -487,25 +487,25 @@ const ConfigurationHistoryPage = () => {
 
             {/* Audit Trail */}
             {(selectedItem.source_version_id || selectedItem.target_version_id || selectedItem.change_reason) && (
-              <div className="border-t border-gray-200 pt-4">
-                <h4 className="font-medium text-gray-700 text-sm mb-2">Audit Trail</h4>
+              <div className="border-t border-border-default pt-4">
+                <h4 className="font-medium text-text-secondary text-sm mb-2">Audit Trail</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   {selectedItem.source_version_id && (
                     <div>
-                      <span className="text-gray-500">Replaced Version:</span>
-                      <p className="font-mono text-gray-600 text-xs">{selectedItem.source_version_id}</p>
+                      <span className="text-text-secondary">Replaced Version:</span>
+                      <p className="font-mono text-text-secondary text-xs">{selectedItem.source_version_id}</p>
                     </div>
                   )}
                   {selectedItem.target_version_id && (
                     <div>
-                      <span className="text-gray-500">Restored From:</span>
-                      <p className="font-mono text-gray-600 text-xs">{selectedItem.target_version_id}</p>
+                      <span className="text-text-secondary">Restored From:</span>
+                      <p className="font-mono text-text-secondary text-xs">{selectedItem.target_version_id}</p>
                     </div>
                   )}
                   {selectedItem.change_reason && (
                     <div className="col-span-2">
-                      <span className="text-gray-500">Reason:</span>
-                      <p className="text-gray-600 mt-1">{selectedItem.change_reason}</p>
+                      <span className="text-text-secondary">Reason:</span>
+                      <p className="text-text-secondary mt-1">{selectedItem.change_reason}</p>
                     </div>
                   )}
                 </div>
@@ -514,23 +514,23 @@ const ConfigurationHistoryPage = () => {
 
             {/* Changes */}
             {selectedItem.changes.length > 0 && (
-              <div className="border-t border-gray-200 pt-4">
-                <h4 className="font-medium text-gray-700 text-sm mb-2">Changes Made</h4>
+              <div className="border-t border-border-default pt-4">
+                <h4 className="font-medium text-text-secondary text-sm mb-2">Changes Made</h4>
                 <div className="space-y-2">
                   {selectedItem.changes.map((change) => (
                     <div key={change.field} className="flex items-center gap-2 text-sm">
                       <span
                         className={`px-1.5 py-0.5 rounded text-xs ${
                           change.segment === "aiml"
-                            ? "bg-purple-50 text-purple-700 border border-purple-200"
-                            : "bg-cyan-50 text-cyan-700 border border-cyan-200"
+                            ? "bg-surface-tertiary text-text-primary border border-border-default"
+                            : "bg-info-subtle text-info-text border border-info-border"
                         }`}
                       >
                         {change.field_label}
                       </span>
-                      <span className="text-red-500 line-through">{change.old_value}</span>
-                      <span className="text-gray-400">→</span>
-                      <span className="text-green-600">{change.new_value}</span>
+                      <span className="text-danger-text line-through">{change.old_value}</span>
+                      <span className="text-text-tertiary">→</span>
+                      <span className="text-success-text">{change.new_value}</span>
                     </div>
                   ))}
                 </div>
@@ -538,26 +538,26 @@ const ConfigurationHistoryPage = () => {
             )}
 
             {/* Configuration Snapshot */}
-            <div className="border-t border-gray-200 pt-4">
-              <h4 className="font-medium text-gray-700 text-sm mb-2">Configuration Snapshot</h4>
+            <div className="border-t border-border-default pt-4">
+              <h4 className="font-medium text-text-secondary text-sm mb-2">Configuration Snapshot</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                <div className="bg-gray-50 p-2 rounded">
-                  <span className="text-gray-500 text-xs">Model</span>
-                  <p className="text-gray-900">{selectedItem.model}</p>
+                <div className="bg-surface-secondary p-2 rounded">
+                  <span className="text-text-secondary text-xs">Model</span>
+                  <p className="text-text-primary">{selectedItem.model}</p>
                 </div>
-                <div className="bg-gray-50 p-2 rounded">
-                  <span className="text-gray-500 text-xs">Temperature</span>
-                  <p className="text-gray-900">{selectedItem.temperature}</p>
+                <div className="bg-surface-secondary p-2 rounded">
+                  <span className="text-text-secondary text-xs">Temperature</span>
+                  <p className="text-text-primary">{selectedItem.temperature}</p>
                 </div>
-                <div className="bg-gray-50 p-2 rounded">
-                  <span className="text-gray-500 text-xs">Langfuse</span>
-                  <p className={selectedItem.langfuse_enabled ? "text-green-600" : "text-gray-400"}>
+                <div className="bg-surface-secondary p-2 rounded">
+                  <span className="text-text-secondary text-xs">Langfuse</span>
+                  <p className={selectedItem.langfuse_enabled ? "text-success-text" : "text-text-tertiary"}>
                     {selectedItem.langfuse_enabled ? "Enabled" : "Disabled"}
                   </p>
                 </div>
-                <div className="bg-gray-50 p-2 rounded">
-                  <span className="text-gray-500 text-xs">Auth Providers</span>
-                  <p className="text-gray-900">
+                <div className="bg-surface-secondary p-2 rounded">
+                  <span className="text-text-secondary text-xs">Auth Providers</span>
+                  <p className="text-text-primary">
                     {[
                       selectedItem.auth_google_enabled && "Google",
                       selectedItem.auth_github_enabled && "GitHub",

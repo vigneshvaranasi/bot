@@ -64,12 +64,12 @@ export function InlineFeedback({
   return (
     <div className="mt-4 ml-1 max-w-md">
       <div className="flex items-start justify-between mb-1">
-        <h3 className="text-base font-medium text-gray-900">
+        <h3 className="text-base font-medium text-text-primary">
           {isPositive ? 'Thank you!' : 'Thank you!'}
         </h3>
         <button
           onClick={onCancel}
-          className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-1 -mr-1 -mt-1 rounded cursor-pointer transition-colors"
+          className="text-text-secondary hover:text-text-primary hover:bg-surface-tertiary p-1 -mr-1 -mt-1 rounded cursor-pointer transition-colors"
           aria-label="Close"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -78,7 +78,7 @@ export function InlineFeedback({
         </button>
       </div>
       
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-sm text-text-secondary mb-4">
         Your feedback helps make responses better for everyone.
       </p>
 
@@ -91,13 +91,13 @@ export function InlineFeedback({
             className={`
               w-full text-left px-1 py-2.5 text-sm flex items-center justify-between
               transition-colors rounded
-              ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100 cursor-pointer'}
-              ${selectedReason === reason ? 'bg-gray-50' : ''}
+              ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-surface-tertiary cursor-pointer'}
+              ${selectedReason === reason ? 'bg-surface-secondary' : ''}
             `}
           >
-            <span className="text-gray-700">{reason}</span>
+            <span className="text-text-secondary">{reason}</span>
             {selectedReason === reason && (
-              <svg className="w-5 h-5 text-gray-700 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-5 h-5 text-text-secondary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             )}
@@ -115,9 +115,9 @@ export function InlineFeedback({
             onKeyDown={(e) => e.key === 'Enter' && canSubmit && handleSubmit()}
             placeholder="Provide additional feedback"
             disabled={isLoading}
-            className="w-full px-4 py-3 text-sm bg-gray-100 border-0 rounded-lg 
-                       focus:outline-none focus:ring-2 focus:ring-gray-400
-                       placeholder-gray-500"
+            className="w-full px-4 py-3 text-sm bg-surface-tertiary text-text-primary border-0 rounded-lg
+                       focus:outline-none focus:ring-2 focus:ring-border-strong
+                       placeholder-text-tertiary"
           />
         </div>
       )}
@@ -128,15 +128,15 @@ export function InlineFeedback({
         className={`
           w-full py-2 text-sm font-medium rounded-lg transition-all cursor-pointer
           ${canSubmit && !isLoading
-            ? 'bg-gray-800 text-white hover:bg-gray-600'
-            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            ? 'bg-accent text-text-inverse hover:bg-accent-hover'
+            : 'bg-surface-tertiary text-text-tertiary cursor-not-allowed'
           }
         `}
       >
         {isLoading ? 'Submitting...' : 'Submit'}
       </button>
 
-      <p className="mt-4 text-xs text-gray-400">
+      <p className="mt-4 text-xs text-text-tertiary">
         Feedback is used to improve AI responses.
       </p>
     </div>

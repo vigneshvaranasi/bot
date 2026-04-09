@@ -211,7 +211,7 @@ const KnowledgeBasePage = () => {
   const syncColumns = [
     {
       header: "Source",
-      headerClassName: "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200",
+      headerClassName: "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
       className: "text-xs md:text-sm py-3",
       render: (item: Integration) => (
         <span className="font-medium capitalize">
@@ -222,7 +222,7 @@ const KnowledgeBasePage = () => {
     },
     {
       header: "Last Synced",
-      headerClassName: "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200",
+      headerClassName: "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
       className: "text-xs md:text-sm py-3",
       render: (item: Integration) =>
         item.last_synced_at ? new Date(item.last_synced_at).toLocaleString() : "Never",
@@ -230,14 +230,14 @@ const KnowledgeBasePage = () => {
     },
     {
       header: "Status",
-      headerClassName: "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200",
+      headerClassName: "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
       className: "text-xs md:text-sm py-3",
       render: (item: Integration) => {
         const status = item.last_sync_status || "never";
         const colors: Record<string, string> = {
-          success: "bg-green-100 text-green-800",
-          error: "bg-red-100 text-red-800",
-          never: "bg-gray-100 text-gray-800",
+          success: "bg-success-subtle text-success-text",
+          error: "bg-danger-subtle text-danger-text",
+          never: "bg-surface-tertiary text-text-primary",
         };
         return (
           <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${colors[status] || colors.never}`}>
@@ -249,7 +249,7 @@ const KnowledgeBasePage = () => {
     },
     {
       header: "Updated",
-      headerClassName: "font-medium text-gray-700 text-xs md:text-sm sticky top-0 bg-gray-50 z-10 border-b border-gray-200",
+      headerClassName: "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
       className: "text-xs md:text-sm py-3",
       render: (item: Integration) =>
         item.updated_at ? new Date(item.updated_at).toLocaleString() : "-",
@@ -266,10 +266,10 @@ const KnowledgeBasePage = () => {
 
       {/* ── Upload & Ingest Card ──────────────────────────────── */}
       {canUpload && (
-        <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+        <section className="border border-border-default rounded-lg p-4 space-y-4">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Upload & Ingest</h3>
-            <p className="text-xs text-gray-600">
+            <h3 className="text-sm font-semibold text-text-primary">Upload & Ingest</h3>
+            <p className="text-xs text-text-secondary">
               Upload JSON or CSV files containing incident data.
             </p>
           </div>
@@ -277,15 +277,15 @@ const KnowledgeBasePage = () => {
           {step === "upload" && (
             <div className="space-y-3">
               <div className="flex items-center gap-1">
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-text-secondary">
                   Required fields: incident_id, title, description.
                 </p>
                 <InfoHint text="Upload a JSON array of objects or a CSV with headers. Each record needs at least: incident_id, title, and description. Optional fields like action_taken and priority are also supported." />
               </div>
               <UploadFiles compact supportedFileTypes={[".json", ".csv"]} />
               {uploadLoading && (
-                <div className="flex items-center gap-2 text-xs text-gray-500 px-1">
-                  <svg className="animate-spin h-4 w-4 text-blue-500" viewBox="0 0 24 24">
+                <div className="flex items-center gap-2 text-xs text-text-secondary px-1">
+                  <svg className="animate-spin h-4 w-4 text-accent-blue" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
@@ -297,16 +297,16 @@ const KnowledgeBasePage = () => {
 
           {step === "preview" && uploadResult && (
             <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-900">Upload Preview</h4>
-              <div className="flex flex-wrap gap-4 text-xs text-gray-600">
+              <h4 className="text-sm font-medium text-text-primary">Upload Preview</h4>
+              <div className="flex flex-wrap gap-4 text-xs text-text-secondary">
                 <span>{uploadResult.incident_count} records parsed</span>
                 <span>{uploadResult.file_metadata.length} file(s)</span>
               </div>
               {uploadResult.file_metadata.map((fm, i) => (
-                <div key={i} className="flex flex-wrap items-center gap-3 py-2 px-3 bg-gray-50 rounded border border-gray-200 text-xs">
+                <div key={i} className="flex flex-wrap items-center gap-3 py-2 px-3 bg-surface-secondary rounded border border-border-default text-xs">
                   <span className="font-medium">{fm.filename}</span>
-                  <span className="text-gray-500">{(fm.size / 1024).toFixed(1)} KB</span>
-                  <span className="text-gray-500">{fm.row_count} rows</span>
+                  <span className="text-text-secondary">{(fm.size / 1024).toFixed(1)} KB</span>
+                  <span className="text-text-secondary">{fm.row_count} rows</span>
                 </div>
               ))}
               <div className="flex justify-end gap-2">
@@ -322,7 +322,7 @@ const KnowledgeBasePage = () => {
 
           {step === "validate" && report && (
             <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-4">Validation Report</h4>
+              <h4 className="text-sm font-medium text-text-primary mb-4">Validation Report</h4>
               <ValidationReportPanel
                 report={report}
                 onMapFields={() => setStep("mapping")}
@@ -333,7 +333,7 @@ const KnowledgeBasePage = () => {
 
           {step === "mapping" && report && (
             <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-4">Field Mapping</h4>
+              <h4 className="text-sm font-medium text-text-primary mb-4">Field Mapping</h4>
               <FieldMappingPanel
                 fileFields={report.file_fields || {}}
                 onApply={handleMapFieldsApply}
@@ -345,7 +345,7 @@ const KnowledgeBasePage = () => {
 
           {step === "ingest" && (
             <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-900">Ingestion Progress</h4>
+              <h4 className="text-sm font-medium text-text-primary">Ingestion Progress</h4>
               <IngestionProgressBar
                 batch={ingBatch}
                 totalBatches={ingTotal}
@@ -367,10 +367,10 @@ const KnowledgeBasePage = () => {
 
       {/* ── Dataset Versions Card ─────────────────────────────── */}
       {canView && (
-        <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+        <section className="border border-border-default rounded-lg p-4 space-y-4">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Dataset Versions</h3>
-            <p className="text-xs text-gray-600">
+            <h3 className="text-sm font-semibold text-text-primary">Dataset Versions</h3>
+            <p className="text-xs text-text-secondary">
               Manage and rollback dataset versions.
             </p>
           </div>
@@ -382,11 +382,11 @@ const KnowledgeBasePage = () => {
 
       {/* ── Sync History Card ─────────────────────────────────── */}
       {canView && (
-        <section className="border border-gray-200 rounded-lg p-4 space-y-4">
+        <section className="border border-border-default rounded-lg p-4 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="text-sm font-semibold text-gray-900">Sync History</h3>
-              <p className="text-xs text-gray-600">
+              <h3 className="text-sm font-semibold text-text-primary">Sync History</h3>
+              <p className="text-xs text-text-secondary">
                 Incidents synced from external integrations.
               </p>
             </div>
@@ -401,32 +401,32 @@ const KnowledgeBasePage = () => {
             <>
               {/* Incident Logs */}
               {logs.length > 0 && (
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                  <div className="p-3 border-b border-gray-200">
-                    <h4 className="text-xs font-medium text-gray-900">Recent Incidents</h4>
-                    <p className="text-xs text-gray-500">
+                <div className="bg-surface-primary rounded-lg border border-border-default overflow-hidden">
+                  <div className="p-3 border-b border-border-default">
+                    <h4 className="text-xs font-medium text-text-primary">Recent Incidents</h4>
+                    <p className="text-xs text-text-secondary">
                       Log of incidents added to the knowledge base
                     </p>
                   </div>
                   <div className="max-h-[300px] overflow-y-auto">
-                    <div className="divide-y divide-gray-100">
+                    <div className="divide-y divide-border-default">
                       {logs.slice(0, 50).map((log) => (
-                        <div key={log.id} className="p-3 hover:bg-gray-50 transition-colors">
+                        <div key={log.id} className="p-3 hover:bg-surface-secondary transition-colors">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                <span className="text-xs font-mono text-text-secondary bg-surface-tertiary px-2 py-0.5 rounded">
                                   {log.incident_id}
                                 </span>
-                                <span className="text-xs text-gray-500 bg-blue-50 px-2 py-0.5 rounded capitalize">
+                                <span className="text-xs text-text-secondary bg-info-subtle px-2 py-0.5 rounded capitalize">
                                   {log.source}
                                 </span>
                               </div>
-                              <p className="text-sm text-gray-900 mt-1 truncate" title={log.title}>
+                              <p className="text-sm text-text-primary mt-1 truncate" title={log.title}>
                                 {log.title}
                               </p>
                             </div>
-                            <div className="text-xs text-gray-500 whitespace-nowrap">
+                            <div className="text-xs text-text-secondary whitespace-nowrap">
                               {new Date(log.created_at).toLocaleString()}
                             </div>
                           </div>
@@ -439,9 +439,9 @@ const KnowledgeBasePage = () => {
 
               {/* Sync History Table */}
               {integrations.length === 0 ? (
-                <div className="p-6 text-center text-gray-500 text-sm border border-dashed border-gray-300 rounded-lg bg-gray-50">
+                <div className="p-6 text-center text-text-secondary text-sm border border-dashed border-border-strong rounded-lg bg-surface-secondary">
                   No sync history available. Configure a ServiceNow integration in{" "}
-                  <a href="/settings/integrations" className="text-blue-600 hover:underline">
+                  <a href="/settings/integrations" className="text-accent-blue hover:underline">
                     Integrations
                   </a>{" "}
                   and click "Sync Now" to populate the knowledge base.

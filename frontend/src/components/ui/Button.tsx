@@ -38,13 +38,13 @@ export const Button: React.FC<ButtonProps> = ({
 
   const variantClasses: Record<ButtonVariant, string> = {
     primary: 'bg-accent hover:bg-accent-hover text-text-inverse',
-    secondary: 'bg-gray-600 hover:bg-gray-700 text-white border border-gray-600',
-    success: 'bg-success hover:bg-green-600 text-white',
-    danger: 'bg-danger hover:bg-red-600 text-white',
-    ghost: 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300',
-    blue: 'bg-blue-600 hover:bg-blue-700 text-white',
-    link: 'bg-transparent text-blue-600 hover:text-blue-700 underline p-0',
-    default: 'bg-transparent text-gray-700',
+    secondary: 'bg-btn-secondary hover:bg-btn-secondary-hover text-white border border-btn-secondary',
+    success: 'bg-btn-success hover:bg-btn-success-hover text-white',
+    danger: 'bg-btn-danger hover:bg-btn-danger-hover text-white',
+    ghost: 'bg-surface-tertiary text-text-primary hover:bg-surface-hover border border-border-strong',
+    blue: 'bg-accent-blue hover:bg-accent-blue-hover text-white',
+    link: 'bg-transparent text-accent-blue hover:text-accent-blue-hover underline p-0',
+    default: 'bg-transparent text-text-secondary',
   };
 
   const roundedClasses: Record<ButtonRounded, string> = {

@@ -61,7 +61,7 @@ const InfoHint: React.FC<InfoHintProps> = ({
         ref={refs.setReference}
         aria-describedby={isOpen ? tooltipId : undefined}
         onClick={onClick}
-        className="inline-flex items-center justify-center p-0 bg-transparent border-0 text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 rounded-full cursor-pointer transition-colors"
+        className="inline-flex items-center justify-center p-0 bg-transparent border-0 text-text-tertiary hover:text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-1 rounded-full cursor-pointer transition-colors"
         {...getReferenceProps()}
       >
         <svg
@@ -84,7 +84,7 @@ const InfoHint: React.FC<InfoHintProps> = ({
             ref={refs.setFloating}
             id={tooltipId}
             style={floatingStyles}
-            className="z-40 max-w-xs bg-gray-800/90 text-white text-xs rounded-lg px-3 py-2 shadow-lg"
+            className="z-40 max-w-xs bg-accent text-text-inverse text-xs rounded-lg px-3 py-2 shadow-lg"
             {...getFloatingProps()}
           >
             {text}
