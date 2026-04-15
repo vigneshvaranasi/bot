@@ -33,7 +33,7 @@ from src.api.utils.llm_provider_helper import (
     get_provider_config_for_model,
     resolve_auto_routed_config,
 )
-from src.api.utils.tracing import resolve_langfuse_config, create_langfuse_trace, update_langfuse_trace_name
+from src.api.utils.tracing import resolve_langfuse_config, create_langfuse_trace, update_langfuse_trace_name, get_langfuse_client
 from src.copilot.graph import create_agent_graph, create_langfuse_callback, generate_title_from_query
 from src.copilot.guardrails.prompt_guardrails import PromptGuardrail
 # from src.copilot.utils import should_ask_clarification
@@ -457,6 +457,14 @@ async def prompt_stream(
                         name=trace_name,
                         input=human_message,
                     )
+                    if root_span:
+                        try:
+                            root_span.update_trace(
+                                session_id=str(actual_chat_id),
+                                user_id=str(user_id),
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to set session/user on Langfuse trace: {e}")
                     handler = create_langfuse_callback(langfuse_config, trace_context=trace_ctx)
                     thread_config["callbacks"] = [handler]
 
@@ -609,6 +617,7 @@ async def prompt_stream(
                 if root_span:
                     try:
                         root_span.update(output=answer or "")
+                        root_span.end()
                         trace_title = None
                         if generated_title and generated_title.strip() not in ("", "New Chat"):
                             trace_title = generated_title
@@ -619,6 +628,7 @@ async def prompt_stream(
 
                         if trace_title and trace_ctx:
                             update_langfuse_trace_name(trace_ctx["trace_id"], trace_title, langfuse_config)
+                        get_langfuse_client(langfuse_config).flush()
                     except Exception as e:
                         logger.debug(f"Failed to finalize Langfuse trace: {e}")
                 # Update pre-saved message with partial answer on disconnect
@@ -788,6 +798,14 @@ async def prompt(
                 name=ns_trace_name,
                 input=human_message,
             )
+            if ns_root_span:
+                try:
+                    ns_root_span.update_trace(
+                        session_id=str(actual_chat_id),
+                        user_id=str(user_id),
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to set session/user on Langfuse trace: {e}")
             ns_handler = create_langfuse_callback(langfuse_config, trace_context=ns_trace_ctx)
             thread_config["callbacks"] = [ns_handler]
 
@@ -860,9 +878,11 @@ async def prompt(
         if ns_root_span:
             try:
                 ns_root_span.update(output=answer or "")
+                ns_root_span.end()
                 ns_trace_title = title or current_title
                 if ns_trace_title and ns_trace_title.strip() not in ("", "New Chat") and ns_trace_ctx:
                     update_langfuse_trace_name(ns_trace_ctx["trace_id"], ns_trace_title, langfuse_config)
+                get_langfuse_client(langfuse_config).flush()
             except Exception as e:
                 logger.debug(f"Failed to finalize Langfuse trace: {e}")
 

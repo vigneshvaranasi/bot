@@ -53,6 +53,54 @@ def resolve_langfuse_config(settings) -> Optional[Dict[str, str]]:
 _LANGFUSE_INITIALIZED = False
 _LANGFUSE_CONFIG_SIGNATURE: Optional[Tuple[str, str, str]] = None
 
+_SENSITIVE_KEY_SUBSTRINGS = (
+    "api_key",
+    "apikey",
+    "secret_key",
+    "secretkey",
+    "secret",
+    "password",
+    "passwd",
+    "access_token",
+    "refresh_token",
+    "authorization",
+    "auth_token",
+    "bearer",
+    "private_key",
+    "client_secret",
+)
+
+_REDACTED = "[REDACTED]"
+
+
+def _is_sensitive_key(key: Any) -> bool:
+    if not isinstance(key, str):
+        return False
+    lowered = key.lower()
+    return any(token in lowered for token in _SENSITIVE_KEY_SUBSTRINGS)
+
+
+def mask_sensitive_data(data: Any, **kwargs) -> Any:
+    """Recursively redact secrets from trace payloads before export.
+
+    Passed as ``mask`` to the Langfuse client so every input, output, and
+    metadata value routed through the SDK is sanitized — including graph
+    state captured automatically by the LangChain CallbackHandler.
+    """
+    try:
+        if isinstance(data, dict):
+            return {
+                k: (_REDACTED if _is_sensitive_key(k) else mask_sensitive_data(v))
+                for k, v in data.items()
+            }
+        if isinstance(data, (list, tuple)):
+            masked = [mask_sensitive_data(item) for item in data]
+            return type(data)(masked) if isinstance(data, tuple) else masked
+        return data
+    except Exception as e:
+        logger.warning(f"Langfuse masking function failed: {e}")
+        return _REDACTED
+
 
 def get_langfuse_client(langfuse_config: Optional[Dict[str, str]] = None):
     """
@@ -79,6 +127,7 @@ def get_langfuse_client(langfuse_config: Optional[Dict[str, str]] = None):
                 secret_key=langfuse_config.get("secret_key"),
                 public_key=langfuse_config.get("public_key"),
                 host=langfuse_config.get("host"),
+                mask=mask_sensitive_data,
             )
             _LANGFUSE_INITIALIZED = True
             _LANGFUSE_CONFIG_SIGNATURE = cfg_sig
