@@ -987,10 +987,18 @@ class TestDeleteIncident:
     """Tests for DELETE /api/knowledge-base/incidents/{incident_id}"""
 
     @pytest.mark.asyncio
-    async def test_delete_incident_no_file(self, admin_client):
-        """Delete when no incidents file exists."""
-        client, _, _ = admin_client
-        with patch("os.path.exists", return_value=False):
+    async def test_delete_incident_no_collection(self, admin_client):
+        """Delete when no Qdrant collection exists."""
+        client, session, _ = admin_client
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = False
+
+        with patch("src.api.routers.knowledge_base.get_qdrant_client",
+                   return_value=mock_client), \
+             patch("src.api.routers.knowledge_base.IncidentIngestionService") as MockSvc:
+            mock_svc = AsyncMock()
+            mock_svc.get_active_collection_name = AsyncMock(return_value="test_coll")
+            MockSvc.return_value = mock_svc
             response = await client.delete("/api/knowledge-base/incidents/INC001")
         assert response.status_code == 200
         data = response.json()
@@ -1817,45 +1825,45 @@ class TestKBRouterListIncidents:
 
 
 class TestKBRouterDeleteIncident:
-    """Tests for DELETE /api/knowledge-base/incidents/{id}."""
+    """Tests for DELETE /api/knowledge-base/incidents/{id} (Qdrant-based)."""
 
     @pytest.mark.asyncio
-    async def test_delete_no_file(self, admin_client):
-        """No JSON file returns 'no incidents found'."""
-        client, _, _ = admin_client
-        with patch("os.path.exists", return_value=False):
+    async def test_delete_no_collection(self, admin_client):
+        """No Qdrant collection returns 'no incidents found'."""
+        client, session, _ = admin_client
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = False
+
+        with patch("src.api.routers.knowledge_base.get_qdrant_client",
+                   return_value=mock_client), \
+             patch("src.api.routers.knowledge_base.IncidentIngestionService") as MockSvc:
+            mock_svc = AsyncMock()
+            mock_svc.get_active_collection_name = AsyncMock(return_value="test_coll")
+            MockSvc.return_value = mock_svc
             response = await client.delete("/api/knowledge-base/incidents/INC001")
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is False
 
     @pytest.mark.asyncio
-    async def test_delete_incident_not_found(self, admin_client):
-        """Incident not in file returns not found."""
-        client, _, _ = admin_client
-        import io
-        mock_data = [{"incident_id": "INC999"}]
-        with patch("os.path.exists", return_value=True), \
-             patch("builtins.open", MagicMock()), \
-             patch("json.load", return_value=mock_data):
-            response = await client.delete("/api/knowledge-base/incidents/INC001")
-        data = response.json()
-        assert data["success"] is False
-        assert "not found" in data["message"]
-
-    @pytest.mark.asyncio
     async def test_delete_incident_success(self, admin_client):
-        """Successfully deletes incident from JSON."""
-        client, _, _ = admin_client
-        mock_data = [{"incident_id": "INC001"}, {"incident_id": "INC002"}]
-        mock_file = MagicMock()
-        with patch("os.path.exists", return_value=True), \
-             patch("builtins.open", return_value=mock_file), \
-             patch("json.load", return_value=mock_data), \
-             patch("json.dump"), \
-             patch("src.api.routers.knowledge_base.get_qdrant_client",
-                   side_effect=ImportError("no qdrant")):
-            response = await client.delete("/api/knowledge-base/incidents/INC001")
+        """Successfully deletes incident from Qdrant."""
+        client, session, _ = admin_client
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = True
+        mock_client.delete = MagicMock()
+
+        with patch("src.api.routers.knowledge_base.get_qdrant_client",
+                   return_value=mock_client), \
+             patch("src.api.routers.knowledge_base.IncidentIngestionService") as MockSvc:
+            mock_svc = AsyncMock()
+            mock_svc.get_active_collection_name = AsyncMock(return_value="test_coll")
+            MockSvc.return_value = mock_svc
+
+            with patch.dict("sys.modules", {
+                "qdrant_client.models": MagicMock(),
+            }):
+                response = await client.delete("/api/knowledge-base/incidents/INC001")
         data = response.json()
         assert data["success"] is True
 
@@ -2683,44 +2691,28 @@ class TestListIncidentsQdrantPagination:
 
 
 class TestDeleteIncidentQdrant:
-    """Cover Qdrant deletion paths in delete_incident (lines 252-270, 274-275)."""
+    """Cover Qdrant deletion paths in delete_incident."""
 
     @pytest.mark.asyncio
     async def test_delete_incident_qdrant_error(self, admin_client):
-        """Qdrant error during deletion is handled gracefully (lines 269-270)."""
+        """Qdrant error during deletion returns 500."""
         client, session, uid = admin_client
-        import os, json
+        mock_client = MagicMock()
+        mock_client.collection_exists.return_value = True
+        mock_client.delete.side_effect = RuntimeError("qdrant delete error")
 
-        # Create temp data file
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
-            os.path.abspath(__file__)))), "data")
-        output_path = os.path.join(data_dir, "incidentspulledfromsnow.json")
-        os.makedirs(data_dir, exist_ok=True)
-        incidents = [{"incident_id": "INC999", "title": "T"}]
-        with open(output_path, "w") as f:
-            json.dump(incidents, f)
+        with patch("src.api.routers.knowledge_base.get_qdrant_client",
+                   return_value=mock_client), \
+             patch("src.api.routers.knowledge_base.IncidentIngestionService") as MockSvc:
+            mock_svc = AsyncMock()
+            mock_svc.get_active_collection_name = AsyncMock(return_value="test_coll")
+            MockSvc.return_value = mock_svc
 
-        try:
-            mock_client = MagicMock()
-            mock_client.collection_exists.return_value = True
-            mock_client.delete.side_effect = RuntimeError("qdrant delete error")
-
-            with patch("src.api.routers.knowledge_base.get_qdrant_client",
-                       return_value=mock_client), \
-                 patch("src.api.routers.knowledge_base.IncidentIngestionService") as MockSvc:
-                mock_svc = AsyncMock()
-                mock_svc.get_active_collection_name = AsyncMock(return_value="test_coll")
-                MockSvc.return_value = mock_svc
-
-                # Mock the qdrant filter imports
-                with patch.dict("sys.modules", {
-                    "qdrant_client.models": MagicMock(),
-                }):
-                    response = await client.delete("/api/knowledge-base/incidents/INC999")
-            assert response.status_code == 200
-        finally:
-            if os.path.exists(output_path):
-                os.remove(output_path)
+            with patch.dict("sys.modules", {
+                "qdrant_client.models": MagicMock(),
+            }):
+                response = await client.delete("/api/knowledge-base/incidents/INC999")
+        assert response.status_code == 500
 
     @pytest.mark.asyncio
     async def test_delete_incident_general_error(self, admin_client):

@@ -22,6 +22,12 @@ export type Integration = {
   updated_at?: string;
 };
 
+export const CONNECTOR_TYPES = [
+  { value: "servicenow", label: "ServiceNow" },
+] as const;
+
+export type ConnectorType = (typeof CONNECTOR_TYPES)[number]["value"];
+
 export const AUTH_SCHEMAS: AuthSchema = {
   basic_auth: [
     { key: "url", label: "Instance URL", type: "url", required: true },

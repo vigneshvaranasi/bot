@@ -89,17 +89,15 @@ const VersionListPanel = ({ refreshTrigger = 0 }: { refreshTrigger?: number }) =
       header: "Source",
       headerClassName: "font-medium text-text-secondary text-xs sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
       className: "text-xs py-3",
-      render: (item: DatasetVersion) => (
-        <span
-          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-            item.source === "servicenow"
-              ? "bg-info-subtle text-info-text"
-              : "bg-info-subtle text-info-text"
-          }`}
-        >
-          {item.source === "servicenow" ? "ServiceNow" : "Upload"}
-        </span>
-      ),
+      render: (item: DatasetVersion) => {
+        const label = item.source === "upload" ? "Upload"
+          : item.source.charAt(0).toUpperCase() + item.source.slice(1);
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-info-subtle text-info-text">
+            {label}
+          </span>
+        );
+      },
       searchable: false,
     },
     {

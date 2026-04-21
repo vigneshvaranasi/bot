@@ -82,8 +82,10 @@ class TestListIntegrations:
         await session.commit()
 
         response = await client.get("/integrations/all")
-        config = response.json()["integrations"][0]["config"]
-        assert config["password"] == "********"
+        integration = response.json()["integrations"][0]
+        config = integration["config"]
+        assert "password" not in config
+        assert "password" in integration["configured_secrets"]
         assert config["url"] == "https://example.service-now.com"
         assert config["username"] == "admin"
 
@@ -120,7 +122,7 @@ class TestGetIntegration:
 
     @pytest.mark.asyncio
     async def test_get_integration_masks_password(self, admin_client):
-        """Password is masked in single integration response."""
+        """Password is stripped from config and listed in configured_secrets."""
         client, session, user_id = admin_client
         intg = _make_integration(user_id)
         session.add(intg)
@@ -128,7 +130,9 @@ class TestGetIntegration:
         await session.refresh(intg)
 
         response = await client.get(f"/integrations/id/{intg.id}")
-        assert response.json()["integration"]["config"]["password"] == "********"
+        integration = response.json()["integration"]
+        assert "password" not in integration["config"]
+        assert "password" in integration["configured_secrets"]
 
     @pytest.mark.asyncio
     async def test_get_integration_not_found(self, admin_client):
@@ -173,17 +177,17 @@ class TestCreateIntegration:
 
     @pytest.mark.asyncio
     async def test_create_integration_masks_response(self, admin_client):
-        """Created integration response masks sensitive fields."""
+        """Created integration response strips sensitive fields from config."""
         client, _, _ = admin_client
         response = await client.post("/integrations/create", json={
             "service_name": "servicenow",
             "auth_type": "basic_auth",
             "config": {"url": "https://x.com", "username": "u", "password": "secret"},
             "is_active": False,
-            "status": "success",
         })
-        config = response.json()["integration"]["config"]
-        assert config["password"] == "********"
+        integration = response.json()["integration"]
+        assert "password" not in integration["config"]
+        assert "password" in integration["configured_secrets"]
 
     @pytest.mark.asyncio
     async def test_create_integration_persists(self, admin_client):
@@ -409,8 +413,8 @@ class TestCreateIntegrationEdgeCases:
         assert response.json()["integration"]["service_name"] == special
 
     @pytest.mark.asyncio
-    async def test_create_masks_multiple_sensitive_fields(self, admin_client):
-        """All sensitive config keys (password, api_key, secret, token) are masked."""
+    async def test_create_strips_multiple_sensitive_fields(self, admin_client):
+        """All sensitive config keys are stripped from config and listed in configured_secrets."""
         client, _, _ = admin_client
         response = await client.post("/integrations/create", json={
             "service_name": "servicenow",
@@ -424,16 +428,16 @@ class TestCreateIntegrationEdgeCases:
                 "access_token": "at_12345",
             },
             "is_active": True,
-            "status": "success",
         })
         assert response.status_code == 200
-        config = response.json()["integration"]["config"]
+        integration = response.json()["integration"]
+        config = integration["config"]
+        secrets = integration["configured_secrets"]
         assert config["url"] == "https://x.com"
-        assert config["password"] == "********"
-        assert config["api_key"] == "********"
-        assert config["secret"] == "********"
-        assert config["token"] == "********"
-        assert config["access_token"] == "********"
+        for key in ("password", "secret", "token", "access_token"):
+            assert key not in config
+            assert key in secrets
+        assert "api_key" not in config
 
     @pytest.mark.asyncio
     async def test_create_integration_xss_in_service_name(self, admin_client):
@@ -479,9 +483,8 @@ class TestUpdateIntegrationEdgeCases:
     """Edge cases for PUT /integrations/update/{integration_id}"""
 
     @pytest.mark.asyncio
-    async def test_update_with_masked_password_overwrites(self, admin_client):
-        """Sending '********' as password actually stores that string.
-        Documents current behavior — no unmasking logic on write."""
+    async def test_update_with_masked_password_rejected(self, admin_client):
+        """Sending '********' as password is rejected with HTTP 400."""
         client, session, user_id = admin_client
         intg = _make_integration(user_id)
         session.add(intg)
@@ -489,20 +492,14 @@ class TestUpdateIntegrationEdgeCases:
         await session.refresh(intg)
         intg_id = intg.id
 
-        await client.put(f"/integrations/update/{intg_id}", json={
+        response = await client.put(f"/integrations/update/{intg_id}", json={
             "service_name": "servicenow",
             "auth_type": "basic_auth",
             "config": {"url": "https://x.com", "username": "u", "password": "********"},
             "is_active": True,
         })
-
-        session.expire_all()
-        result = await session.execute(
-            select(Integration).where(Integration.id == intg_id)
-        )
-        db_intg = result.scalar_one()
-        # The masked value is stored as-is (documents current behavior)
-        assert db_intg.config["password"] == "********"
+        assert response.status_code == 400
+        assert "Invalid value for sensitive field" in response.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_update_changes_all_fields(self, admin_client):
@@ -837,11 +834,11 @@ class TestSyncIntegrationSSE:
 
     @pytest.mark.asyncio
     async def test_sync_missing_config(self, admin_client):
-        """Integration without url/username/password returns SSE error."""
+        """Integration without required auth fields returns SSE error."""
         client, session, _ = admin_client
         from src.api.db.models import Integration
         intg = Integration(
-            service_name="snow", auth_type="basic",
+            service_name="servicenow", auth_type="basic_auth",
             config={"url": "http://example.com"},  # missing username/password
             is_active=True, user_id=str(uuid4()),
         )
@@ -850,15 +847,32 @@ class TestSyncIntegrationSSE:
         await session.refresh(intg)
 
         response = await client.post(f"/integrations/sync/{intg.id}")
-        assert "Missing ServiceNow configuration" in response.text
+        assert "event: error" in response.text
 
     @pytest.mark.asyncio
-    async def test_sync_servicenow_error(self, admin_client):
-        """ServiceNow fetch error streams error event."""
+    async def test_sync_unknown_connector(self, admin_client):
+        """Integration with unknown service_name returns SSE error."""
         client, session, _ = admin_client
         from src.api.db.models import Integration
         intg = Integration(
-            service_name="snow", auth_type="basic",
+            service_name="unknown_service", auth_type="basic_auth",
+            config={"url": "http://example.com"},
+            is_active=True, user_id=str(uuid4()),
+        )
+        session.add(intg)
+        await session.commit()
+        await session.refresh(intg)
+
+        response = await client.post(f"/integrations/sync/{intg.id}")
+        assert "No connector registered" in response.text
+
+    @pytest.mark.asyncio
+    async def test_sync_connector_fetch_error(self, admin_client):
+        """Connector fetch error streams error event."""
+        client, session, _ = admin_client
+        from src.api.db.models import Integration
+        intg = Integration(
+            service_name="servicenow", auth_type="basic_auth",
             config={"url": "http://sn.test", "username": "u", "password": "p"},
             is_active=True, user_id=str(uuid4()),
         )
@@ -866,8 +880,13 @@ class TestSyncIntegrationSSE:
         await session.commit()
         await session.refresh(intg)
 
-        with patch("src.api.routers.integrations.run_servicenow_ingestion",
-                   side_effect=RuntimeError("Connection refused")):
+        mock_connector = MagicMock()
+        mock_connector.fetch_and_normalize = MagicMock(
+            side_effect=RuntimeError("Connection refused")
+        )
+
+        with patch("src.api.routers.integrations.get_connector",
+                   return_value=mock_connector):
             response = await client.post(f"/integrations/sync/{intg.id}")
         body = response.text
         assert "Connection refused" in body
@@ -875,11 +894,11 @@ class TestSyncIntegrationSSE:
 
     @pytest.mark.asyncio
     async def test_sync_no_incidents(self, admin_client):
-        """Sync with 0 incidents succeeds with progress event."""
+        """Sync with 0 incidents succeeds with complete event."""
         client, session, _ = admin_client
         from src.api.db.models import Integration
         intg = Integration(
-            service_name="snow", auth_type="basic",
+            service_name="servicenow", auth_type="basic_auth",
             config={"url": "http://sn.test", "username": "u", "password": "p"},
             is_active=True, user_id=str(uuid4()),
         )
@@ -887,13 +906,14 @@ class TestSyncIntegrationSSE:
         await session.commit()
         await session.refresh(intg)
 
-        with patch("src.api.routers.integrations.run_servicenow_ingestion",
-                   return_value={"normalized": [], "added": 0, "total": 0,
-                                 "last_synced": "2025-01-01"}):
+        mock_connector = MagicMock()
+        mock_connector.fetch_and_normalize = MagicMock(return_value=[])
+
+        with patch("src.api.routers.integrations.get_connector",
+                   return_value=mock_connector):
             response = await client.post(f"/integrations/sync/{intg.id}")
         body = response.text
         assert "event: complete" in body
-        assert "No new incidents" in body or "event: progress" in body
 
     @pytest.mark.asyncio
     async def test_sync_with_incidents(self, admin_client):
@@ -901,7 +921,7 @@ class TestSyncIntegrationSSE:
         client, session, _ = admin_client
         from src.api.db.models import Integration
         intg = Integration(
-            service_name="snow", auth_type="basic",
+            service_name="servicenow", auth_type="basic_auth",
             config={"url": "http://sn.test", "username": "u", "password": "p"},
             is_active=True, user_id=str(uuid4()),
         )
@@ -909,12 +929,15 @@ class TestSyncIntegrationSSE:
         await session.commit()
         await session.refresh(intg)
 
-        incidents = [{"number": f"INC{i}", "short_description": f"Issue {i}",
-                      "description": f"Desc {i}", "priority": "1", "state": "6",
-                      "category": "network", "assigned_to": "admin",
-                      "sys_created_on": "2025-01-01", "sys_updated_on": "2025-01-02",
-                      "resolved_at": "2025-01-03", "close_notes": "fixed"}
-                     for i in range(3)]
+        normalized = [
+            {"incident_id": f"INC{i}", "title": f"Issue {i}",
+             "description": f"Desc {i}", "action_taken": f"Fix {i}",
+             "opened_at": "2025-01-01", "updated_at": "2025-01-02"}
+            for i in range(3)
+        ]
+
+        mock_connector = MagicMock()
+        mock_connector.fetch_and_normalize = MagicMock(return_value=normalized)
 
         mock_svc = AsyncMock()
         mock_upload = MagicMock()
@@ -925,9 +948,8 @@ class TestSyncIntegrationSSE:
         mock_version.version_number = 1
         mock_svc.confirm_and_ingest = AsyncMock(return_value=mock_version)
 
-        with patch("src.api.routers.integrations.run_servicenow_ingestion",
-                   return_value={"normalized": incidents, "added": 3, "total": 3,
-                                 "last_synced": "2025-01-02"}), \
+        with patch("src.api.routers.integrations.get_connector",
+                   return_value=mock_connector), \
              patch("src.api.routers.integrations.IncidentIngestionService",
                    return_value=mock_svc):
             response = await client.post(f"/integrations/sync/{intg.id}")
@@ -983,15 +1005,15 @@ class TestCreateDeleteErrorPaths:
 
 
 class TestSyncSSEDeep:
-    """Cover remaining sync SSE inner code (lines 270, 303-304, 317-323, 326-332)."""
+    """Cover remaining sync SSE inner code paths."""
 
     @pytest.mark.asyncio
     async def test_sync_ingestion_error_event(self, admin_client):
-        """Ingestion error sends SSE error event (lines 303-304, 317-320)."""
+        """Ingestion error sends SSE error event."""
         client, session, uid = admin_client
         intg = Integration(
-            service_name="ServiceNow", auth_type="basic",
-            config={"instance_url": "https://test.service-now.com",
+            service_name="ServiceNow", auth_type="basic_auth",
+            config={"url": "https://test.service-now.com",
                     "username": "admin", "password": "pass"},
             is_active=True, user_id=uid,
         )
@@ -999,11 +1021,13 @@ class TestSyncSSEDeep:
         await session.commit()
         await session.refresh(intg)
 
-        incidents = [{"incident_id": f"INC{i}", "title": f"Inc {i}",
-                      "description": f"Desc {i}", "action_taken": f"Fix {i}",
-                      "opened_at": "2025-01-01", "updated_at": "2025-01-02",
-                      "resolved_at": "2025-01-03", "close_notes": "fixed"}
-                     for i in range(2)]
+        normalized = [{"incident_id": f"INC{i}", "title": f"Inc {i}",
+                       "description": f"Desc {i}", "action_taken": f"Fix {i}",
+                       "opened_at": "2025-01-01", "updated_at": "2025-01-02"}
+                      for i in range(2)]
+
+        mock_connector = MagicMock()
+        mock_connector.fetch_and_normalize = MagicMock(return_value=normalized)
 
         mock_svc = AsyncMock()
         mock_upload = MagicMock()
@@ -1011,9 +1035,8 @@ class TestSyncSSEDeep:
         mock_svc.create_upload_session = AsyncMock(return_value=mock_upload)
         mock_svc.confirm_and_ingest = AsyncMock(side_effect=RuntimeError("ingest boom"))
 
-        with patch("src.api.routers.integrations.run_servicenow_ingestion",
-                   return_value={"normalized": incidents, "added": 2, "total": 2,
-                                 "last_synced": "2025-01-02"}), \
+        with patch("src.api.routers.integrations.get_connector",
+                   return_value=mock_connector), \
              patch("src.api.routers.integrations.IncidentIngestionService",
                    return_value=mock_svc):
             response = await client.post(f"/integrations/sync/{intg.id}")

@@ -14,7 +14,7 @@ import {
   syncIntegration,
   type IntegrationPayload,
 } from "../../handlers/integrationHandlers";
-import { type Integration, type IntegrationSyncStatus, AUTH_SCHEMAS } from "../../types/Integrations";
+import { type Integration, type IntegrationSyncStatus, AUTH_SCHEMAS, CONNECTOR_TYPES } from "../../types/Integrations";
 import { SkeletonIntegrations } from "../../components/ui/Skeleton";
 import { usePermissions } from "../../hooks/usePermissions";
 import { PERMISSIONS } from "../../types/Permission";
@@ -35,11 +35,14 @@ const IntegrationsPage = () => {
   const [integrationsError, setIntegrationsError] = useState<string | null>(null);
 
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [newConnectorType, setNewConnectorType] = useState<string | undefined>(undefined);
   const [newName, setNewName] = useState("");
   const [newAuthType, setNewAuthType] = useState<string | undefined>(undefined);
   const [newConfig, setNewConfig] = useState<Record<string, string>>({});
   const [addError, setAddError] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+
+  const connectorOptions = CONNECTOR_TYPES.map((c) => ({ value: c.value, label: c.label }));
 
   useEffect(() => {
     const loadIntegrations = async () => {
@@ -86,6 +89,7 @@ const IntegrationsPage = () => {
   ];
 
   const handleAddIntegration = () => {
+    setNewConnectorType(undefined);
     setNewName("");
     setNewAuthType(undefined);
     setNewConfig({});
@@ -94,8 +98,8 @@ const IntegrationsPage = () => {
   };
 
   const handleAddModalSave = async () => {
-    if (!newName.trim()) {
-      setAddError("Service name is required");
+    if (!newConnectorType) {
+      setAddError("Connector type is required");
       return;
     }
     if (!newAuthType) {
@@ -109,11 +113,14 @@ const IntegrationsPage = () => {
       }
     }
 
+    const connectorLabel = CONNECTOR_TYPES.find((c) => c.value === newConnectorType)?.label ?? newConnectorType;
+    const serviceName = newName.trim() || connectorLabel;
+
     setAddError(null);
     setIsAdding(true);
     try {
       const created = await createIntegration({
-        service_name: newName.trim(),
+        service_name: serviceName,
         auth_type: newAuthType,
         config: newConfig,
         is_active: true,
@@ -303,27 +310,48 @@ const IntegrationsPage = () => {
       >
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">Service Name <span className="text-danger-text">*</span></label>
-            <InputBox
-              value={newName}
-              placeholder="e.g. ServiceNow, Jira"
-              variant="primary"
-              onChange={(value) => setNewName(value)}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium">Authentication Type <span className="text-danger-text">*</span></label>
+            <label className="text-sm font-medium">Connector Type <span className="text-danger-text">*</span></label>
             <Dropdown
-              options={authOptions}
-              value={newAuthType}
+              options={connectorOptions}
+              value={newConnectorType}
               onChange={(value) => {
-                setNewAuthType(value);
+                setNewConnectorType(value);
+                const label = CONNECTOR_TYPES.find((c) => c.value === value)?.label ?? "";
+                setNewName(label);
+                setNewAuthType(undefined);
                 setNewConfig({});
                 setAddError(null);
               }}
             />
           </div>
+
+          {newConnectorType && (
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium">Display Name</label>
+              <InputBox
+                value={newName}
+                placeholder={CONNECTOR_TYPES.find((c) => c.value === newConnectorType)?.label ?? "Integration name"}
+                variant="primary"
+                onChange={(value) => setNewName(value)}
+              />
+              <span className="text-xs text-text-secondary">Optional — defaults to connector type name</span>
+            </div>
+          )}
+
+          {newConnectorType && (
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium">Authentication Type <span className="text-danger-text">*</span></label>
+              <Dropdown
+                options={authOptions}
+                value={newAuthType}
+                onChange={(value) => {
+                  setNewAuthType(value);
+                  setNewConfig({});
+                  setAddError(null);
+                }}
+              />
+            </div>
+          )}
 
           {newAuthType && (
             <div className="flex flex-col gap-3">

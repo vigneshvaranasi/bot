@@ -215,7 +215,7 @@ const KnowledgeBasePage = () => {
       className: "text-xs md:text-sm py-3",
       render: (item: Integration) => (
         <span className="font-medium capitalize">
-          {item.service_name === "snow" ? "ServiceNow" : item.service_name}
+          {item.service_name}
         </span>
       ),
       searchable: false,

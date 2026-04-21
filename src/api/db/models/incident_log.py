@@ -14,7 +14,7 @@ class IncidentLog(Base):
 
     incident_id = Column(String, nullable=False)
     title = Column(String, nullable=False)
-    source = Column(String, default="servicenow", nullable=False)
+    source = Column(String, default="upload", nullable=False)
     
     integration_id = Column(
         UUID(as_uuid=True), ForeignKey("integrations.id", ondelete="CASCADE"), nullable=True

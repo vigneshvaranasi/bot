@@ -1,6 +1,6 @@
+import asyncio
 import json
 import logging
-import os
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,8 +15,8 @@ from src.api.schemas.integration_schema import (
     IntegrationBase,
     IntegrationCreate,
 )
-from src.automation.snow import run_servicenow_ingestion
 from src.api.services.incident_ingestion_service import IncidentIngestionService
+from src.automation.registry import get_connector, get_connector_type
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -25,6 +25,13 @@ router = APIRouter()
 SENSITIVE_CONFIG_FIELDS = {"password", "api_key", "secret", "token", "api_token", "access_token", "refresh_token"}
 MASK_PLACEHOLDER = "********"
 
+_sync_locks: dict[str, asyncio.Lock] = {}
+
+
+def _get_sync_lock(integration_id: str) -> asyncio.Lock:
+    if integration_id not in _sync_locks:
+        _sync_locks[integration_id] = asyncio.Lock()
+    return _sync_locks[integration_id]
 
 def split_public_and_secret_config(config: dict | None) -> tuple[dict | None, list[str]]:
     """Split config into public fields and configured secret field names."""
@@ -263,12 +270,12 @@ async def sync_integration(
     session: AsyncSession = Depends(get_session),
     current_user=Depends(require_permission("integration.sync")),
 ):
-    """Sync a ServiceNow integration.
+    """Sync an integration by fetching incidents from the external source.
 
     Returns an SSE stream with progress events:
-      event: progress   – { batch, totalBatches, incidents }
-      event: complete   – { success, integration, stats }
-      event: error      – { success: false, message }
+      event: progress   - { batch, totalBatches, message, ... }
+      event: complete   - { success, integration, stats }
+      event: error      - { success: false, message }
     """
     result = await session.execute(
         select(Integration).where(Integration.id == integration_id)
@@ -280,47 +287,87 @@ async def sync_integration(
             media_type="text/event-stream",
         )
 
-    config = integration.config or {}
-    url = config.get("url")
-    username = config.get("username")
-    password = config.get("password")
-    last_synced = config.get("lastSynced") or config.get("last_synced") or "1970-01-01 00:00:00"
-
-    if not (url and username and password):
+    try:
+        connector_type = get_connector_type(integration.service_name)
+    except ValueError as e:
         return StreamingResponse(
-            iter([_sse_event("error", {"success": False, "message": "Missing ServiceNow configuration (url, username, password)"})]),
+            iter([_sse_event("error", {"success": False, "message": str(e)})]),
             media_type="text/event-stream",
         )
 
+    config = integration.config or {}
+    auth_type = integration.auth_type or "basic_auth"
+    last_synced = config.get("lastSynced") or config.get("last_synced") or "1970-01-01 00:00:00"
+    svc_for_active = IncidentIngestionService(session)
+    active_version = await svc_for_active.get_active_version()
+    if active_version is None or (active_version.source or "").lower() != connector_type.lower():
+        logger.info(
+            "Forcing full sync for integration %s: active version source=%s, connector=%s",
+            integration_id,
+            active_version.source if active_version else None,
+            connector_type,
+        )
+        last_synced = "1970-01-01 00:00:00"
+
+    try:
+        connector = get_connector(connector_type, {**config, "auth_type": auth_type})
+    except (ValueError, PermissionError) as e:
+        return StreamingResponse(
+            iter([_sse_event("error", {"success": False, "message": str(e)})]),
+            media_type="text/event-stream",
+        )
+
+    lock = _get_sync_lock(integration_id)
+
     async def _stream():
-        import asyncio
-
-        yield _sse_event("progress", {"batch": 0, "totalBatches": 0, "message": "Fetching incidents from ServiceNow..."})
-        await asyncio.sleep(0)
-
-        try:
-            snow_result = run_servicenow_ingestion({
-                "url": url,
-                "username": username,
-                "password": password,
-                "lastSynced": last_synced,
+        if lock.locked():
+            yield _sse_event("error", {
+                "success": False,
+                "message": "A sync is already in progress for this integration. Please wait.",
             })
-        except Exception as e:
-            integration.last_sync_status = "error"
-            integration.last_sync_error = str(e)
-            await session.commit()
-            yield _sse_event("error", {"success": False, "message": str(e)})
             return
 
-        normalized = snow_result.get("normalized", [])
+        async with lock:
+            service_label = integration.service_name or connector_type.title()
+            yield _sse_event("progress", {
+                "batch": 0,
+                "totalBatches": 0,
+                "message": f"Fetching incidents from {service_label}...",
+            })
+            await asyncio.sleep(0)
 
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
-        os.makedirs(data_dir, exist_ok=True)
-        output_path = os.path.join(data_dir, "incidentspulledfromsnow.json")
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(normalized, f, ensure_ascii=False, indent=2)
+            try:
+                normalized = await asyncio.to_thread(
+                    connector.fetch_and_normalize, last_synced
+                )
+            except Exception as e:
+                logger.error("Connector fetch failed for %s: %s", integration_id, e)
+                integration.last_sync_status = "error"
+                integration.last_sync_error = str(e)[:500]
+                await session.commit()
+                yield _sse_event("error", {"success": False, "message": str(e)})
+                return
 
-        if normalized:
+            if not normalized:
+                now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+                new_last_synced = now_utc.strftime("%Y-%m-%d %H:%M:%S")
+                integration.last_synced_at = now_utc
+                integration.last_sync_status = "success"
+                integration.last_sync_error = None
+                integration.updated_at = now_utc
+                # Create a new dict to ensure SQLAlchemy detects the change
+                integration.config = {**config, "lastSynced": new_last_synced}
+                session.add(integration)
+                await session.commit()
+                await session.refresh(integration)
+
+                yield _sse_event("complete", {
+                    "success": True,
+                    "integration": mask_integration_response(integration),
+                    "stats": {"added": 0, "total": 0, "last_synced": new_last_synced},
+                })
+                return
+
             import math
             batch_size = 5
             total_batches = math.ceil(len(normalized) / batch_size)
@@ -336,38 +383,48 @@ async def sync_integration(
             # Use an asyncio.Queue so progress events stream in real-time
             progress_queue: asyncio.Queue = asyncio.Queue()
 
-            async def on_batch_progress(batch_num, total_batches, incident_ids):
-                await progress_queue.put({
-                    "batch": batch_num,
-                    "totalBatches": total_batches,
+            async def on_batch_progress(batch_num, total_batches, incident_ids, message=None):
+                event: dict = {
                     "incidents": incident_ids,
                     "totalIncidents": len(normalized),
-                    "message": f"Batch {batch_num} of {total_batches} processed ({len(incident_ids)} incidents)",
-                })
+                }
+                if batch_num is not None:
+                    event["batch"] = batch_num
+                if total_batches is not None:
+                    event["totalBatches"] = total_batches
+                if message is not None:
+                    event["message"] = message
+                elif batch_num is not None and total_batches is not None:
+                    event["message"] = (
+                        f"Batch {batch_num} of {total_batches} processed "
+                        f"({len(incident_ids)} incidents)"
+                    )
+                else:
+                    event["message"] = "Processing..."
+                await progress_queue.put(event)
 
             async def _run_ingestion():
                 try:
-                    # Create versioned dataset via ingestion service
                     svc = IncidentIngestionService(session)
                     user_id = current_user["user_id"] if current_user else None
 
-                    # Create upload session for ServiceNow source
                     upload_session = await svc.create_upload_session(
                         files_data=[{
-                            "filename": "servicenow_sync.json",
+                            "filename": f"{connector_type}_sync.json",
                             "size": len(json.dumps(normalized)),
                             "content": json.dumps(normalized),
                         }],
                         user_id=user_id,
-                        source="servicenow",
+                        source=connector_type,
                     )
 
-                    # Confirm and ingest (creates versioned collection)
                     version = await svc.confirm_and_ingest(
                         str(upload_session.id),
                         user_id,
-                        notes=f"ServiceNow sync - {len(normalized)} incidents",
+                        notes=f"{service_label} sync - {len(normalized)} incidents",
                         progress_callback=on_batch_progress,
+                        source=connector_type,
+                        integration_id=integration_id,
                     )
                     await progress_queue.put(("done", version))
                 except Exception as exc:
@@ -376,54 +433,45 @@ async def sync_integration(
             ingestion_task = asyncio.create_task(_run_ingestion())
 
             try:
-                ingestion_success = None
                 while True:
                     item = await progress_queue.get()
                     if isinstance(item, tuple):
                         kind, payload = item
                         if kind == "done":
-                            ingestion_success = payload
                             break
                         elif kind == "error":
-                            logger.error(f"Ingestion error: {payload}")
+                            logger.error("Ingestion error: %s", payload)
                             yield _sse_event("error", {"success": False, "message": f"Ingestion error: {payload}"})
                             return
                     else:
                         yield _sse_event("progress", item)
                         await asyncio.sleep(0)
-
-                if not ingestion_success:
-                    yield _sse_event("error", {"success": False, "message": "Failed to ingest incidents to knowledge base"})
-                    return
             except Exception as e:
                 ingestion_task.cancel()
-                logger.error(f"Ingestion error: {e}")
+                logger.error("Ingestion error: %s", e)
                 yield _sse_event("error", {"success": False, "message": f"Ingestion error: {e}"})
                 return
-        else:
-            yield _sse_event("progress", {"batch": 0, "totalBatches": 0, "message": "No new incidents to ingest"})
-            await asyncio.sleep(0)
 
-        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-        integration.last_synced_at = now_utc
-        integration.last_sync_status = "success"
-        integration.last_sync_error = None
-        integration.updated_at = now_utc
-        config["lastSynced"] = snow_result.get("last_synced")
-        integration.config = config
+            now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+            new_last_synced = now_utc.strftime("%Y-%m-%d %H:%M:%S")
+            integration.last_synced_at = now_utc
+            integration.last_sync_status = "success"
+            integration.last_sync_error = None
+            integration.updated_at = now_utc
+            integration.config = {**config, "lastSynced": new_last_synced}
 
-        session.add(integration)
-        await session.commit()
-        await session.refresh(integration)
+            session.add(integration)
+            await session.commit()
+            await session.refresh(integration)
 
-        yield _sse_event("complete", {
-            "success": True,
-            "integration": mask_integration_response(integration),
-            "stats": {
-                "added": snow_result.get("added"),
-                "total": snow_result.get("total"),
-                "last_synced": snow_result.get("last_synced"),
-            },
-        })
+            yield _sse_event("complete", {
+                "success": True,
+                "integration": mask_integration_response(integration),
+                "stats": {
+                    "added": len(normalized),
+                    "total": len(normalized),
+                    "last_synced": new_last_synced,
+                },
+            })
 
     return StreamingResponse(_stream(), media_type="text/event-stream")

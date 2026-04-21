@@ -239,16 +239,25 @@ class IncidentIngestionService:
         user_id: str,
         notes: Optional[str] = None,
         progress_callback=None,
+        source: Optional[str] = None,
+        integration_id: Optional[str] = None,
     ) -> IncidentDatasetVersion:
         """Normalize, create Qdrant collection, copy existing data, embed/ingest new records, create version record."""
         if not user_id:
             raise ValueError("user_id is required for ingestion")
+
+        async def _emit(message: str):
+            if progress_callback:
+                await progress_callback(None, None, [], message=message)
+
+        await _emit("Loading upload session...")
         upload = await self._get_upload_session(session_id)
         records = upload.raw_data or []
 
         upload.status = "ingesting"
         await self.session.commit()
 
+        await _emit(f"Normalizing {len(records)} record(s)...")
         # Normalize
         normalized = self._normalize_records(records)
 
@@ -333,6 +342,7 @@ class IncidentIngestionService:
             from src.api.routers.knowledge_base import _load_qdrant, get_qdrant_client
             import asyncio
 
+            await _emit(f"Preparing version v{version_number} collection...")
             q = _load_qdrant()
             client = get_qdrant_client()
 
@@ -347,8 +357,7 @@ class IncidentIngestionService:
             incoming_ids = {r.get("incident_id") for r in normalized if r.get("incident_id")}
             existing_incident_count = 0
             if source_collection and client.collection_exists(source_collection):
-                if progress_callback:
-                    await progress_callback(0, 0, ["Copying existing data from active version..."])
+                await _emit("Copying existing incidents to new version...")
                 existing_incident_count = await self._copy_collection_points(
                     client, source_collection, collection_name,
                     exclude_incident_ids=incoming_ids,
@@ -359,9 +368,12 @@ class IncidentIngestionService:
                 )
 
             # Ingest new records into the (now populated) collection
+            await _emit(f"Embedding {len(normalized)} new incident(s)...")
+            effective_source = source or upload.source or "upload"
             success = await self._ingest_to_collection(
                 collection_name, normalized, INGEST_BATCH_SIZE, progress_callback,
-                integration_id=None,
+                integration_id=integration_id,
+                source=effective_source,
             )
             if not success:
                 version.status = "failed"
@@ -489,6 +501,7 @@ class IncidentIngestionService:
         batch_size: int,
         progress_callback=None,
         integration_id: Optional[str] = None,
+        source: str = "upload",
     ) -> bool:
         """Ingest records into a named Qdrant collection. Adapted from knowledge_base.py."""
         try:
@@ -508,7 +521,7 @@ class IncidentIngestionService:
                     vectors_config=q["VectorParams"](size=384, distance=q["Distance"].COSINE),
                 )
 
-            prepared = _prepare_documents(records)
+            prepared = _prepare_documents(records, source_system=source)
             if not prepared:
                 return True
 
@@ -540,7 +553,7 @@ class IncidentIngestionService:
                     log_entry = IncidentLog(
                         incident_id=inc.get("incident_id"),
                         title=inc.get("title", "Unknown"),
-                        source="upload",
+                        source=source,
                         integration_id=integration_id,
                     )
                     self.session.add(log_entry)
@@ -551,6 +564,7 @@ class IncidentIngestionService:
                         batch_idx + 1,
                         total_batches,
                         [inc.get("incident_id", "?") for inc in batch_incidents_raw],
+                        message=f"Embedded batch {batch_idx + 1} of {total_batches} ({len(batch_incidents_raw)} incidents)",
                     )
 
             await self.session.commit()

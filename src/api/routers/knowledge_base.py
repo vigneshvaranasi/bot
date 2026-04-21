@@ -208,25 +208,24 @@ async def list_incidents(
                     for point in points:
                         payload = point.payload or {}
                         metadata = payload.get("metadata", {})
-                        source = metadata.get("source_system", "").lower()
-                        if "servicenow" in source:
-                            inc_id = metadata.get("incident_id", "")
-                            if inc_id and inc_id not in seen_ids:
-                                seen_ids.add(inc_id)
-                                if skipped < offset:
-                                    skipped += 1
-                                    continue
-                                result.append({
-                                    "incident_id": inc_id,
-                                    "title": metadata.get("incident_title", ""),
-                                    "description": payload.get("page_content", ""),
-                                    "action_taken": metadata.get("mitigation", ""),
-                                    "opened_at": metadata.get("opened_at"),
-                                    "updated_at": metadata.get("updated_at"),
-                                    "source": "servicenow"
-                                })
-                                if len(result) >= limit:
-                                    break
+                        source = metadata.get("source_system", "upload")
+                        inc_id = metadata.get("incident_id", "")
+                        if inc_id and inc_id not in seen_ids:
+                            seen_ids.add(inc_id)
+                            if skipped < offset:
+                                skipped += 1
+                                continue
+                            result.append({
+                                "incident_id": inc_id,
+                                "title": metadata.get("incident_title", ""),
+                                "description": payload.get("page_content", ""),
+                                "action_taken": metadata.get("mitigation", ""),
+                                "opened_at": metadata.get("opened_at"),
+                                "updated_at": metadata.get("updated_at"),
+                                "source": source,
+                            })
+                            if len(result) >= limit:
+                                break
 
                     if len(result) >= limit or next_offset is None:
                         break
@@ -236,30 +235,8 @@ async def list_incidents(
             pass
         except Exception as e:
             logger.warning(f"Failed to read from Qdrant: {e}")
-        
-        # Fallback: Read from JSON file (only shows latest sync)
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
-        output_path = os.path.join(data_dir, "incidentspulledfromsnow.json")
-        
-        if not os.path.exists(output_path):
-            return {"success": True, "incidents": []}
-        
-        with open(output_path, "r", encoding="utf-8") as f:
-            incidents = json.load(f)
-        
-        result = []
-        for inc in incidents:
-            result.append({
-                "incident_id": inc.get("incident_id"),
-                "title": inc.get("title"),
-                "description": inc.get("description"),
-                "action_taken": inc.get("action_taken"),
-                "opened_at": inc.get("opened_at"),
-                "updated_at": inc.get("updated_at"),
-                "source": "servicenow"
-            })
-        
-        return {"success": True, "incidents": result}
+
+        return {"success": True, "incidents": []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -270,57 +247,34 @@ async def delete_incident(
     session: AsyncSession = Depends(get_session),
     current_user=Depends(require_permission("integration.delete")),
 ):
-    """Delete an incident from the knowledge base."""
+    """Delete an incident from the knowledge base (Qdrant)."""
     try:
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
-        output_path = os.path.join(data_dir, "incidentspulledfromsnow.json")
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
 
-        if not os.path.exists(output_path):
+        client = get_qdrant_client()
+        svc = IncidentIngestionService(session)
+        collection_name = await svc.get_active_collection_name()
+
+        if not client.collection_exists(collection_name):
             return {"success": False, "message": "No incidents found"}
 
-        # Load current incidents
-        with open(output_path, "r", encoding="utf-8") as f:
-            incidents = json.load(f)
+        client.delete(
+            collection_name=collection_name,
+            points_selector=Filter(
+                must=[
+                    FieldCondition(
+                        key="metadata.incident_id",
+                        match=MatchValue(value=incident_id),
+                    )
+                ]
+            ),
+        )
 
-        # Find and remove the incident
-        original_count = len(incidents)
-        incidents = [inc for inc in incidents if inc.get("incident_id") != incident_id]
-
-        if len(incidents) == original_count:
-            return {"success": False, "message": "Incident not found"}
-
-        # Save updated incidents
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(incidents, f, ensure_ascii=False, indent=2)
-
-        # Delete from Qdrant using filter (best-effort, requires qdrant_client)
-        try:
-            from qdrant_client.models import Filter, FieldCondition, MatchValue
-
-            client = get_qdrant_client()
-            svc = IncidentIngestionService(session)
-            collection_name = await svc.get_active_collection_name()
-
-            if client.collection_exists(collection_name):
-                client.delete(
-                    collection_name=collection_name,
-                    points_selector=Filter(
-                        must=[
-                            FieldCondition(
-                                key="metadata.incident_id",
-                                match=MatchValue(value=incident_id),
-                            )
-                        ]
-                    ),
-                )
-        except ImportError:
-            logger.warning("qdrant_client not installed, skipping Qdrant deletion")
-        except Exception as e:
-            logger.warning(f"Failed to delete from Qdrant: {e}")
-            # Continue even if Qdrant deletion fails
-        
         return {"success": True, "message": "Incident deleted successfully"}
+    except ImportError:
+        return {"success": False, "message": "Qdrant client not installed"}
     except Exception as e:
+        logger.warning("Failed to delete incident %s from Qdrant: %s", incident_id, e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -356,7 +310,7 @@ async def get_incident_logs(
 INGEST_BATCH_SIZE = 5  # Number of incidents per batch (not chunks)
 
 
-def _prepare_documents(incidents: List[dict]) -> List:
+def _prepare_documents(incidents: List[dict], source_system: str = "upload") -> List:
     """Convert raw incidents into LangChain Documents with proper metadata.
     
     Returns list of (incident_dict, list_of_Document) tuples.
@@ -401,7 +355,7 @@ def _prepare_documents(incidents: List[dict]) -> List:
             "root_cause": desc_metadata.get("rootCause", "N/A"),
             "mitigation": desc_metadata.get("mitigation", action_taken),
             "accountable_party": desc_metadata.get("accountableParty", "N/A"),
-            "source_system": "ServiceNow",
+            "source_system": source_system,
             "repeat_incident": desc_metadata.get("repeatIncident", "False"),
             "opened_at": opened_at,
             "updated_at": incident.get("updated_at") or opened_at,
@@ -424,16 +378,18 @@ async def ingest_incidents_to_qdrant(
     integration_id: str = None,
     batch_size: int = INGEST_BATCH_SIZE,
     progress_callback=None,
+    source: str = "upload",
 ):
     """Ingest incidents into Qdrant in batches.
 
     Args:
-        incidents: List of normalized incident dicts from ServiceNow.
+        incidents: List of normalized incident dicts.
         session: DB session for logging (optional).
         integration_id: Integration UUID string (optional).
         batch_size: Number of incidents per batch.
         progress_callback: async callable(batch_num, total_batches, batch_incidents)
                            called after each batch is ingested.
+        source: Source system label (e.g. "servicenow", "jira", "upload").
 
     Returns True on success, False on failure.
     """
@@ -452,7 +408,7 @@ async def ingest_incidents_to_qdrant(
                 vectors_config=q["VectorParams"](size=384, distance=q["Distance"].COSINE),
             )
 
-        prepared = _prepare_documents(incidents)
+        prepared = _prepare_documents(incidents, source_system=source)
         if not prepared:
             return True
 
@@ -489,7 +445,7 @@ async def ingest_incidents_to_qdrant(
                     log_entry = IncidentLog(
                         incident_id=inc.get("incident_id"),
                         title=inc.get("title", "Unknown"),
-                        source="servicenow",
+                        source=source,
                         integration_id=integration_id,
                     )
                     session.add(log_entry)
@@ -632,13 +588,19 @@ async def ingest_confirmed_session(
 
         progress_queue: asyncio.Queue = asyncio.Queue()
 
-        async def on_batch_progress(batch_num, total_batches, incident_ids):
-            await progress_queue.put({
-                "batch": batch_num,
-                "totalBatches": total_batches,
-                "incidents": incident_ids,
-                "message": f"Batch {batch_num} of {total_batches} processed",
-            })
+        async def on_batch_progress(batch_num, total_batches, incident_ids, message=None):
+            event: dict = {"incidents": incident_ids}
+            if batch_num is not None:
+                event["batch"] = batch_num
+            if total_batches is not None:
+                event["totalBatches"] = total_batches
+            if message is not None:
+                event["message"] = message
+            elif batch_num is not None and total_batches is not None:
+                event["message"] = f"Batch {batch_num} of {total_batches} processed"
+            else:
+                event["message"] = "Processing..."
+            await progress_queue.put(event)
 
         _SENTINEL = object()
 
