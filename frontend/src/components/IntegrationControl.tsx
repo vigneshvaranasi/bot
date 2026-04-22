@@ -1,11 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Button } from "./ui/Button";
 import Dropdown from "./ui/Dropdown";
 import InputBox from "./ui/InputBox";
 import { ConfirmModal } from "./ui/Modal";
 import {
-  AUTH_SCHEMAS,
+  AUTH_TYPE_LABELS,
+  getAuthFields,
+  getAuthTypesForConnector,
+  type AuthType,
+  type ConnectorType,
   type IntegrationSyncStatus,
 } from "../types/Integrations";
 import type { IntegrationPayload } from "../handlers/integrationHandlers";
@@ -26,11 +30,12 @@ const isSensitiveField = (key: string) => {
 type IntegrationControlProps = {
   id?: string;
   serviceName: string;
+  connectorType: ConnectorType;
   enabled?: boolean;
   syncStatus: IntegrationSyncStatus;
   lastSyncedAt?: string;
   lastError?: string;
-  authType?: keyof typeof AUTH_SCHEMAS;
+  authType?: AuthType;
   config?: Record<string, string>;
   configuredSecrets?: string[];
   isNew?: boolean;
@@ -49,15 +54,10 @@ type IntegrationControlProps = {
   ) => Promise<void> | void;
 };
 
-const authOptions = [
-  { value: "basic_auth", label: "Basic Auth" },
-  { value: "api_token", label: "API Token" },
-  { value: "oauth2", label: "OAuth 2.0" },
-];
-
 export default function IntegrationControl({
   id,
   serviceName,
+  connectorType,
   syncStatus,
   lastSyncedAt,
   lastError,
@@ -71,7 +71,7 @@ export default function IntegrationControl({
   onDelete,
   onSync,
 }: IntegrationControlProps) {
-  const [authType, setAuthType] = useState<string | undefined>(initialAuthType);
+  const [authType, setAuthType] = useState<AuthType | undefined>(initialAuthType);
   const [config, setConfig] = useState<Record<string, string>>(
     initialConfig || {}
   );
@@ -87,7 +87,6 @@ export default function IntegrationControl({
   const [totalBatches, setTotalBatches] = useState(0);
   const [totalIncidents, setTotalIncidents] = useState(0);
 
-  // Delete confirmation modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -115,6 +114,20 @@ export default function IntegrationControl({
     }
   }, [isNameEditable]);
 
+  const authOptions = useMemo(
+    () =>
+      getAuthTypesForConnector(connectorType).map((value) => ({
+        value,
+        label: AUTH_TYPE_LABELS[value],
+      })),
+    [connectorType]
+  );
+
+  const fields = useMemo(
+    () => (authType ? getAuthFields(connectorType, authType) : []),
+    [connectorType, authType]
+  );
+
   const isDirty =
     name.trim() !== serviceName ||
     authType !== initialAuthType ||
@@ -122,7 +135,7 @@ export default function IntegrationControl({
     normalizeConfig(config) !== normalizeConfig(initialConfig);
 
   const handleAuthChange = (value?: string) => {
-    setAuthType(value);
+    setAuthType(value as AuthType | undefined);
     setConfig({});
     setError(null);
   };
@@ -131,7 +144,7 @@ export default function IntegrationControl({
     if (!name.trim()) return "Service name is required";
     if (!authType) return "Authentication type is required";
 
-    for (const field of AUTH_SCHEMAS[authType]) {
+    for (const field of fields) {
       const hasConfiguredSecret =
         !isNew &&
         authType === initialAuthType &&
@@ -140,6 +153,14 @@ export default function IntegrationControl({
         !config[field.key];
       if (field.required && !config[field.key] && !hasConfiguredSecret) {
         return `${field.label} is required`;
+      }
+    }
+
+    if (connectorType === "jira") {
+      const hasProject = (config.project_key || "").trim().length > 0;
+      const hasJql = (config.jql || "").trim().length > 0;
+      if (!hasProject && !hasJql) {
+        return "Provide either a Project Key or a custom JQL query";
       }
     }
     return null;
@@ -172,7 +193,8 @@ export default function IntegrationControl({
       await onSave({
         id,
         service_name: name.trim(),
-        auth_type: authType as string,
+        connector_type: connectorType,
+        auth_type: authType as AuthType,
         config: payloadConfig,
         is_active: Boolean(isEnabled),
         isNew,
@@ -189,7 +211,7 @@ export default function IntegrationControl({
   const handleSync = async () => {
     if (!onSync || isNew || !id) return;
     setIsSyncing(true);
-    setSyncProgress("Connecting to ServiceNow...");
+    setSyncProgress(`Connecting to ${name || "integration"}...`);
     setCurrentBatch(0);
     setTotalBatches(0);
     setTotalIncidents(0);
@@ -232,7 +254,6 @@ export default function IntegrationControl({
   };
 
   const openDeleteModal = () => {
-    // For new integrations, just call onDelete without confirmation
     if (isNew) {
       onDelete?.(id, isNew);
       return;
@@ -281,6 +302,9 @@ export default function IntegrationControl({
               {name || "Unnamed Integration"}
             </h3>
           )}
+          <span className="text-xs text-text-secondary bg-surface-tertiary px-2 py-0.5 rounded">
+            {connectorType}
+          </span>
           {readOnly && (
             <span className="text-xs text-text-secondary bg-surface-tertiary px-2 py-0.5 rounded">View only</span>
           )}
@@ -356,7 +380,7 @@ export default function IntegrationControl({
             </svg>
             <span className="font-medium">{syncProgress}</span>
           </div>
-          
+
           {totalBatches > 0 && (
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-accent-blue">
@@ -364,7 +388,7 @@ export default function IntegrationControl({
                 <span>{Math.round((currentBatch / totalBatches) * 100)}%</span>
               </div>
               <div className="w-full bg-surface-hover rounded-full h-2 overflow-hidden">
-                <div 
+                <div
                   className="bg-accent-blue h-2 rounded-full transition-all duration-300 ease-out"
                   style={{ width: `${Math.min((currentBatch / totalBatches) * 100, 100)}%` }}
                 />
@@ -384,20 +408,21 @@ export default function IntegrationControl({
         <div className="flex flex-col gap-3 border-t border-border-default pt-4">
           <label className="text-sm font-medium">Authentication Type</label>
           <Dropdown
+            className="block w-full"
             options={authOptions}
             value={authType}
             onChange={readOnly ? () => {} : handleAuthChange}
             disabled={readOnly}
           />
 
-          {authType && (
+          {authType && fields.length > 0 && (
             <>
               <label className="text-sm font-medium mt-2">
                 Integration Configuration
               </label>
 
               <div className="flex flex-col gap-3">
-                {AUTH_SCHEMAS[authType].map((field) => (
+                {fields.map((field) => (
                   <div key={field.key} className="flex flex-col gap-1">
                     <label className="text-xs font-medium">
                       {field.label}
@@ -411,10 +436,14 @@ export default function IntegrationControl({
                       placeholder={
                         isSensitiveField(field.key) && initialConfiguredSecrets.includes(field.key)
                           ? "••••••••"
-                          : field.label
+                          : field.placeholder || field.label
                       }
-                      type={field.type === "url" ? "text" : field.type}
-                      variant="primary"
+                      type={
+                        field.type === "password"
+                          ? "password"
+                          : "text"
+                      }
+                      variant={field.type === "textarea" ? "multiline" : "primary"}
                       onChange={readOnly ? () => {} : (value) =>
                         setConfig((prev) => ({
                           ...prev,
@@ -423,6 +452,9 @@ export default function IntegrationControl({
                       }
                       disabled={readOnly}
                     />
+                    {field.help && (
+                      <span className="text-[11px] text-text-secondary">{field.help}</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -460,7 +492,6 @@ export default function IntegrationControl({
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}

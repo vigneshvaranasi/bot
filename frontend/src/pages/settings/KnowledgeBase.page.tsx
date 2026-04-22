@@ -438,9 +438,9 @@ const KnowledgeBasePage = () => {
               )}
 
               {/* Sync History Table */}
-              {integrations.length === 0 ? (
+              {/* {integrations.length === 0 ? (
                 <div className="p-6 text-center text-text-secondary text-sm border border-dashed border-border-strong rounded-lg bg-surface-secondary">
-                  No sync history available. Configure a ServiceNow integration in{" "}
+                  No sync history available. Configure an integration in{" "}
                   <a href="/settings/integrations" className="text-accent-blue hover:underline">
                     Integrations
                   </a>{" "}
@@ -450,7 +450,7 @@ const KnowledgeBasePage = () => {
                 <div className="overflow-x-auto">
                   <ConfigurableTable data={integrations} columns={syncColumns} />
                 </div>
-              )}
+              )} */}
             </>
           )}
         </section>

@@ -12,6 +12,7 @@ class Integration(Base):
     )
 
     service_name = Column(String, nullable=False)
+    connector_type = Column(String, nullable=False)
 
     is_active = Column(Boolean, default=False)
 

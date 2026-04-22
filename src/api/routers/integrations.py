@@ -16,7 +16,7 @@ from src.api.schemas.integration_schema import (
     IntegrationCreate,
 )
 from src.api.services.incident_ingestion_service import IncidentIngestionService
-from src.automation.registry import get_connector, get_connector_type
+from src.automation.registry import get_connector, resolve_connector_type
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -32,6 +32,20 @@ def _get_sync_lock(integration_id: str) -> asyncio.Lock:
     if integration_id not in _sync_locks:
         _sync_locks[integration_id] = asyncio.Lock()
     return _sync_locks[integration_id]
+
+def _derive_connector_type_for_save(
+    incoming: str | None, service_name: str | None
+) -> str:
+    """Resolve a connector slug at create/update time.
+
+    Tries, in order: the client-supplied slug, a prefix-match on service_name,
+    then falls back to the lowercased service_name. The row is saved either
+    way; a slug not in the registry simply fails at sync time.
+    """
+    try:
+        return resolve_connector_type(incoming, service_name)
+    except ValueError:
+        return (incoming or service_name or "").strip().lower() or "unknown"
 
 def split_public_and_secret_config(config: dict | None) -> tuple[dict | None, list[str]]:
     """Split config into public fields and configured secret field names."""
@@ -49,14 +63,20 @@ def split_public_and_secret_config(config: dict | None) -> tuple[dict | None, li
 
 
 def mask_sensitive_config(config: dict | None) -> dict | None:
-    """Backward-compatible helper for existing tests; avoid using in new code."""
-    public_config, configured_secrets = split_public_and_secret_config(config)
-    if public_config is None:
+    """Return a copy of *config* with sensitive values replaced by a placeholder.
+
+    Used for logging and any response shape that prefers a flat dict over the
+    split public/secret form produced by :func:`split_public_and_secret_config`.
+    """
+    if config is None:
         return None
-    legacy = public_config.copy()
-    for key in configured_secrets:
-        legacy[key] = "********"
-    return legacy
+    masked: dict = {}
+    for key, value in config.items():
+        if is_sensitive_config_key(key) and value not in (None, ""):
+            masked[key] = MASK_PLACEHOLDER
+        else:
+            masked[key] = value
+    return masked
 
 
 def mask_integration_response(integration) -> dict:
@@ -65,6 +85,7 @@ def mask_integration_response(integration) -> dict:
     return {
         "id": str(integration.id),
         "service_name": integration.service_name,
+        "connector_type": integration.connector_type,
         "auth_type": integration.auth_type,
         "config": public_config,
         "configured_secrets": configured_secrets,
@@ -171,8 +192,12 @@ async def create_integration(
         user_id = current_user["user_id"] if current_user else None
         if user_id is None:
             return {"success": False, "message": "User not authenticated"}
+        connector_type = _derive_connector_type_for_save(
+            integration.connector_type, integration.service_name
+        )
         new_integration = Integration(
             service_name=integration.service_name,
+            connector_type=connector_type,
             auth_type=integration.auth_type,
             config=integration.config,
             is_active=integration.is_active,
@@ -232,13 +257,18 @@ async def update_integration(
         if not integration:
             return {"success": False, "message": "Integration not found"}
 
+        new_connector_type = _derive_connector_type_for_save(
+            integration_data.connector_type, integration_data.service_name
+        )
+        connector_changed = integration.connector_type != new_connector_type
         auth_type_changed = integration.auth_type != integration_data.auth_type
         integration.service_name = integration_data.service_name
+        integration.connector_type = new_connector_type
         integration.auth_type = integration_data.auth_type
         integration.config = merge_integration_config(
             integration.config,
             integration_data.config,
-            auth_type_changed=auth_type_changed,
+            auth_type_changed=auth_type_changed or connector_changed,
         )
         integration.is_active = integration_data.is_active
 
@@ -288,7 +318,9 @@ async def sync_integration(
         )
 
     try:
-        connector_type = get_connector_type(integration.service_name)
+        connector_type = resolve_connector_type(
+            integration.connector_type, integration.service_name
+        )
     except ValueError as e:
         return StreamingResponse(
             iter([_sse_event("error", {"success": False, "message": str(e)})]),

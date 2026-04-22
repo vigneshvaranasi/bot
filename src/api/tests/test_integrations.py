@@ -28,10 +28,11 @@ from src.api.db.models import Integration
 # Helpers
 # ============================================================
 
-def _make_integration(user_id, *, service_name="servicenow", **kw):
+def _make_integration(user_id, *, service_name="servicenow", connector_type="servicenow", **kw):
     """Build an Integration ORM instance."""
     defaults = dict(
         service_name=service_name,
+        connector_type=connector_type,
         auth_type="basic_auth",
         config={"url": "https://example.service-now.com", "username": "admin", "password": "secret123"},
         is_active=True,
@@ -523,7 +524,8 @@ class TestUpdateIntegrationEdgeCases:
         assert data["auth_type"] == "api_token"
         assert data["is_active"] is False
         assert data["config"]["url"] == "https://new.com"
-        assert data["config"]["api_key"] == "********"
+        assert "api_key" not in data["config"]
+        assert "api_key" in data["configured_secrets"]
 
     @pytest.mark.asyncio
     async def test_update_invalid_uuid(self, admin_client):
@@ -636,13 +638,18 @@ class TestListIntegrationsEdgeCases:
         await session.commit()
 
         response = await client.get("/integrations/all")
-        config = response.json()["integrations"][0]["config"]
+        integration = response.json()["integrations"][0]
+        config = integration["config"]
+        secrets = integration["configured_secrets"]
         assert config["url"] == "https://x.com"
         assert config["safe_field"] == "visible"
-        # These contain sensitive substrings and should be masked
-        assert config["db_password"] == "********"
-        assert config["client_secret"] == "********"
-        assert config["auth_token"] == "********"
+        # Sensitive fields are stripped from config and their names listed in configured_secrets.
+        assert "db_password" in secrets
+        assert "client_secret" in secrets
+        assert "auth_token" in secrets
+        assert "db_password" not in config
+        assert "client_secret" not in config
+        assert "auth_token" not in config
 
 
 # ============================================================
@@ -667,6 +674,7 @@ class TestGetIntegrationEdgeCases:
         client, session, user_id = admin_client
         intg = Integration(
             service_name="null_config",
+            connector_type="null_config",
             auth_type="none",
             config=None,
             is_active=True,
@@ -787,6 +795,7 @@ class TestMaskHelpers:
         intg = MagicMock()
         intg.id = uuid4()
         intg.service_name = "snow"
+        intg.connector_type = "servicenow"
         intg.auth_type = "basic"
         intg.config = {"url": "x", "password": "secret"}
         intg.is_active = True
@@ -798,7 +807,8 @@ class TestMaskHelpers:
 
         result = mask_integration_response(intg)
         assert result["service_name"] == "snow"
-        assert result["config"]["password"] == "********"
+        assert "password" not in result["config"]
+        assert "password" in result["configured_secrets"]
         assert "Z" in result["last_synced_at"]
 
     def test_sse_event_format(self):
@@ -838,7 +848,8 @@ class TestSyncIntegrationSSE:
         client, session, _ = admin_client
         from src.api.db.models import Integration
         intg = Integration(
-            service_name="servicenow", auth_type="basic_auth",
+            service_name="servicenow", connector_type="servicenow",
+            auth_type="basic_auth",
             config={"url": "http://example.com"},  # missing username/password
             is_active=True, user_id=str(uuid4()),
         )
@@ -855,7 +866,8 @@ class TestSyncIntegrationSSE:
         client, session, _ = admin_client
         from src.api.db.models import Integration
         intg = Integration(
-            service_name="unknown_service", auth_type="basic_auth",
+            service_name="unknown_service", connector_type="unknown_service",
+            auth_type="basic_auth",
             config={"url": "http://example.com"},
             is_active=True, user_id=str(uuid4()),
         )
@@ -872,7 +884,8 @@ class TestSyncIntegrationSSE:
         client, session, _ = admin_client
         from src.api.db.models import Integration
         intg = Integration(
-            service_name="servicenow", auth_type="basic_auth",
+            service_name="servicenow", connector_type="servicenow",
+            auth_type="basic_auth",
             config={"url": "http://sn.test", "username": "u", "password": "p"},
             is_active=True, user_id=str(uuid4()),
         )
@@ -898,7 +911,8 @@ class TestSyncIntegrationSSE:
         client, session, _ = admin_client
         from src.api.db.models import Integration
         intg = Integration(
-            service_name="servicenow", auth_type="basic_auth",
+            service_name="servicenow", connector_type="servicenow",
+            auth_type="basic_auth",
             config={"url": "http://sn.test", "username": "u", "password": "p"},
             is_active=True, user_id=str(uuid4()),
         )
@@ -921,7 +935,8 @@ class TestSyncIntegrationSSE:
         client, session, _ = admin_client
         from src.api.db.models import Integration
         intg = Integration(
-            service_name="servicenow", auth_type="basic_auth",
+            service_name="servicenow", connector_type="servicenow",
+            auth_type="basic_auth",
             config={"url": "http://sn.test", "username": "u", "password": "p"},
             is_active=True, user_id=str(uuid4()),
         )
@@ -1012,7 +1027,8 @@ class TestSyncSSEDeep:
         """Ingestion error sends SSE error event."""
         client, session, uid = admin_client
         intg = Integration(
-            service_name="ServiceNow", auth_type="basic_auth",
+            service_name="ServiceNow", connector_type="servicenow",
+            auth_type="basic_auth",
             config={"url": "https://test.service-now.com",
                     "username": "admin", "password": "pass"},
             is_active=True, user_id=uid,

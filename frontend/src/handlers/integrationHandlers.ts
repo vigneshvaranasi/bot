@@ -1,11 +1,12 @@
-import type { Integration } from "../types/Integrations";
+import type { AuthType, ConnectorType, Integration } from "../types/Integrations";
 import http from "../utils/http";
 import { logger } from "../utils/logger";
 import { BE_URL } from "../config/config";
 
 export type IntegrationPayload = {
   service_name: string;
-  auth_type: string;
+  connector_type: ConnectorType;
+  auth_type: AuthType;
   config: Record<string, string>;
   is_active: boolean;
 };

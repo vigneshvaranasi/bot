@@ -95,10 +95,11 @@ class TestCredentialMasking:
         assert masked["TOKEN"] == "********"
 
     def test_mask_integration_response(self):
-        """Test that mask_integration_response creates properly masked response."""
+        """Sensitive fields are stripped from config and surfaced via configured_secrets."""
         mock_integration = MagicMock()
         mock_integration.id = uuid4()
         mock_integration.service_name = "servicenow"
+        mock_integration.connector_type = "servicenow"
         mock_integration.auth_type = "basic_auth"
         mock_integration.config = {
             "url": "https://company.service-now.com",
@@ -115,7 +116,9 @@ class TestCredentialMasking:
         masked = mask_integration_response(mock_integration)
 
         assert masked["service_name"] == "servicenow"
+        assert masked["connector_type"] == "servicenow"
         assert masked["config"]["url"] == "https://company.service-now.com"
         assert masked["config"]["username"] == "admin"
-        assert masked["config"]["password"] == "********"
+        assert "password" not in masked["config"]
+        assert "password" in masked["configured_secrets"]
         assert masked["is_active"] is True

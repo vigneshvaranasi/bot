@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SettingsHeader from "../../components/settings/SettingsHeader";
 import { Button } from "../../components/ui/Button";
 import IntegrationControl from "../../components/IntegrationControl";
@@ -14,7 +14,16 @@ import {
   syncIntegration,
   type IntegrationPayload,
 } from "../../handlers/integrationHandlers";
-import { type Integration, type IntegrationSyncStatus, AUTH_SCHEMAS, CONNECTOR_TYPES } from "../../types/Integrations";
+import {
+  AUTH_TYPE_LABELS,
+  CONNECTOR_TYPES,
+  getAuthFields,
+  getAuthTypesForConnector,
+  type AuthType,
+  type ConnectorType,
+  type Integration,
+  type IntegrationSyncStatus,
+} from "../../types/Integrations";
 import { SkeletonIntegrations } from "../../components/ui/Skeleton";
 import { usePermissions } from "../../hooks/usePermissions";
 import { PERMISSIONS } from "../../types/Permission";
@@ -25,24 +34,34 @@ const IntegrationsPage = () => {
   const canEdit = hasPermission(PERMISSIONS.INTEGRATION_EDIT);
   const canDelete = hasPermission(PERMISSIONS.INTEGRATION_DELETE);
   const canSync = hasPermission(PERMISSIONS.INTEGRATION_SYNC);
-  type IntegrationItem = Omit<Integration, "auth_type"> & {
-    auth_type?: Integration["auth_type"];
-    isNew?: boolean;
-  };
+  type IntegrationItem = Integration & { isNew?: boolean };
 
   const [integrations, setIntegrations] = useState<IntegrationItem[]>([]);
   const [integrationsLoading, setIntegrationsLoading] = useState(false);
   const [integrationsError, setIntegrationsError] = useState<string | null>(null);
 
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [newConnectorType, setNewConnectorType] = useState<string | undefined>(undefined);
+  const [newConnectorType, setNewConnectorType] = useState<ConnectorType | undefined>(undefined);
   const [newName, setNewName] = useState("");
-  const [newAuthType, setNewAuthType] = useState<string | undefined>(undefined);
+  const [newAuthType, setNewAuthType] = useState<AuthType | undefined>(undefined);
   const [newConfig, setNewConfig] = useState<Record<string, string>>({});
   const [addError, setAddError] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
 
   const connectorOptions = CONNECTOR_TYPES.map((c) => ({ value: c.value, label: c.label }));
+
+  const newAuthOptions = useMemo(() => {
+    if (!newConnectorType) return [];
+    return getAuthTypesForConnector(newConnectorType).map((value) => ({
+      value,
+      label: AUTH_TYPE_LABELS[value],
+    }));
+  }, [newConnectorType]);
+
+  const newFields = useMemo(() => {
+    if (!newConnectorType || !newAuthType) return [];
+    return getAuthFields(newConnectorType, newAuthType);
+  }, [newConnectorType, newAuthType]);
 
   useEffect(() => {
     const loadIntegrations = async () => {
@@ -82,12 +101,6 @@ const IntegrationsPage = () => {
     return date.toLocaleString();
   };
 
-  const authOptions = [
-    { value: "basic_auth", label: "Basic Auth" },
-    { value: "api_token", label: "API Token" },
-    { value: "oauth2", label: "OAuth 2.0" },
-  ];
-
   const handleAddIntegration = () => {
     setNewConnectorType(undefined);
     setNewName("");
@@ -97,23 +110,32 @@ const IntegrationsPage = () => {
     setAddModalOpen(true);
   };
 
-  const handleAddModalSave = async () => {
-    if (!newConnectorType) {
-      setAddError("Connector type is required");
-      return;
-    }
-    if (!newAuthType) {
-      setAddError("Authentication type is required");
-      return;
-    }
-    for (const field of AUTH_SCHEMAS[newAuthType]) {
+  const validateNew = (): string | null => {
+    if (!newConnectorType) return "Connector type is required";
+    if (!newAuthType) return "Authentication type is required";
+    for (const field of newFields) {
       if (field.required && !newConfig[field.key]) {
-        setAddError(`${field.label} is required`);
-        return;
+        return `${field.label} is required`;
       }
     }
+    if (newConnectorType === "jira") {
+      const hasProject = (newConfig.project_key || "").trim().length > 0;
+      const hasJql = (newConfig.jql || "").trim().length > 0;
+      if (!hasProject && !hasJql) {
+        return "Provide either a Project Key or a custom JQL query";
+      }
+    }
+    return null;
+  };
 
-    const connectorLabel = CONNECTOR_TYPES.find((c) => c.value === newConnectorType)?.label ?? newConnectorType;
+  const handleAddModalSave = async () => {
+    const err = validateNew();
+    if (err) {
+      setAddError(err);
+      return;
+    }
+    const connectorLabel =
+      CONNECTOR_TYPES.find((c) => c.value === newConnectorType)?.label ?? newConnectorType!;
     const serviceName = newName.trim() || connectorLabel;
 
     setAddError(null);
@@ -121,7 +143,8 @@ const IntegrationsPage = () => {
     try {
       const created = await createIntegration({
         service_name: serviceName,
-        auth_type: newAuthType,
+        connector_type: newConnectorType!,
+        auth_type: newAuthType!,
         config: newConfig,
         is_active: true,
       });
@@ -197,9 +220,9 @@ const IntegrationsPage = () => {
     await syncIntegration(id, {
       onProgress: (evt) => {
         callbacks.onProgress(
-          evt.message, 
-          evt.batch, 
-          evt.totalBatches, 
+          evt.message,
+          evt.batch,
+          evt.totalBatches,
           evt.totalIncidents
         );
       },
@@ -270,6 +293,7 @@ const IntegrationsPage = () => {
               key={integration.id}
               id={integration.id}
               serviceName={integration.service_name}
+              connectorType={integration.connector_type}
               enabled={integration.is_active}
               syncStatus={mapSyncStatus(
                 integration.last_sync_status,
@@ -290,13 +314,11 @@ const IntegrationsPage = () => {
         </div>
       </div>
 
-      {/* Add Integration Modal */}
       <Modal
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         title="Add Integration"
-        size="md"
-        bodyOverflowVisible
+        size="lg"
         footer={
           <>
             <Button variant="ghost" onClick={() => setAddModalOpen(false)} disabled={isAdding}>
@@ -312,11 +334,13 @@ const IntegrationsPage = () => {
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium">Connector Type <span className="text-danger-text">*</span></label>
             <Dropdown
+              className="block w-full"
               options={connectorOptions}
               value={newConnectorType}
               onChange={(value) => {
-                setNewConnectorType(value);
-                const label = CONNECTOR_TYPES.find((c) => c.value === value)?.label ?? "";
+                const next = value as ConnectorType | undefined;
+                setNewConnectorType(next);
+                const label = CONNECTOR_TYPES.find((c) => c.value === next)?.label ?? "";
                 setNewName(label);
                 setNewAuthType(undefined);
                 setNewConfig({});
@@ -342,10 +366,11 @@ const IntegrationsPage = () => {
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium">Authentication Type <span className="text-danger-text">*</span></label>
               <Dropdown
-                options={authOptions}
+                className="block w-full"
+                options={newAuthOptions}
                 value={newAuthType}
                 onChange={(value) => {
-                  setNewAuthType(value);
+                  setNewAuthType(value as AuthType | undefined);
                   setNewConfig({});
                   setAddError(null);
                 }}
@@ -353,10 +378,10 @@ const IntegrationsPage = () => {
             </div>
           )}
 
-          {newAuthType && (
+          {newAuthType && newFields.length > 0 && (
             <div className="flex flex-col gap-3">
               <label className="text-sm font-medium">Configuration</label>
-              {AUTH_SCHEMAS[newAuthType].map((field) => (
+              {newFields.map((field) => (
                 <div key={field.key} className="flex flex-col gap-1">
                   <label className="text-xs font-medium">
                     {field.label}
@@ -364,13 +389,16 @@ const IntegrationsPage = () => {
                   </label>
                   <InputBox
                     value={String(newConfig[field.key] || "")}
-                    placeholder={field.label}
-                    type={field.type === "url" ? "text" : field.type}
-                    variant="primary"
+                    placeholder={field.placeholder || field.label}
+                    type={field.type === "password" ? "password" : "text"}
+                    variant={field.type === "textarea" ? "multiline" : "primary"}
                     onChange={(value) =>
                       setNewConfig((prev) => ({ ...prev, [field.key]: value }))
                     }
                   />
+                  {field.help && (
+                    <span className="text-[11px] text-text-secondary">{field.help}</span>
+                  )}
                 </div>
               ))}
             </div>
