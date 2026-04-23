@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.auth.dependencies import require_permission, require_any_permission
+from src.api.auth.dependencies import get_current_user, require_permission, require_any_permission
 from src.api.db.session import get_session
 from src.api.schemas.setting_schemas import (
     SettingResponse,
@@ -15,6 +15,7 @@ from src.api.schemas.setting_schemas import (
     ChangeType,
     AiMlSettingsUpdate,
     AuthSettingsUpdate,
+    ChatConfigResponse,
     SettingHistoryResponse,
     SettingHistoryItem,
     SegmentSettingResponse,
@@ -30,6 +31,41 @@ router = APIRouter()
 def _bool_or_default(value: Optional[bool], default: bool = False) -> bool:
     """Normalize nullable legacy boolean values for strict response schemas."""
     return default if value is None else value
+
+
+# ============================================================
+# Chat-config endpoint (any authenticated user)
+# ============================================================
+
+@router.get("/chat-config", response_model=ChatConfigResponse)
+async def get_chat_config(
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """Return the subset of AI/ML settings the chat UI needs.
+
+    Available to any authenticated user so non-admin users can see the model
+    picker when admins enable `allow_user_model_selection` or `auto_routing_enabled`.
+    """
+    service = SettingsService(db)
+    setting = await service.get_latest_setting()
+
+    if not setting:
+        defaults = SettingsService.get_default_segment_fields(SettingSegment.AIML)
+        return ChatConfigResponse(
+            allow_user_model_selection=defaults.get("allow_user_model_selection", False),
+            auto_routing_enabled=defaults.get("auto_routing_enabled", False),
+            model=defaults.get("model"),
+            provider_id=defaults.get("provider_id"),
+        )
+
+    aiml = service.extract_segment_fields(setting, SettingSegment.AIML)
+    return ChatConfigResponse(
+        allow_user_model_selection=_bool_or_default(aiml.get("allow_user_model_selection")),
+        auto_routing_enabled=_bool_or_default(aiml.get("auto_routing_enabled")),
+        model=aiml.get("model"),
+        provider_id=aiml.get("provider_id"),
+    )
 
 
 # ============================================================

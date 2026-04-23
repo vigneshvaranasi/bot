@@ -442,8 +442,8 @@ function Sidebar() {
               </div>
             )}
           </div>
-          <div className="flex-shrink-0 safe-area-bottom">
-            <div className="flex bg-surface-primary border border-border-default m-4 mb-2 p-2 rounded-lg items-center justify-between">
+          <div className="flex-shrink-0 safe-area-bottom mb-1.5">
+            <div className="flex bg-surface-primary border border-border-default mx-4 my-2 md:my-3 px-2 min-h-[44px] rounded-xl items-center justify-between">
               <div className="flex items-center gap-2">
                 <div
                   className="w-8 h-8 rounded-full bg-surface-hover text-text-primary flex items-center justify-center text-xs font-semibold select-none"
@@ -451,7 +451,11 @@ function Sidebar() {
                 >
                   {(user?.email || "GU").slice(0, 2).toUpperCase()}
                 </div>
-                <p>{user?.email.split("@")[0] || "Guest"}</p>
+                {(() => {
+                  const username = user?.email.split("@")[0] || "Guest";
+                  const display = username.length > 10 ? `${username.slice(0, 10)}..` : username;
+                  return <p title={username}>{display}</p>;
+                })()}
               </div>
               <div className="flex items-center gap-1">
                 <ThemeToggleButton />

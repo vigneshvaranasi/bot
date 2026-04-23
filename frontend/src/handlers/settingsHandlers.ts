@@ -3,6 +3,7 @@ import { logger } from "../utils/logger";
 import type {
     AiMlSettings,
     AuthSettings,
+    ChatConfig,
     SegmentSettingResponse,
     SettingHistoryResponse,
     SettingSegment,
@@ -15,6 +16,16 @@ export const fetchAiMlSettings = async (): Promise<SegmentSettingResponse<AiMlSe
         return data;
     } catch (error) {
         logger.error("Error fetching AI/ML settings:", error);
+        return null;
+    }
+};
+
+export const fetchChatConfig = async (): Promise<ChatConfig | null> => {
+    try {
+        const { data } = await http.get("/settings/chat-config");
+        return data;
+    } catch (error) {
+        logger.error("Error fetching chat config:", error);
         return null;
     }
 };

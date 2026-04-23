@@ -3,7 +3,7 @@ import InputBox from "./ui/InputBox";
 import SendIcon from "./icons/SendIcon";
 import StopIcon from "./icons/StopIcon";
 import { fetchAvailableModels } from "../handlers/llmProviderHandlers";
-import { fetchAiMlSettings } from "../handlers/settingsHandlers";
+import { fetchChatConfig } from "../handlers/settingsHandlers";
 import type { AvailableModel } from "../types/LlmProvider";
 import { logger } from "../utils/logger";
 
@@ -101,20 +101,20 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [modelsRes, settingsRes] = await Promise.all([
+      const [modelsRes, configRes] = await Promise.all([
         fetchAvailableModels(),
-        fetchAiMlSettings(),
+        fetchChatConfig(),
       ]);
       if (cancelled) return;
       const allModels = modelsRes?.models ?? [];
       setModels(allModels);
 
-      setShowModelPicker(settingsRes?.settings?.allow_user_model_selection ?? false);
-      setAutoRoutingEnabled(settingsRes?.settings?.auto_routing_enabled ?? false);
+      setShowModelPicker(configRes?.allow_user_model_selection ?? false);
+      setAutoRoutingEnabled(configRes?.auto_routing_enabled ?? false);
 
       // Match the admin-configured model + provider from settings
-      const savedModelId = settingsRes?.settings?.model;
-      const savedProviderId = settingsRes?.settings?.provider_id;
+      const savedModelId = configRes?.model;
+      const savedProviderId = configRes?.provider_id;
       const savedMatch = savedModelId
         ? allModels.find((m) =>
             m.model_id === savedModelId &&
@@ -164,7 +164,10 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
   const handleSend = () => {
     const text = chatInput.trim();
     if (!text || isLoading) return;
-    const shouldOverride = selectedModel && (!autoRoutingEnabled || userExplicitlyPickedModel);
+    const shouldOverride =
+      selectedModel &&
+      showModelPicker &&
+      (!autoRoutingEnabled || userExplicitlyPickedModel);
     const override: ModelOverride | undefined = shouldOverride
       ? { provider_id: selectedModel.provider_id, model_id: selectedModel.model_id }
       : undefined;
@@ -234,18 +237,18 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
 
   return (
     <div className="w-full px-4 py-2 md:py-3 prompt-bar-safe">
-      {/* Model selector pill */}
-      {models.length > 0 && (showModelPicker || autoRoutingEnabled) && (
+      {/* Model selector pill — only shown when admin lets users pick */}
+      {showModelPicker && models.length > 0 && (
         <div className="relative mb-1.5" ref={dropdownRef}>
           <button
             type="button"
             onClick={() => setDropdownOpen((v) => !v)}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors  
+            className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors
                 border-border-default bg-surface-primary hover:bg-surface-tertiary text-text-secondary`}
           >
             {autoRoutingEnabled && !userExplicitlyPickedModel
               ? "Auto"
-              : (selectedModel?.display_name ?? "Select model")}
+              : (selectedModel?.model_id ?? "Select model")}
             <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" className={`transition-transform ${dropdownOpen ? "rotate-180" : ""}`}>
               <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
             </svg>
@@ -285,7 +288,7 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
                           : "text-text-primary"
                       }`}
                     >
-                      {m.display_name}
+                      {m.model_id}
                     </button>
                   ))}
                 </div>

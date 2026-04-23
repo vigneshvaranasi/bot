@@ -54,6 +54,18 @@ class AiMlSettingsResponse(BaseModel):
     router_model_id: Optional[str] = None
 
 
+class ChatConfigResponse(BaseModel):
+    """Subset of AI/ML settings safe to expose to any authenticated user.
+
+    Used by the chat UI to decide whether to render the model picker. Excludes
+    secrets and admin-only fields like deny_words, temperature, and Langfuse keys.
+    """
+    allow_user_model_selection: bool
+    auto_routing_enabled: bool = False
+    model: Optional[str] = None
+    provider_id: Optional[str] = None
+
+
 class AuthSettingsUpdate(BaseModel):
     """Schema for updating Auth settings segment."""
     auth_google_enabled: Optional[bool] = None

@@ -524,7 +524,7 @@ const ChatView = () => {
                 statusMessage={message.statusMessage}
               />
               {message.respondedAt && (
-                <p className="text-xs text-text-tertiary mt-0.5 ml-1">
+                <p className="text-xs text-text-tertiary mt-0.5">
                   {formatMessageTime(message.respondedAt)}
                 </p>
               )}
@@ -532,7 +532,7 @@ const ChatView = () => {
             {/* chat Actions */}
             {
               !message.streaming &&
-              <div className="flex items-center gap-1 ml-2 mt-1 pb-1">
+              <div className="flex items-center gap-1 ml-[-7px] mt-1 pb-1">
                 <ChatAction
                   type="thumbsUp"
                   active={message.feedback === 'positive' || (activeFeedback.messageId === message.id && activeFeedback.feedbackType === 'positive')}

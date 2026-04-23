@@ -48,6 +48,13 @@ export type AiMlSettings = {
   router_model_id?: string | null;
 }
 
+export type ChatConfig = {
+  allow_user_model_selection: boolean;
+  auto_routing_enabled: boolean;
+  model?: Model | null;
+  provider_id?: string | null;
+}
+
 export type AuthSettings = {
   auth_google_enabled: boolean;
   auth_github_enabled: boolean;

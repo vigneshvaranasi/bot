@@ -10,7 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.auth.dependencies import require_permission
+from src.api.auth.dependencies import require_permission, require_any_permission
 from src.api.db.session import get_session
 from src.api.schemas.llm_provider_schemas import (
     LlmProviderCreate,
@@ -95,12 +95,15 @@ async def create_provider(
 @router.get("/models/available", response_model=AvailableModelsResponse)
 async def get_available_models(
     db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(require_permission("llm_provider.view"))
+    current_user: dict = Depends(require_any_permission("llm_provider.view", "chat.use"))
 ):
     """Get all available models from active providers.
 
     Aggregates models from all active providers into a single list.
     Each model includes its provider information for selection UI.
+
+    Available to chat users (chat.use) so the in-chat model picker can populate
+    when admins enable user model selection. No secrets are exposed.
     """
     service = LlmProviderService(db)
     models = await service.get_available_models()
