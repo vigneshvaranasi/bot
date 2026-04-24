@@ -29,6 +29,7 @@ from src.api.schemas.chat_schema import (
     PromptModel,
 )
 from src.api.utils.llm_provider_helper import (
+    build_guardrail_config,
     get_provider_config_for_chat,
     get_provider_config_for_model,
     resolve_auto_routed_config,
@@ -287,6 +288,7 @@ async def prompt_stream(
             "provider_config": provider_config.get("provider_config", {}),
             "temperature": provider_config.get("temperature"),
         }
+        guardrail_config = await build_guardrail_config(session, settings)
 
         needs_title = (
             request.generate_title
@@ -301,6 +303,7 @@ async def prompt_stream(
             "langfuse_config": langfuse_config,
             "generate_title": not needs_title,
             "llm_config": llm_config,
+            "guardrail_config": guardrail_config,
         }
 
         pre_saved_message = Message(
@@ -444,6 +447,8 @@ async def prompt_stream(
             generated_title = current_title
             t_start: float | None = None
             t_first: float | None = None
+            block_model_id: str | None = None
+            block_provider_type: str | None = None
 
             try:
                 root_span = None
@@ -496,6 +501,18 @@ async def prompt_stream(
                                 yield f"event: title\ndata: {json.dumps({'title': generated_title})}\n\n"
                                 await save_title_to_db(generated_title)
 
+                            if isinstance(chunk, dict) and "guardrail_refusal" in chunk:
+                                refusal_text = chunk["guardrail_refusal"]
+                                if t_first is None:
+                                    t_first = time.perf_counter()
+                                answer = refusal_text
+                                block_model_id = chunk.get("model_id") or block_model_id
+                                block_provider_type = chunk.get("provider_type") or block_provider_type
+                                for i in range(0, len(refusal_text), 5):
+                                    part = refusal_text[i:i + 5]
+                                    yield f"event: final_answer\ndata: {json.dumps({'chunk': part})}\n\n"
+                                    await asyncio.sleep(0.01)
+
                             # Status event
                             if isinstance(chunk, dict) and "status" in chunk:
                                 status_payload = {"message": chunk["status"]}
@@ -543,8 +560,8 @@ async def prompt_stream(
                                             msg_to_update.responded_at = _utcnow_naive()
                                             msg_to_update.time_to_first_token_ms = time_to_first_token_ms
                                             msg_to_update.total_response_time_ms = total_response_time_ms
-                                            msg_to_update.model_id = llm_config.get("model_id") or "default"
-                                            msg_to_update.provider_type = llm_config.get("provider_type") or "ollama"
+                                            msg_to_update.model_id = block_model_id or llm_config.get("model_id") or "default"
+                                            msg_to_update.provider_type = block_provider_type or llm_config.get("provider_type") or "ollama"
                                             await session.commit()
                                             memory_saved = True
                                     except Exception as e:
@@ -557,15 +574,15 @@ async def prompt_stream(
                                         "message_id": str(pre_saved_message.id),
                                         "time_to_first_token_ms": time_to_first_token_ms,
                                         "total_response_time_ms": total_response_time_ms,
-                                        "model_id": llm_config.get("model_id") or "default",
-                                        "provider_type": llm_config.get("provider_type") or "ollama",
+                                        "model_id": block_model_id or llm_config.get("model_id") or "default",
+                                        "provider_type": block_provider_type or llm_config.get("provider_type") or "ollama",
                                     }
                                     yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
 
                         elif mode == "messages":
                             token_chunk, metadata = chunk
                             if (
-                                metadata.get('langgraph_node') != 'incident_tools'
+                                metadata.get('langgraph_node') not in ('incident_tools', 'guardrail_check')
                                 and isinstance(token_chunk, AIMessageChunk)
                                 and token_chunk.content
                             ):
@@ -599,8 +616,8 @@ async def prompt_stream(
                     "message_id": str(pre_saved_message.id),
                     "time_to_first_token_ms": time_to_first_token_ms_err,
                     "total_response_time_ms": total_response_time_ms_err,
-                    "model_id": llm_config.get("model_id") or "default",
-                    "provider_type": llm_config.get("provider_type") or "ollama",
+                    "model_id": block_model_id or llm_config.get("model_id") or "default",
+                    "provider_type": block_provider_type or llm_config.get("provider_type") or "ollama",
                 }
                 yield f"event: complete\ndata: {json.dumps(final_data)}\n\n"
             finally:
@@ -649,8 +666,8 @@ async def prompt_stream(
                             msg_to_update.total_response_time_ms = (
                                 round((t_end_finally - t_start) * 1000) if t_start is not None else None
                             )
-                            msg_to_update.model_id = llm_config.get("model_id") or "default"
-                            msg_to_update.provider_type = llm_config.get("provider_type") or "ollama"
+                            msg_to_update.model_id = block_model_id or llm_config.get("model_id") or "default"
+                            msg_to_update.provider_type = block_provider_type or llm_config.get("provider_type") or "ollama"
                             await session.commit()
                     except Exception as save_err:
                         logger.error(f"[STREAM FINALLY] Failed to save message in finally: {save_err}", exc_info=True)
@@ -674,7 +691,13 @@ async def prompt_stream(
 
 
 async def get_graph_response_non_stream(inputs, config, graph=None):
-    """Helper function to get non-streaming response from the support bot graph."""
+    """Helper function to get non-streaming response from the support bot graph.
+
+    Returns (answer, title, block_info). `block_info` is None for normal
+    answers, or a dict with `model_id`/`provider_type` when the guardrail
+    blocked the query — so the caller can stamp the message metadata with
+    the classifier model instead of the main chat model.
+    """
     try:
         if graph is None:
             graph = get_support_bot_graph()
@@ -683,7 +706,14 @@ async def get_graph_response_non_stream(inputs, config, graph=None):
         final_message = result["messages"][-1]
         answer = str(final_message.content)
         title = result.get("title") if isinstance(result, dict) else None
-        return answer, title
+        block_info = None
+        extras = getattr(final_message, "additional_kwargs", None)
+        if isinstance(extras, dict) and extras.get("blocked_by_guardrail") is True:
+            block_info = {
+                "model_id": extras.get("guardrail_model_id"),
+                "provider_type": extras.get("guardrail_provider_type"),
+            }
+        return answer, title, block_info
     except Exception as e:
         logger.exception("Error in get_graph_response_non_stream")
         raise
@@ -764,6 +794,7 @@ async def prompt(
             "provider_config": provider_config.get("provider_config", {}),
             "temperature": provider_config.get("temperature"),
         }
+        guardrail_config = await build_guardrail_config(session, settings)
 
         # Check if we need to generate a title
         result = await session.execute(
@@ -785,6 +816,7 @@ async def prompt(
             "langfuse_config": langfuse_config,
             "generate_title": not needs_title,
             "llm_config": llm_config,
+            "guardrail_config": guardrail_config,
         }
 
         # Create a root Langfuse span so both graph + title gen nest under one trace
@@ -828,9 +860,11 @@ async def prompt(
             )
             logger.debug("[PARALLEL TITLE] Non-stream: Task started")
 
-        answer, graph_title = await get_graph_response_non_stream(
+        answer, graph_title, block_info = await get_graph_response_non_stream(
             inputs, thread_config
         )
+        effective_model_id = (block_info.get("model_id") if block_info else None) or llm_config.get("model_id") or "default"
+        effective_provider_type = (block_info.get("provider_type") if block_info else None) or llm_config.get("provider_type") or "ollama"
 
         # Get title from parallel task or graph
         title = None
@@ -891,8 +925,8 @@ async def prompt(
             human=human_message,
             bot=answer,
             responded_at=_utcnow_naive(),
-            model_id=llm_config.get("model_id") or "default",
-            provider_type=llm_config.get("provider_type") or "ollama",
+            model_id=effective_model_id,
+            provider_type=effective_provider_type,
         )
         session.add(message)
         await session.commit()

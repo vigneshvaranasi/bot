@@ -36,6 +36,10 @@ class AiMlSettingsUpdate(BaseModel):
     auto_routing_enabled: Optional[bool] = None
     router_provider_id: Optional[str] = None
     router_model_id: Optional[str] = None
+    guardrail_enabled: Optional[bool] = None
+    guardrail_provider_id: Optional[str] = None
+    guardrail_model_id: Optional[str] = None
+    guardrail_history_turns: Optional[int] = None
 
 
 class AiMlSettingsResponse(BaseModel):
@@ -52,6 +56,10 @@ class AiMlSettingsResponse(BaseModel):
     auto_routing_enabled: bool = False
     router_provider_id: Optional[str] = None
     router_model_id: Optional[str] = None
+    guardrail_enabled: bool = False
+    guardrail_provider_id: Optional[str] = None
+    guardrail_model_id: Optional[str] = None
+    guardrail_history_turns: int = 3
 
 
 class ChatConfigResponse(BaseModel):

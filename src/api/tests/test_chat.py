@@ -1513,7 +1513,7 @@ class TestPromptNonStream:
                    return_value={"provider_type": "anthropic", "model_id": "claude", "api_key": "k",
                                  "base_url": None, "provider_config": {}, "temperature": 0.5}), \
              patch("src.api.routers.chat.get_graph_response_non_stream", new_callable=AsyncMock,
-                   return_value=("Graph answer", None)):
+                   return_value=("Graph answer", None, None)):
             response = await client.post("/chats/prompt", json={
                 "message": "Explain VPN",
                 "chat_id": None,
@@ -1615,22 +1615,45 @@ class TestGetGraphResponseNonStream:
     """Tests for get_graph_response_non_stream helper."""
 
     @pytest.mark.asyncio
-    async def test_returns_answer_and_title(self):
-        """Returns (answer, title) from graph result."""
+    async def test_returns_answer_title_and_block_info(self):
+        """Returns (answer, title, block_info) from graph result."""
         from src.api.routers.chat import get_graph_response_non_stream
 
         mock_msg = MagicMock()
         mock_msg.content = "The answer"
+        mock_msg.additional_kwargs = {}
         mock_graph = MagicMock()
         mock_graph.invoke.return_value = {
             "messages": [mock_msg],
             "title": "Generated Title",
         }
-        answer, title = await get_graph_response_non_stream(
+        answer, title, block_info = await get_graph_response_non_stream(
             {"messages": []}, {"configurable": {}}, graph=mock_graph
         )
         assert answer == "The answer"
         assert title == "Generated Title"
+        assert block_info is None
+
+    @pytest.mark.asyncio
+    async def test_blocked_by_guardrail_returns_block_info(self):
+        """When the final message is a guardrail refusal, block_info carries the classifier model."""
+        from src.api.routers.chat import get_graph_response_non_stream
+
+        mock_msg = MagicMock()
+        mock_msg.content = "I cannot help with that"
+        mock_msg.additional_kwargs = {
+            "blocked_by_guardrail": True,
+            "guardrail_model_id": "gpt-4o-mini",
+            "guardrail_provider_type": "openai",
+        }
+        mock_graph = MagicMock()
+        mock_graph.invoke.return_value = {"messages": [mock_msg]}
+        answer, title, block_info = await get_graph_response_non_stream(
+            {"messages": []}, {"configurable": {}}, graph=mock_graph
+        )
+        assert answer == "I cannot help with that"
+        assert title is None
+        assert block_info == {"model_id": "gpt-4o-mini", "provider_type": "openai"}
 
     @pytest.mark.asyncio
     async def test_graph_exception_propagates(self):
@@ -1651,13 +1674,15 @@ class TestGetGraphResponseNonStream:
 
         mock_msg = MagicMock()
         mock_msg.content = "Answer"
+        mock_msg.additional_kwargs = {}
         mock_graph = MagicMock()
         mock_graph.invoke.return_value = {"messages": [mock_msg]}
-        answer, title = await get_graph_response_non_stream(
+        answer, title, block_info = await get_graph_response_non_stream(
             {"messages": []}, {"configurable": {}}, graph=mock_graph
         )
         assert answer == "Answer"
         assert title is None
+        assert block_info is None
 
 class TestGetSupportBotGraph:
     """Tests for get_support_bot_graph lazy init."""
@@ -2051,7 +2076,7 @@ class TestPromptNonStreamDeep:
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.5}), \
              patch("src.api.routers.chat.get_graph_response_non_stream", new_callable=AsyncMock,
-                   return_value=("answer here", "Generated")), \
+                   return_value=("answer here", "Generated", None)), \
              patch("src.api.routers.chat.generate_title_from_query", return_value="Title"):
             response = await client.post("/chats/prompt", json={
                 "message": "test override",
@@ -2086,7 +2111,7 @@ class TestPromptNonStreamDeep:
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
              patch("src.api.routers.chat.get_graph_response_non_stream", new_callable=AsyncMock,
-                   return_value=("answer", None)), \
+                   return_value=("answer", None, None)), \
              patch("src.api.routers.chat.generate_title_from_query", side_effect=slow_title), \
              patch("asyncio.wait_for", side_effect=asyncio.TimeoutError):
             response = await client.post("/chats/prompt", json={
@@ -2113,7 +2138,7 @@ class TestPromptNonStreamDeep:
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
              patch("src.api.routers.chat.get_graph_response_non_stream", new_callable=AsyncMock,
-                   return_value=("answer", "Graph Title")):
+                   return_value=("answer", "Graph Title", None)):
             response = await client.post("/chats/prompt", json={
                 "message": "graph title fallback", "chat_id": str(chat.id),
                 "generate_title": False,
@@ -2138,7 +2163,7 @@ class TestPromptNonStreamDeep:
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
              patch("src.api.routers.chat.get_graph_response_non_stream", new_callable=AsyncMock,
-                   return_value=("answer", "Fresh Title")):
+                   return_value=("answer", "Fresh Title", None)):
             response = await client.post("/chats/prompt", json={
                 "message": "title save err", "chat_id": str(chat.id),
                 "generate_title": True,
@@ -2163,7 +2188,7 @@ class TestPromptNonStreamDeep:
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
              patch("src.api.routers.chat.get_graph_response_non_stream", new_callable=AsyncMock,
-                   return_value=("the answer", None)):
+                   return_value=("the answer", None, None)):
             response = await client.post("/chats/prompt", json={
                 "message": "cache store fail", "chat_id": str(chat.id),
             })
@@ -2187,7 +2212,7 @@ class TestGetOrCreateChatError:
                                  "api_key": "k", "base_url": None, "provider_config": {},
                                  "temperature": 0.7}), \
              patch("src.api.routers.chat.get_graph_response_non_stream", new_callable=AsyncMock,
-                   return_value=("answer", None)):
+                   return_value=("answer", None, None)):
             # Use chat_id=None to trigger new chat creation, and pass "" to trigger new path
             response = await client.post("/chats/prompt", json={
                 "message": "hello", "chat_id": "",

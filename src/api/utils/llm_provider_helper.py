@@ -211,6 +211,67 @@ async def get_provider_config_for_model(
 
     return config
 
+async def build_guardrail_config(
+    session: AsyncSession,
+    settings: Optional[Setting],
+) -> Dict[str, Any]:
+    """Build the guardrail config dict injected into graph state.
+
+    Returns `{"enabled": False}` when guardrails are disabled or the configured
+    provider/model is unavailable, so the graph node can pass through cleanly.
+    """
+    empty: Dict[str, Any] = {"enabled": False}
+    if not settings:
+        return empty
+    if getattr(settings, "guardrail_enabled", False) is not True:
+        return empty
+
+    provider_id = getattr(settings, "guardrail_provider_id", None)
+    model_id = getattr(settings, "guardrail_model_id", None)
+    if not provider_id or not isinstance(model_id, str) or not model_id:
+        return empty
+
+    try:
+        provider_result = await session.execute(
+            select(LlmProvider).where(
+                LlmProvider.id == provider_id,
+                LlmProvider.is_active == True,
+            )
+        )
+        provider = provider_result.scalars().first()
+        if not provider:
+            logger.warning("Guardrail provider not found or inactive, disabling guardrail")
+            return empty
+
+        if model_id not in (provider.models or []):
+            logger.warning(
+                f"Guardrail model {model_id} not in provider {provider.name}'s models, disabling guardrail"
+            )
+            return empty
+
+        api_key = None
+        if provider.api_key_encrypted:
+            try:
+                api_key = decrypt_value(provider.api_key_encrypted)
+            except Exception as e:
+                logger.error(f"Failed to decrypt guardrail provider API key: {e}")
+                return empty
+
+        return {
+            "enabled": True,
+            "provider_type": provider.provider_type,
+            "model_id": model_id,
+            "api_key": api_key,
+            "base_url": provider.base_url,
+            "provider_config": provider.config or {},
+            "deny_words": getattr(settings, "deny_words", "") or "",
+            "history_turns": int(getattr(settings, "guardrail_history_turns", 3) or 3),
+            "settings_id": str(settings.id),
+        }
+    except Exception as e:
+        logger.error(f"Failed to build guardrail config: {e}")
+        return empty
+
 async def resolve_auto_routed_config(
     session: AsyncSession,
     user_id: Optional[str] = None,

@@ -46,6 +46,10 @@ export type AiMlSettings = {
   auto_routing_enabled?: boolean;
   router_provider_id?: string | null;
   router_model_id?: string | null;
+  guardrail_enabled?: boolean;
+  guardrail_provider_id?: string | null;
+  guardrail_model_id?: string | null;
+  guardrail_history_turns?: number;
 }
 
 export type ChatConfig = {

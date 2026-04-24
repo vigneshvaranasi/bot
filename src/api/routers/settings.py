@@ -131,6 +131,10 @@ async def update_aiml_settings(
     if "router_provider_id" in update_dict and update_dict["router_provider_id"] is not None:
         update_dict["router_provider_id"] = UUID(update_dict["router_provider_id"])
 
+    # Convert guardrail_provider_id string to UUID for DB compatibility
+    if "guardrail_provider_id" in update_dict and update_dict["guardrail_provider_id"] is not None:
+        update_dict["guardrail_provider_id"] = UUID(update_dict["guardrail_provider_id"])
+
     user_id = UUID(current_user["user_id"])
     new_setting = await service.update_segment(
         segment=SettingSegment.AIML,

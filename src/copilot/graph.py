@@ -4,12 +4,15 @@ This module defines the agent graph that processes user queries,
 searches the knowledge base, and generates responses.
 """
 
+import hashlib
+import json
 import logging
+from collections import OrderedDict
 from datetime import datetime
-from typing import Annotated, Any, Dict, Optional, Sequence, TypedDict
+from typing import Annotated, Any, Dict, List, Optional, Sequence, Tuple, TypedDict
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableLambda
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.config import get_stream_writer
@@ -115,6 +118,7 @@ class AgentState(TypedDict):
     langfuse_config: Optional[Dict[str, str]]
     generate_title: Optional[bool]
     llm_config: Optional[Dict[str, Any]]
+    guardrail_config: Optional[Dict[str, Any]]
 
 _llm_cache: Dict[str, BaseChatModel] = {}
 _llm_cache_lock = threading.Lock()
@@ -201,6 +205,249 @@ def get_configured_llm(state: Optional[Dict[str, Any]] = None) -> BaseChatModel:
         )
     from src.copilot.llm_factory import get_default_llm
     return get_default_llm()
+
+
+GUARDRAIL_REJECTION_MESSAGE = (
+    "I cannot help with that, maybe I can help you with a query regarding incidents"
+)
+
+GUARDRAIL_SYSTEM_PROMPT = """You are a safety classifier. Your ONLY job \
+is to check whether the user's latest message is asking about any of these \
+deny topics — directly, or through aliases, synonyms, related entities, \
+adjacent concepts, or indirect references.
+
+Deny topics:
+{deny_words}
+
+You will be given a recent conversation (may be empty) and the latest user \
+message. Resolve follow-up references ("that", "it", "more about this") \
+using the conversation before deciding.
+
+Respond with ONLY JSON (no markdown, no prose):
+{{"allow": true|false, "reason": "<one short sentence>"}}
+
+Rules:
+- If the latest message is asking about a deny topic in any form, \
+return allow: false.
+- Otherwise, return allow: true.
+- When in doubt whether a message relates to a deny topic, return allow: true. \
+Only block when the connection to a deny topic is clear.
+"""
+
+_guardrail_cache: "OrderedDict[str, bool]" = OrderedDict()
+_guardrail_cache_lock = threading.Lock()
+_GUARDRAIL_CACHE_MAX = 200
+
+def _guardrail_cache_key(settings_id: str, prior_last_human: str, query: str) -> str:
+    """Build a cache key that is history-aware but dedupes identical repeats.
+
+    Keyed on `(settings_id, last prior human message, normalized current query)`
+    so any settings change (deny list / use-case edit) naturally invalidates
+    cached verdicts.
+    """
+    normalized = (query or "").strip().lower()[:500]
+    prior_hash = hashlib.sha256((prior_last_human or "").encode()).hexdigest()[:16]
+    raw = f"{settings_id}|{prior_hash}|{normalized}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+
+def _guardrail_cache_get(key: str) -> Optional[bool]:
+    with _guardrail_cache_lock:
+        if key in _guardrail_cache:
+            _guardrail_cache.move_to_end(key)
+            return _guardrail_cache[key]
+    return None
+
+
+def _guardrail_cache_set(key: str, allow: bool) -> None:
+    with _guardrail_cache_lock:
+        _guardrail_cache[key] = allow
+        _guardrail_cache.move_to_end(key)
+        while len(_guardrail_cache) > _GUARDRAIL_CACHE_MAX:
+            _guardrail_cache.popitem(last=False)
+
+
+def _build_guardrail_history(
+    messages: Sequence[BaseMessage],
+    history_turns: int,
+) -> Tuple[str, str, str]:
+    """Split the message list into (history_block, current_query, last_prior_human).
+
+    - `history_block`: formatted transcript of the last N prior turns (role: text).
+    - `current_query`: the latest human message that triggered this graph run.
+    - `last_prior_human`: the most recent human message before the current one
+      (used in the cache key for history-sensitive dedup).
+    """
+    if not messages:
+        return "(no prior conversation)", "", ""
+
+    current_query = _extract_text_content(getattr(messages[-1], "content", ""))
+
+    max_prior = max(0, int(history_turns)) * 2
+    prior = list(messages[:-1])[-max_prior:] if max_prior else []
+
+    lines: List[str] = []
+    last_prior_human = ""
+    for m in prior:
+        role = getattr(m, "type", "") or ""
+        text = _extract_text_content(getattr(m, "content", ""))
+        if not text:
+            continue
+        if role == "human":
+            lines.append(f"user: {text[:500]}")
+            last_prior_human = text
+        elif role == "ai":
+            lines.append(f"assistant: {text[:500]}")
+        else:
+            continue
+
+    history_block = "\n".join(lines) if lines else "(no prior conversation)"
+    return history_block, current_query, last_prior_human
+
+
+def _parse_guardrail_decision(raw: str) -> Optional[bool]:
+    """Parse the classifier's JSON response into an allow/deny bool.
+
+    Returns None if the response cannot be parsed, so the caller can fail open.
+    """
+    if not raw:
+        return None
+    content = raw.strip()
+    if content.startswith("```"):
+        content = content.split("\n", 1)[1] if "\n" in content else content[3:]
+        content = content.rsplit("```", 1)[0]
+    content = content.strip()
+    try:
+        decision = json.loads(content)
+    except json.JSONDecodeError:
+        logger.warning(f"Guardrail: could not parse JSON from classifier response: {raw!r}")
+        return None
+    allow = decision.get("allow")
+    if isinstance(allow, bool):
+        return allow
+    return None
+
+
+def guardrail_check(state: AgentState) -> dict:
+    """Pluggable LLM guardrail gate at the entry of the graph.
+
+    Reads `state['guardrail_config']`. When disabled or misconfigured, passes
+    through transparently. When the classifier denies the query, appends an
+    AIMessage with the refusal text — the conditional edge then routes to END.
+
+    Fails OPEN on classifier errors (L1 regex already ran upstream).
+    """
+    writer = get_stream_writer()
+    logger.debug("NODE: GUARDRAIL")
+
+    gconfig = (state or {}).get("guardrail_config") or {}
+    if not gconfig.get("enabled") or not gconfig.get("provider_type") or not gconfig.get("model_id"):
+        return {}
+
+    messages = state.get("messages") or []
+    if not messages:
+        return {}
+
+    history_turns = gconfig.get("history_turns", 3)
+    history_block, current_query, last_prior_human = _build_guardrail_history(messages, history_turns)
+
+    if not current_query:
+        return {}
+
+    settings_id = str(gconfig.get("settings_id", ""))
+    guardrail_model_id = gconfig.get("model_id")
+    guardrail_provider_type = gconfig.get("provider_type")
+
+    def _blocked_response() -> dict:
+        writer({"status": "Request blocked by guardrail"})
+        writer({
+            "guardrail_refusal": GUARDRAIL_REJECTION_MESSAGE,
+            "model_id": guardrail_model_id,
+            "provider_type": guardrail_provider_type,
+        })
+        writer({"status": "Almost done, wrapping up the details"})
+        return {
+            "messages": [AIMessage(
+                content=GUARDRAIL_REJECTION_MESSAGE,
+                additional_kwargs={
+                    "blocked_by_guardrail": True,
+                    "guardrail_model_id": guardrail_model_id,
+                    "guardrail_provider_type": guardrail_provider_type,
+                },
+            )]
+        }
+
+    cache_key = _guardrail_cache_key(settings_id, last_prior_human, current_query)
+    cached = _guardrail_cache_get(cache_key)
+    if cached is True:
+        logger.info("Guardrail cache hit: allow")
+        return {}
+    if cached is False:
+        logger.info("Guardrail cache hit: deny")
+        return _blocked_response()
+
+    try:
+        writer({"status": "Understanding your question..."})
+        from src.copilot.llm_factory import create_llm_from_provider
+
+        classifier = create_llm_from_provider(
+            provider_type=gconfig["provider_type"],
+            model_id=gconfig["model_id"],
+            api_key=gconfig.get("api_key"),
+            base_url=gconfig.get("base_url"),
+            provider_config=gconfig.get("provider_config") or {},
+            temperature=0.0,
+        )
+
+        system_prompt = GUARDRAIL_SYSTEM_PROMPT.format(
+            deny_words=gconfig.get("deny_words") or "(none configured)",
+        )
+        user_payload = (
+            f"Recent conversation:\n{history_block}\n\n"
+            f"Latest user message: {current_query}\n\n"
+            "Classify and respond with JSON only."
+        )
+
+        response = classifier.invoke(
+            [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_payload),
+            ],
+            config={"run_name": "Guardrail Classifier"},
+        )
+        raw = _extract_text_content(getattr(response, "content", ""))
+        decision = _parse_guardrail_decision(raw)
+    except Exception as e:
+        logger.error(f"Guardrail LLM call failed, failing open: {e}")
+        return {}
+
+    if decision is None:
+        logger.warning("Guardrail returned unparseable decision, failing open")
+        return {}
+
+    _guardrail_cache_set(cache_key, decision)
+
+    if decision is False:
+        logger.info(f"Guardrail: DENIED query '{current_query[:80]}'")
+        return _blocked_response()
+
+    logger.debug("Guardrail: allowed")
+    return {}
+
+
+def _guardrail_decision(state: AgentState) -> str:
+    """Conditional edge out of guardrail_check.
+
+    If the latest message is an AI refusal (added by guardrail_check), route to END.
+    Otherwise, continue to the main support bot node.
+    """
+    messages = state.get("messages") or []
+    if not messages:
+        return "allow"
+    last = messages[-1]
+    if isinstance(last, AIMessage) and _extract_text_content(getattr(last, "content", "")) == GUARDRAIL_REJECTION_MESSAGE:
+        return "reject"
+    return "allow"
 
 
 SYSTEM_MESSAGE_PROMPT_TEMPLATE = """
@@ -525,11 +772,18 @@ def create_agent_graph():
 
     workflow = StateGraph(AgentState)
 
+    workflow.add_node("guardrail_check", guardrail_check)
     workflow.add_node("support_bot", call_model)
     workflow.add_node("incident_tools", tool_wrapper)
     workflow.add_node("title_generation", title_generation_node)
 
-    workflow.set_entry_point("support_bot")
+    workflow.set_entry_point("guardrail_check")
+
+    workflow.add_conditional_edges(
+        "guardrail_check",
+        _guardrail_decision,
+        {"allow": "support_bot", "reject": END},
+    )
 
     workflow.add_conditional_edges(
         "support_bot",

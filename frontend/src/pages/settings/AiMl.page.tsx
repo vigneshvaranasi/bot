@@ -4,10 +4,10 @@ import Dropdown from "../../components/ui/Dropdown";
 import InputBox from "../../components/ui/InputBox";
 import Toggle from "../../components/ui/Toggle";
 import { Button } from "../../components/ui/Button";
-import { ConfigurableTable } from "../../components/ui/Table";
 import InfoHint from "../../components/ui/InfoHint";
 import LlmProviderControl from "../../components/LlmProviderControl";
 import AutoRoutingSection from "../../components/AutoRoutingSection";
+import GuardrailSection from "../../components/GuardrailSection";
 import { fetchAiMlSettings, updateAiMlSettings } from "../../handlers/settingsHandlers";
 import {
   fetchLlmProviders,
@@ -53,10 +53,12 @@ const AiMlConfigPage = () => {
   const [autoRoutingEnabled, setAutoRoutingEnabled] = useState(false);
   const [routerProviderId, setRouterProviderId] = useState<string | null>(null);
   const [routerModelId, setRouterModelId] = useState<string | null>(null);
+  const [guardrailEnabled, setGuardrailEnabled] = useState(false);
+  const [guardrailProviderId, setGuardrailProviderId] = useState<string | null>(null);
+  const [guardrailModelId, setGuardrailModelId] = useState<string | null>(null);
+  const [guardrailHistoryTurns, setGuardrailHistoryTurns] = useState<number>(3);
 
   const [denyWordsArray, setDenyWordsArray] = useState<DenyWordRecord[]>([]);
-  const [denyWords, setDenyWords] = useState("");
-  const [showDenyWordsTable, setShowDenyWordsTable] = useState(false);
 
   // LLM Providers state
   const [providers, setProviders] = useState<LlmProvider[]>([]);
@@ -127,6 +129,10 @@ const AiMlConfigPage = () => {
           setAutoRoutingEnabled(settings.auto_routing_enabled ?? false);
           setRouterProviderId(settings.router_provider_id ?? null);
           setRouterModelId(settings.router_model_id ?? null);
+          setGuardrailEnabled(settings.guardrail_enabled ?? false);
+          setGuardrailProviderId(settings.guardrail_provider_id ?? null);
+          setGuardrailModelId(settings.guardrail_model_id ?? null);
+          setGuardrailHistoryTurns(settings.guardrail_history_turns ?? 3);
         }
       } catch (err) {
         logger.error("Error fetching AI/ML settings", err);
@@ -301,34 +307,6 @@ const AiMlConfigPage = () => {
     }
   };
 
-  const handleAddDenyWords = () => {
-    if (!denyWords.trim()) return;
-    const newWords = denyWords
-      .split(",")
-      .map((word) => word.trim())
-      .filter((word) => word.length > 0);
-
-    const existingWords = denyWordsArray.map((item) => item.word.toLowerCase());
-    const wordsToAdd = newWords.filter((word) => !existingWords.includes(word.toLowerCase()));
-
-    if (wordsToAdd.length > 0) {
-      const newWordRecords: DenyWordRecord[] = wordsToAdd.map((word, index) => ({
-        id: `word-${Date.now()}-${index}`,
-        word: word,
-      }));
-
-      const updatedDenyWordsArray = [...denyWordsArray, ...newWordRecords];
-      setDenyWordsArray(updatedDenyWordsArray);
-    }
-
-    setDenyWords("");
-  };
-
-  const handleRemoveDenyWord = (wordId: string) => {
-    const updatedDenyWordsArray = denyWordsArray.filter((item) => item.id !== wordId);
-    setDenyWordsArray(updatedDenyWordsArray);
-  };
-
   const handleSaveModel = async () => {
     try {
       setSavingModel(true);
@@ -350,31 +328,28 @@ const AiMlConfigPage = () => {
     }
   };
 
-  const handleSaveSafety = async () => {
+  const handleSaveObservability = async () => {
     try {
       setSavingSafety(true);
       setError(null);
-      const safetyPayload: Partial<AiMlSettings> = {
-        deny_words: wordsArrayToString(denyWordsArray),
+      const payload: Partial<AiMlSettings> = {
         langfuse_enabled: langfuseEnabled ?? false,
         langfuse_public_key: langfusePublicKey || undefined,
         langfuse_base_url: langfuseBaseUrl || undefined,
         ...(langfuseSecretKey ? { langfuse_secret_key: langfuseSecretKey } : {}),
       };
-      await updateAiMlSettings(safetyPayload);
+      await updateAiMlSettings(payload);
       if (langfuseSecretKey) setHasLangfuseSecretKey(true);
       setLangfuseSecretKey("");
-      toast.success("Safety settings saved");
+      toast.success("Observability settings saved");
     } catch (err) {
-      logger.error("Error saving safety settings", err);
-      setError("Failed to save safety settings");
-      toast.error("Failed to save safety settings");
+      logger.error("Error saving observability settings", err);
+      setError("Failed to save observability settings");
+      toast.error("Failed to save observability settings");
     } finally {
       setSavingSafety(false);
     }
   };
-
-  const denyWordsCount = useMemo(() => denyWordsArray.length, [denyWordsArray]);
 
   if (loading) {
     return (
@@ -554,105 +529,35 @@ const AiMlConfigPage = () => {
         }}
       />
 
+      <GuardrailSection
+        guardrailEnabled={guardrailEnabled}
+        guardrailProviderId={guardrailProviderId}
+        guardrailModelId={guardrailModelId}
+        guardrailHistoryTurns={guardrailHistoryTurns}
+        denyWords={wordsArrayToString(denyWordsArray)}
+        availableModels={availableModels}
+        canEdit={canEditAiMl}
+        onSettingsChange={(changes) => {
+          if (changes.guardrail_enabled !== undefined) setGuardrailEnabled(changes.guardrail_enabled);
+          if (changes.guardrail_provider_id !== undefined) setGuardrailProviderId(changes.guardrail_provider_id);
+          if (changes.guardrail_model_id !== undefined) setGuardrailModelId(changes.guardrail_model_id);
+          if (changes.guardrail_history_turns !== undefined) setGuardrailHistoryTurns(changes.guardrail_history_turns);
+          if (changes.deny_words !== undefined) setDenyWordsArray(stringToWordsArray(changes.deny_words));
+        }}
+      />
+
       <section className="border border-border-default rounded-lg p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-text-primary">Safety & Observability</h3>
-            <p className="text-xs text-text-secondary"> Configure safety filters and tracing options.</p>
+            <h3 className="text-sm font-semibold text-text-primary">Observability</h3>
+            <p className="text-xs text-text-secondary">Configure tracing and monitoring options.</p>
           </div>
           {canEditAiMl && (
-            <Button variant="blue" size="sm" onClick={handleSaveSafety} disabled={savingSafety}>
+            <Button variant="blue" size="sm" onClick={handleSaveObservability} disabled={savingSafety}>
               {savingSafety ? "Saving…" : "Save"}
             </Button>
           )}
         </div>
-
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2">
-            <span className="flex flex-row justify-between text-sm md:text-medium text-text-primary w-full">
-              <div className="flex flex-row items-center gap-1">
-                <span>Deny List Words</span>
-                <InfoHint text="Any word on this list will be automatically blocked from both user prompts and AI responses." />
-              </div>
-              <span className="text-xs text-text-secondary font-normal">
-                <button
-                  onClick={() => setShowDenyWordsTable(!showDenyWordsTable)}
-                  className="ml-2 text-accent-blue hover:text-accent-blue underline cursor-pointer"
-                >
-                  {showDenyWordsTable ? "Hide All" : `View All (${denyWordsCount})`}
-                </button>
-              </span>
-            </span>
-          </div>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-            <InputBox
-              value={denyWords}
-              onChange={setDenyWords}
-              placeholder="Add words to deny"
-              variant="primary"
-              className="w-full rounded-[5px] border-border-strong border-b-1"
-              disabled={!canEditAiMl}
-            />
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleAddDenyWords}
-              disabled={!canEditAiMl}
-              className="w-full sm:w-auto"
-            >
-              Add word
-            </Button>
-          </div>
-        </div>
-
-        {showDenyWordsTable ? (
-          <div className="grid grid-cols-1 xl:grid-cols-1 gap-4 xl:gap-6 my-2">
-            <div className="overflow-x-auto bg-surface-primary rounded-lg border border-border-strong">
-              {denyWordsArray.length === 0 ? (
-                <div className="p-4 text-center text-text-secondary text-sm">
-                  No deny words configured. Add words above to get started.
-                </div>
-              ) : (
-                <div className="max-h-60 overflow-y-auto border-t border-border-default">
-                  <ConfigurableTable
-                    data={denyWordsArray}
-                    keyExtractor={(row) => row.id}
-                    columns={[
-                      {
-                        header: "Deny Word",
-                        accessor: "word",
-                        headerClassName:
-                          "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
-                        className: "text-xs md:text-sm text-text-primary py-3",
-                        searchable: true,
-                      },
-                      ...(canEditAiMl ? [{
-                        header: "Action",
-                        headerClassName:
-                          "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default w-20",
-                        render: (denyWord: DenyWordRecord) => (
-                          <div className="flex flex-row gap-1 sm:gap-2">
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className="hover:text-danger-text"
-                              onClick={() => handleRemoveDenyWord(denyWord.id)}
-                            >
-                              ✕
-                            </Button>
-                          </div>
-                        ),
-                        searchable: false,
-                      }] : []),
-                    ]}
-                    headerRowClassName="bg-surface-secondary sticky top-0 z-10"
-                    rowClassName="bg-surface-primary border-t border-border-default hover:bg-surface-secondary"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
 
         <div className="mt-2 flex items-center gap-3">
           <div className="flex flex-row items-center text-sm md:text-medium text-text-primary min-w-fit">
