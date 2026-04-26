@@ -3,7 +3,6 @@ import toast from "react-hot-toast";
 import SettingsHeader from "../../components/settings/SettingsHeader";
 import { Button } from "../../components/ui/Button";
 import UploadFiles from "../../components/ui/UploadFiles";
-import { ConfigurableTable } from "../../components/ui/Table";
 import { SkeletonAudit } from "../../components/ui/Skeleton";
 import { usePermissions } from "../../hooks/usePermissions";
 import InfoHint from "../../components/ui/InfoHint";
@@ -40,6 +39,9 @@ const KnowledgeBasePage = () => {
   const { files: contextFiles, clearAllFiles } = useFileContext();
 
   // Sync History state
+  
+  // @ts-ignore -- intentionally kept for upcoming sync history table re-enable
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [logs, setLogs] = useState<IncidentLog[]>([]);
   const [syncLoading, setSyncLoading] = useState(true);
@@ -208,54 +210,54 @@ const KnowledgeBasePage = () => {
 
   // ── Sync history columns  ────────────────────────────
 
-  const syncColumns = [
-    {
-      header: "Source",
-      headerClassName: "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
-      className: "text-xs md:text-sm py-3",
-      render: (item: Integration) => (
-        <span className="font-medium capitalize">
-          {item.service_name}
-        </span>
-      ),
-      searchable: false,
-    },
-    {
-      header: "Last Synced",
-      headerClassName: "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
-      className: "text-xs md:text-sm py-3",
-      render: (item: Integration) =>
-        item.last_synced_at ? new Date(item.last_synced_at).toLocaleString() : "Never",
-      searchable: false,
-    },
-    {
-      header: "Status",
-      headerClassName: "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
-      className: "text-xs md:text-sm py-3",
-      render: (item: Integration) => {
-        const status = item.last_sync_status || "never";
-        const colors: Record<string, string> = {
-          success: "bg-success-subtle text-success-text",
-          error: "bg-danger-subtle text-danger-text",
-          never: "bg-surface-tertiary text-text-primary",
-        };
-        return (
-          <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${colors[status] || colors.never}`}>
-            {status.charAt(0).toUpperCase() + status.slice(1)}
-          </span>
-        );
-      },
-      searchable: false,
-    },
-    {
-      header: "Updated",
-      headerClassName: "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
-      className: "text-xs md:text-sm py-3",
-      render: (item: Integration) =>
-        item.updated_at ? new Date(item.updated_at).toLocaleString() : "-",
-      searchable: false,
-    },
-  ];
+  // const syncColumns = [
+  //   {
+  //     header: "Source",
+  //     headerClassName: "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
+  //     className: "text-xs md:text-sm py-3",
+  //     render: (item: Integration) => (
+  //       <span className="font-medium capitalize">
+  //         {item.service_name}
+  //       </span>
+  //     ),
+  //     searchable: false,
+  //   },
+  //   {
+  //     header: "Last Synced",
+  //     headerClassName: "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
+  //     className: "text-xs md:text-sm py-3",
+  //     render: (item: Integration) =>
+  //       item.last_synced_at ? new Date(item.last_synced_at).toLocaleString() : "Never",
+  //     searchable: false,
+  //   },
+  //   {
+  //     header: "Status",
+  //     headerClassName: "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
+  //     className: "text-xs md:text-sm py-3",
+  //     render: (item: Integration) => {
+  //       const status = item.last_sync_status || "never";
+  //       const colors: Record<string, string> = {
+  //         success: "bg-success-subtle text-success-text",
+  //         error: "bg-danger-subtle text-danger-text",
+  //         never: "bg-surface-tertiary text-text-primary",
+  //       };
+  //       return (
+  //         <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${colors[status] || colors.never}`}>
+  //           {status.charAt(0).toUpperCase() + status.slice(1)}
+  //         </span>
+  //       );
+  //     },
+  //     searchable: false,
+  //   },
+  //   {
+  //     header: "Updated",
+  //     headerClassName: "font-medium text-text-secondary text-xs md:text-sm sticky top-0 bg-surface-secondary z-10 border-b border-border-default",
+  //     className: "text-xs md:text-sm py-3",
+  //     render: (item: Integration) =>
+  //       item.updated_at ? new Date(item.updated_at).toLocaleString() : "-",
+  //     searchable: false,
+  //   },
+  // ];
 
   return (
     <div className="space-y-6">
