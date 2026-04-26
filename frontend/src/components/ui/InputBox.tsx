@@ -20,6 +20,7 @@ type InputBoxProps = {
   step?: number
   disabled?: boolean
   readOnly?: boolean
+  dataTour?: string
 }
 
 const variantClasses: Record<'primary' | 'multiline', string> = {
@@ -62,7 +63,8 @@ const InputBox = ({
   max,
   step,
   disabled = false,
-  readOnly = false
+  readOnly = false,
+  dataTour
 }: InputBoxProps) => {
   const variantClass = variantClasses[variant]
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -97,7 +99,7 @@ const InputBox = ({
   }
 
   return (
-    <div className={`relative w-full ${className}`}>
+    <div className={`relative w-full ${className}`} data-tour={dataTour}>
       {icon && (
         <div className='absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary'>
           {typeof icon === 'string' ? (

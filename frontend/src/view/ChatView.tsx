@@ -570,10 +570,22 @@ const ChatView = () => {
       <div ref={bottomRef} data-bottom-marker />
       {
         chatId == undefined && currentChat == null && (
-          <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
             <p className="text-lg md:text-2xl text-text-secondary">
               How can I help you today?
             </p>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("supportbot:start-chat-tour"))}
+              className="md:hidden inline-flex items-center gap-1.5 text-xs text-text-tertiary hover:text-text-primary transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              Take a quick tour
+            </button>
           </div>
         )
       }

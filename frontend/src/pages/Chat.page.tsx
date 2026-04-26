@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import PromptBar from "../components/PromptBar";
@@ -13,9 +13,12 @@ import { createMessageStreamer } from "../utils/streaming";
 import { logger } from "../utils/logger";
 import type { ChatMessage } from "../types";
 import type { CurrentChatType } from "../store/SidebarContext";
+import GuidedTour from "../components/GuidedTour";
+import { buildChatTourSteps, useChatTour } from "../hooks/useChatTour";
+import { fetchChatConfig } from "../handlers/settingsHandlers";
 
 function ChatPage() {
-  const { isSidebarOpen, setCurrentChat, currentChat, triggerRefreshChats } =
+  const { isSidebarOpen, setSidebarOpen, setCurrentChat, currentChat, triggerRefreshChats } =
     useSidebarContext();
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -24,6 +27,67 @@ function ChatPage() {
   const navigate = useNavigate();
   const abortRef = useRef<AbortController | null>(null);
   const mergedMetricsRef = useRef<{ timeToFirstToken?: number; totalResponseTime: number; modelId?: string | null; providerType?: string | null } | null>(null);
+  const [hasSpeechSupport, setHasSpeechSupport] = useState<boolean>(false);
+  const [hasModelPicker, setHasModelPicker] = useState<boolean>(false);
+  const [tourPrereqsReady, setTourPrereqsReady] = useState<boolean>(false);
+  const sidebarSnapshotRef = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    const w = window as Window & {
+      SpeechRecognition?: unknown;
+      webkitSpeechRecognition?: unknown;
+    };
+    setHasSpeechSupport(!!(w.SpeechRecognition || w.webkitSpeechRecognition));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const cfg = await fetchChatConfig();
+        if (!cancelled) setHasModelPicker(!!cfg?.allow_user_model_selection);
+      } catch {
+        // ignore — picker just stays hidden in tour
+      } finally {
+        if (!cancelled) setTourPrereqsReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const tourSteps = useMemo(
+    () => buildChatTourSteps({ hasModelPicker, hasSpeechSupport }),
+    [hasModelPicker, hasSpeechSupport]
+  );
+
+  const tour = useChatTour({
+    userKey: user?.email ?? null,
+    ready: !!user && tourPrereqsReady,
+  });
+
+  const handleTourEnd = (mode: "complete" | "skip") => {
+    if (sidebarSnapshotRef.current !== null) {
+      setSidebarOpen(sidebarSnapshotRef.current);
+      sidebarSnapshotRef.current = null;
+    }
+    if (mode === "complete") tour.complete();
+    else tour.dismiss();
+  };
+
+  useEffect(() => {
+    if (tour.isOpen && sidebarSnapshotRef.current === null) {
+      sidebarSnapshotRef.current = isSidebarOpen;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tour.isOpen]);
+
+  useEffect(() => {
+    const handler = () => tour.start();
+    window.addEventListener("supportbot:start-chat-tour", handler);
+    return () => window.removeEventListener("supportbot:start-chat-tour", handler);
+  }, [tour]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -239,6 +303,13 @@ function ChatPage() {
           </div>
         </div>
       </div>
+      <GuidedTour
+        steps={tourSteps}
+        isOpen={tour.isOpen}
+        onComplete={() => handleTourEnd("complete")}
+        onSkip={() => handleTourEnd("skip")}
+        onSidebarVisibility={(open) => setSidebarOpen(open)}
+      />
     </div>
   );
 }

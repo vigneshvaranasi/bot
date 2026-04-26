@@ -239,10 +239,11 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
     <div className="w-full px-4 py-2 md:py-3 prompt-bar-safe">
       {/* Model selector pill — only shown when admin lets users pick */}
       {showModelPicker && models.length > 0 && (
-        <div className="relative mb-1.5" ref={dropdownRef}>
+        <div className="relative mb-1.5 inline-block" ref={dropdownRef}>
           <button
             type="button"
             onClick={() => setDropdownOpen((v) => !v)}
+            data-tour="model-picker"
             className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors
                 border-border-default bg-surface-primary hover:bg-surface-tertiary text-text-secondary`}
           >
@@ -302,6 +303,7 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
       <div className="flex items-end gap-x-2 mx-auto">
         <InputBox
           className="flex-1"
+          dataTour="prompt-input"
           onChange={(value) => setChatInput(value)}
           onFocus={handleInputFocus}
           value={chatInput}
@@ -323,6 +325,7 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
           <button
             onClick={toggleDictation}
             disabled={isLoading}
+            data-tour="prompt-mic"
             className={`flex-none h-10 w-10 rounded-xl mb-1.5 flex items-center justify-center cursor-pointer transition-colors ${
               isRecording
                 ? "border border-danger bg-danger-subtle text-danger-text animate-pulse"
@@ -350,6 +353,7 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
         {canStop ? (
           <button
             onClick={onStop}
+            data-tour="prompt-send"
             className="flex-none h-10 w-10 rounded-xl mb-1.5 flex items-center justify-center cursor-pointer transition-colors bg-accent hover:bg-accent-hover text-text-inverse"
           >
             <StopIcon size={18} />
@@ -358,6 +362,7 @@ export default function PromptBar({ onSend, onStop, isLoading, canStop, focusKey
           <button
             onClick={handleSend}
             disabled={isRecording || isLoading || !chatInput.trim()}
+            data-tour="prompt-send"
             className={`flex-none h-10 w-10 rounded-xl mb-1.5 flex items-center justify-center cursor-pointer transition-colors ${
               isRecording || isLoading || !chatInput.trim()
                 ? "bg-surface-tertiary text-text-tertiary cursor-not-allowed"
