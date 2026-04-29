@@ -42,8 +42,6 @@ class Setting(Base):
     guardrail_history_turns = Column(Integer, default=3, nullable=False)
 
     # Feedback settings for human feedback loop
-    feedback_auto_approve_positive = Column(Boolean, default=True, nullable=False)
-    feedback_auto_approve_negative = Column(Boolean, default=False, nullable=False)
     feedback_require_reason_positive = Column(Boolean, default=False, nullable=False)
     feedback_require_reason_negative = Column(Boolean, default=False, nullable=False)
     feedback_auto_approve_by_ai = Column(Boolean, default=False, nullable=False)

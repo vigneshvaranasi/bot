@@ -481,52 +481,21 @@ const FeedbackDashboard: React.FC = () => {
       )}
 
       {settings && canManageFeedback && (
-        <section className="border border-border-default rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-text-primary mb-3">Auto-Approval Settings</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center justify-between p-3 rounded-lg border border-border-default bg-surface-primary">
-              <div>
-                <div className="flex items-center gap-1">
-                  <p className="text-sm font-medium text-text-primary">Auto-approve Positive Feedback</p>
-                  <InfoHint text="Positive feedback (thumbs up) will skip manual review and automatically become a golden example using the AI's original response." />
-                </div>
-                <p className="text-xs text-text-secondary">Automatically add to golden examples</p>
-              </div>
-              <Toggle
-                enabled={settings.auto_approve_positive}
-                onChange={(v) => handleSettingChange('auto_approve_positive', v)}
-                disabled={savingSettings}
-              />
+        <section className="flex items-center justify-between p-4 rounded-lg border border-border-default bg-surface-primary">
+          <div>
+            <div className="flex items-center gap-1">
+              <h3 className="text-sm font-semibold text-text-primary">AI Auto-Approval</h3>
+              <InfoHint text="When enabled, AI validates each feedback. Valid feedback becomes a golden example automatically; invalid feedback stays pending with the AI's reason." />
             </div>
-            <div className="flex items-center justify-between p-3 rounded-lg border border-border-default bg-surface-primary">
-              <div>
-                <div className="flex items-center gap-1">
-                  <p className="text-sm font-medium text-text-primary">Auto-approve Negative Feedback</p>
-                  <InfoHint text="Negative feedback (thumbs down) will be auto-approved using the AI's original response — which was flagged as poor. Manual review is strongly recommended instead." />
-                </div>
-                <p className="text-xs text-warning-text">Not recommended</p>
-              </div>
-              <Toggle
-                enabled={settings.auto_approve_negative}
-                onChange={(v) => handleSettingChange('auto_approve_negative', v)}
-                disabled={savingSettings}
-              />
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg border border-border-default bg-surface-primary">
-              <div>
-                <div className="flex items-center gap-1">
-                  <p className="text-sm font-medium text-text-primary">Auto-approve by AI</p>
-                  <InfoHint text="AI will validate feedback before auto-approving. If invalid, feedback stays pending with AI's reason. If valid, golden example is auto-created." />
-                </div>
-                <p className="text-xs text-text-secondary">AI validates, then auto-generates golden example</p>
-              </div>
-              <Toggle
-                enabled={settings.auto_approve_by_ai}
-                onChange={(v) => handleSettingChange('auto_approve_by_ai', v)}
-                disabled={savingSettings}
-              />
-            </div>
+            <p className="text-xs text-text-secondary mt-0.5">
+              AI validates feedback and creates golden examples for the valid ones. Disable to review every feedback manually.
+            </p>
           </div>
+          <Toggle
+            enabled={settings.auto_approve_by_ai}
+            onChange={(v) => handleSettingChange('auto_approve_by_ai', v)}
+            disabled={savingSettings}
+          />
         </section>
       )}
 

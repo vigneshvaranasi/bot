@@ -345,8 +345,6 @@ class SettingsService:
             guardrail_provider_id=target_setting.guardrail_provider_id,
             guardrail_model_id=target_setting.guardrail_model_id,
             guardrail_history_turns=target_setting.guardrail_history_turns,
-            feedback_auto_approve_positive=target_setting.feedback_auto_approve_positive,
-            feedback_auto_approve_negative=target_setting.feedback_auto_approve_negative,
             feedback_require_reason_positive=target_setting.feedback_require_reason_positive,
             feedback_require_reason_negative=target_setting.feedback_require_reason_negative,
             feedback_auto_approve_by_ai=target_setting.feedback_auto_approve_by_ai,

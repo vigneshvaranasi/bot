@@ -127,8 +127,6 @@ class GoldenExampleListResponse(BaseModel):
 
 class FeedbackSettingsResponse(BaseModel):
     """Schema for feedback settings."""
-    auto_approve_positive: bool
-    auto_approve_negative: bool
     require_reason_positive: bool
     require_reason_negative: bool
     auto_approve_by_ai: bool
@@ -136,8 +134,6 @@ class FeedbackSettingsResponse(BaseModel):
 
 class FeedbackSettingsUpdate(BaseModel):
     """Schema for updating feedback settings."""
-    auto_approve_positive: Optional[bool] = None
-    auto_approve_negative: Optional[bool] = None
     require_reason_positive: Optional[bool] = None
     require_reason_negative: Optional[bool] = None
     auto_approve_by_ai: Optional[bool] = None

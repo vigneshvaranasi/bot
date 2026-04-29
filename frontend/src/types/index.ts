@@ -106,8 +106,6 @@ export interface FeedbackStats {
 }
 
 export interface FeedbackSettings {
-  auto_approve_positive: boolean;
-  auto_approve_negative: boolean;
   require_reason_positive: boolean;
   require_reason_negative: boolean;
   auto_approve_by_ai: boolean;

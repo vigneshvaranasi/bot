@@ -229,10 +229,6 @@ async def update_feedback_settings(
         user_id = UUID(current_user["user_id"])
         
         update_data = {}
-        if data.auto_approve_positive is not None:
-            update_data["feedback_auto_approve_positive"] = data.auto_approve_positive
-        if data.auto_approve_negative is not None:
-            update_data["feedback_auto_approve_negative"] = data.auto_approve_negative
         if data.require_reason_positive is not None:
             update_data["feedback_require_reason_positive"] = data.require_reason_positive
         if data.require_reason_negative is not None:

@@ -81,8 +81,6 @@ def _make_setting(user_id, **overrides):
         auth_microsoft_enabled=True,
         auth_local_enabled=True,
         change_type="create",
-        feedback_auto_approve_positive=True,
-        feedback_auto_approve_negative=False,
         feedback_require_reason_positive=False,
         feedback_require_reason_negative=False,
     )
@@ -125,28 +123,24 @@ class TestSubmitFeedback:
     """Tests for POST /feedback/"""
 
     @pytest.mark.asyncio
-    async def test_submit_positive_auto_approved(self, admin_client):
-        """Positive feedback is auto-approved by default settings."""
+    async def test_submit_positive_pending(self, admin_client):
+        """Positive feedback is pending by default (no AI auto-approve)."""
         client, session, user_id = admin_client
         _, _, msg = await _seed(session, user_id)
 
-        with patch(
-            "src.api.services.golden_example_service.GoldenExampleService._embed_example",
-            new_callable=AsyncMock, return_value="mock-point",
-        ):
-            response = await client.post("/feedback/", json={
-                "message_id": str(msg.id),
-                "feedback_type": "positive",
-            })
+        response = await client.post("/feedback/", json={
+            "message_id": str(msg.id),
+            "feedback_type": "positive",
+        })
         assert response.status_code == 201
         data = response.json()
         assert data["feedback_type"] == "positive"
-        assert data["status"] == "auto_approved"
+        assert data["status"] == "pending"
         assert data["message_id"] == str(msg.id)
 
     @pytest.mark.asyncio
     async def test_submit_negative_pending(self, admin_client):
-        """Negative feedback is pending by default (auto_approve_negative=False)."""
+        """Negative feedback is pending by default."""
         client, session, user_id = admin_client
         _, _, msg = await _seed(session, user_id)
 
@@ -166,15 +160,11 @@ class TestSubmitFeedback:
         client, session, user_id = admin_client
         _, _, msg = await _seed(session, user_id)
 
-        with patch(
-            "src.api.services.golden_example_service.GoldenExampleService._embed_example",
-            new_callable=AsyncMock, return_value="p",
-        ):
-            response = await client.post("/feedback/", json={
-                "message_id": str(msg.id),
-                "feedback_type": "positive",
-                "reason": "Very helpful!",
-            })
+        response = await client.post("/feedback/", json={
+            "message_id": str(msg.id),
+            "feedback_type": "positive",
+            "reason": "Very helpful!",
+        })
         assert response.status_code == 201
         assert response.json()["reason"] == "Very helpful!"
 
@@ -224,14 +214,10 @@ class TestSubmitFeedback:
         client, session, user_id = admin_client
         _, _, msg = await _seed(session, user_id)
 
-        with patch(
-            "src.api.services.golden_example_service.GoldenExampleService._embed_example",
-            new_callable=AsyncMock, return_value="p",
-        ):
-            response = await client.post("/feedback/", json={
-                "message_id": str(msg.id),
-                "feedback_type": "positive",
-            })
+        response = await client.post("/feedback/", json={
+            "message_id": str(msg.id),
+            "feedback_type": "positive",
+        })
         data = response.json()
         for field in ("id", "message_id", "user_id", "feedback_type", "status", "created_at"):
             assert field in data
@@ -467,22 +453,21 @@ class TestFeedbackSettings:
         response = await client.get("/feedback/admin/settings")
         assert response.status_code == 200
         data = response.json()
-        assert data["auto_approve_positive"] is True
-        assert data["auto_approve_negative"] is False
         assert data["require_reason_positive"] is False
         assert data["require_reason_negative"] is False
+        assert data["auto_approve_by_ai"] is False
 
     @pytest.mark.asyncio
     async def test_get_settings_from_db(self, admin_client):
         client, session, user_id = admin_client
-        session.add(_make_setting(user_id, feedback_auto_approve_positive=False,
-                                  feedback_require_reason_negative=True))
+        session.add(_make_setting(user_id, feedback_require_reason_negative=True,
+                                  feedback_auto_approve_by_ai=True))
         await session.commit()
 
         response = await client.get("/feedback/admin/settings")
         data = response.json()
-        assert data["auto_approve_positive"] is False
         assert data["require_reason_negative"] is True
+        assert data["auto_approve_by_ai"] is True
 
     @pytest.mark.asyncio
     async def test_update_settings(self, admin_client):
@@ -491,13 +476,13 @@ class TestFeedbackSettings:
         await session.commit()
 
         response = await client.put("/feedback/admin/settings", json={
-            "auto_approve_positive": False,
-            "auto_approve_negative": True,
+            "auto_approve_by_ai": True,
+            "require_reason_negative": True,
         })
         assert response.status_code == 200
         data = response.json()
-        assert data["auto_approve_positive"] is False
-        assert data["auto_approve_negative"] is True
+        assert data["auto_approve_by_ai"] is True
+        assert data["require_reason_negative"] is True
 
     @pytest.mark.asyncio
     async def test_update_settings_partial(self, admin_client):
@@ -512,7 +497,7 @@ class TestFeedbackSettings:
         assert response.status_code == 200
         data = response.json()
         assert data["require_reason_negative"] is True
-        assert data["auto_approve_positive"] is True  # unchanged
+        assert data["auto_approve_by_ai"] is False  # unchanged
 
     @pytest.mark.asyncio
     async def test_get_settings_no_permission(self, no_perms_client):
@@ -524,7 +509,7 @@ class TestFeedbackSettings:
     async def test_update_settings_no_permission(self, no_perms_client):
         client, _, _ = no_perms_client
         response = await client.put("/feedback/admin/settings", json={
-            "auto_approve_positive": False,
+            "auto_approve_by_ai": True,
         })
         assert response.status_code == 403
 
@@ -1666,8 +1651,9 @@ class TestFeedbackServiceSettings:
     async def test_defaults_when_no_settings(self, test_session):
         svc = FeedbackService(test_session)
         settings = await svc.get_feedback_settings()
-        assert settings["auto_approve_positive"] is True
-        assert settings["auto_approve_negative"] is False
+        assert settings["require_reason_positive"] is False
+        assert settings["require_reason_negative"] is False
+        assert settings["auto_approve_by_ai"] is False
 
     @pytest.mark.asyncio
     async def test_reads_from_db(self, test_session):
@@ -1677,16 +1663,16 @@ class TestFeedbackServiceSettings:
         setting = Setting(
             user_id=user.id, deny_words="", langfuse_enabled=False,
             change_type="create",
-            feedback_auto_approve_positive=False,
-            feedback_auto_approve_negative=True,
+            feedback_require_reason_negative=True,
+            feedback_auto_approve_by_ai=True,
         )
         test_session.add(setting)
         await test_session.commit()
 
         svc = FeedbackService(test_session)
         settings = await svc.get_feedback_settings()
-        assert settings["auto_approve_positive"] is False
-        assert settings["auto_approve_negative"] is True
+        assert settings["require_reason_negative"] is True
+        assert settings["auto_approve_by_ai"] is True
 
 
 class TestFeedbackServiceCreate:
@@ -1695,15 +1681,6 @@ class TestFeedbackServiceCreate:
     @pytest.mark.asyncio
     async def test_create_positive(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
-        # Disable auto-approve so we don't need to mock golden example creation
-        setting = Setting(
-            user_id=user.id, deny_words="", langfuse_enabled=False,
-            change_type="create",
-            feedback_auto_approve_positive=False,
-        )
-        test_session.add(setting)
-        await test_session.commit()
-
         svc = FeedbackService(test_session)
         fb, ge, _ = await svc.create_feedback(msg.id, user.id, "positive")
         assert fb.feedback_type == "positive"
@@ -1717,7 +1694,7 @@ class TestFeedbackServiceCreate:
 
         fb, ge, _ = await svc.create_feedback(msg.id, user.id, "negative")
         assert fb.feedback_type == "negative"
-        assert fb.status == "pending"  # default auto_approve_negative=False
+        assert fb.status == "pending"
         assert ge is None
 
     @pytest.mark.asyncio
@@ -1882,14 +1859,6 @@ class TestFeedbackServiceStats:
     @pytest.mark.asyncio
     async def test_counts_correct(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
-        # Disable auto-approve so we don't need golden example creation
-        setting = Setting(
-            user_id=user.id, deny_words="", langfuse_enabled=False,
-            change_type="create",
-            feedback_auto_approve_positive=False,
-        )
-        test_session.add(setting)
-
         msg2 = Message(chat_id=chat.id, human="Q2", bot="A2")
         test_session.add(msg2)
         await test_session.commit()
@@ -1918,14 +1887,6 @@ class TestFeedbackServiceListFeedback:
     @pytest.mark.asyncio
     async def test_list_returns_items(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
-        setting = Setting(
-            user_id=user.id, deny_words="", langfuse_enabled=False,
-            change_type="create",
-            feedback_auto_approve_positive=False,
-        )
-        test_session.add(setting)
-        await test_session.commit()
-
         svc = FeedbackService(test_session)
         await svc.create_feedback(msg.id, user.id, "negative", reason="Bad answer")
 
@@ -1958,11 +1919,6 @@ class TestFeedbackServiceListFeedback:
     @pytest.mark.asyncio
     async def test_list_with_type_filter(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
-        setting = Setting(
-            user_id=user.id, deny_words="", langfuse_enabled=False,
-            change_type="create", feedback_auto_approve_positive=False,
-        )
-        test_session.add(setting)
         msg2 = Message(chat_id=chat.id, human="Q2", bot="A2")
         test_session.add(msg2)
         await test_session.commit()
@@ -1988,11 +1944,6 @@ class TestFeedbackServiceListFeedback:
     @pytest.mark.asyncio
     async def test_list_pagination(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
-        setting = Setting(
-            user_id=user.id, deny_words="", langfuse_enabled=False,
-            change_type="create", feedback_auto_approve_positive=False,
-        )
-        test_session.add(setting)
         msgs = []
         for i in range(3):
             m = Message(chat_id=chat.id, human=f"Q{i}", bot=f"A{i}")
@@ -2068,14 +2019,6 @@ class TestFeedbackServiceResolve:
     @pytest.mark.asyncio
     async def test_resolve_positive(self, test_session):
         user, chat, msg = await _setup_feedback_context(test_session)
-        # Disable auto-approve so create_feedback doesn't try to embed
-        setting = Setting(
-            user_id=user.id, deny_words="", langfuse_enabled=False,
-            change_type="create", feedback_auto_approve_positive=False,
-        )
-        test_session.add(setting)
-        await test_session.commit()
-
         svc = FeedbackService(test_session)
         fb, _, _ = await svc.create_feedback(msg.id, user.id, "positive")
 
@@ -2141,15 +2084,6 @@ class TestFeedbackServiceResolve:
     async def test_resolve_message_not_found(self, test_session):
         """Resolve raises when associated message is not found (line 338)."""
         user, chat, msg = await _setup_feedback_context(test_session)
-        # Disable auto-approve to avoid golden example creation (circular import)
-        setting = Setting(
-            user_id=user.id, deny_words="", langfuse_enabled=False,
-            change_type="create",
-            feedback_auto_approve_positive=False,
-        )
-        test_session.add(setting)
-        await test_session.commit()
-
         svc = FeedbackService(test_session)
         fb, _, _ = await svc.create_feedback(msg.id, user.id, "positive")
 
@@ -2403,7 +2337,7 @@ class TestFeedbackRouterErrorPaths:
             return_value=None,
         ):
             response = await client.put("/feedback/admin/settings", json={
-                "auto_approve_positive": True,
+                "auto_approve_by_ai": True,
             })
         # Should get 404 or 500 depending on error propagation
         assert response.status_code in (404, 500)

@@ -42,12 +42,6 @@ class FeedbackService:
         
         if setting:
             return {
-                "auto_approve_positive": setting.feedback_auto_approve_positive
-                if setting.feedback_auto_approve_positive is not None
-                else True,
-                "auto_approve_negative": setting.feedback_auto_approve_negative
-                if setting.feedback_auto_approve_negative is not None
-                else False,
                 "require_reason_positive": setting.feedback_require_reason_positive
                 if setting.feedback_require_reason_positive is not None
                 else False,
@@ -60,8 +54,6 @@ class FeedbackService:
             }
 
         return {
-            "auto_approve_positive": True,
-            "auto_approve_negative": False,
             "require_reason_positive": False,
             "require_reason_negative": False,
             "auto_approve_by_ai": False,
@@ -124,11 +116,6 @@ class FeedbackService:
 
         settings = await self.get_feedback_settings()
 
-        auto_approve = (
-            feedback_type == "positive" and settings["auto_approve_positive"]
-        ) or (feedback_type == "negative" and settings["auto_approve_negative"])
-        golden_example: Optional[GoldenExample] = None
-
         feedback = MessageFeedback(
             message_id=message_id,
             user_id=user_id,
@@ -137,42 +124,22 @@ class FeedbackService:
             status="pending",
         )
 
+        self.session.add(feedback)
+        await self.session.commit()
+        await self.session.refresh(feedback)
+
         if settings.get("auto_approve_by_ai"):
-            self.session.add(feedback)
-            await self.session.commit()
-            await self.session.refresh(feedback)
             logger.info(
                 f"Created {feedback_type} feedback {feedback.id} for message {message_id} "
                 "(AI validation deferred)"
             )
             return feedback, None, True
 
-        if auto_approve:
-            feedback.status = "auto_approved"
-
-        self.session.add(feedback)
-        await self.session.flush()
-
-        if auto_approve:
-            golden_example = await self._create_golden_example_from_feedback(
-                feedback=feedback,
-                message=message,
-                golden_response=message.bot,
-                created_by=None,
-                approval_type="auto"
-            )
-
-        await self.session.commit()
-        await self.session.refresh(feedback)
-        if golden_example:
-            await self.session.refresh(golden_example)
-
         logger.info(
-            f"Created {feedback_type} feedback {feedback.id} for message {message_id} "
-            f"(auto_approved={auto_approve})"
+            f"Created {feedback_type} feedback {feedback.id} for message {message_id} (pending)"
         )
 
-        return feedback, golden_example, False
+        return feedback, None, False
 
     async def _complete_ai_processing(self, feedback_id: UUID) -> None:
         """Validate feedback with AI and create a golden example when applicable (runs after HTTP response)."""
@@ -192,12 +159,6 @@ class FeedbackService:
         if not settings.get("auto_approve_by_ai"):
             return
 
-        auto_approve = (
-            feedback.feedback_type == "positive" and settings["auto_approve_positive"]
-        ) or (
-            feedback.feedback_type == "negative" and settings["auto_approve_negative"]
-        )
-
         from src.api.routers.chat import get_provider_config_for_chat
 
         llm_config = await get_provider_config_for_chat(self.session)
@@ -212,8 +173,6 @@ class FeedbackService:
         feedback.ai_validated = validation_result["is_valid"]
         feedback.ai_reason = validation_result["reason"]
         query_type = validation_result.get("query_type", "static")
-
-        golden_example: Optional[GoldenExample] = None
 
         if validation_result["is_valid"] == "valid":
             try:
@@ -238,7 +197,7 @@ class FeedbackService:
                 logger.warning("AI generation failed, using original: %s", e)
                 generated_response = message.bot
 
-            golden_example = await self._create_golden_example_from_feedback(
+            await self._create_golden_example_from_feedback(
                 feedback=feedback,
                 message=message,
                 golden_response=generated_response,
@@ -247,28 +206,10 @@ class FeedbackService:
                 query_type=query_type,
             )
             feedback.status = "ai_approved"
-            auto_approve = True
         elif validation_result["is_valid"] == "invalid":
             feedback.status = "ai_rejected"
 
-        if auto_approve and feedback.status not in ("ai_approved", "ai_rejected"):
-            feedback.status = "auto_approved"
-
         await self.session.flush()
-
-        if (
-            not golden_example
-            and auto_approve
-            and feedback.status != "ai_rejected"
-        ):
-            await self._create_golden_example_from_feedback(
-                feedback=feedback,
-                message=message,
-                golden_response=message.bot,
-                created_by=None,
-                approval_type="auto",
-                query_type=query_type,
-            )
 
         logger.info(
             "Completed deferred AI processing for feedback %s status=%s",

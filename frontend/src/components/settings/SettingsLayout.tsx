@@ -17,7 +17,7 @@ const SettingsLayout = () => {
         <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8 flex items-center gap-3">
           <div
             className="bg-transparent hover:bg-surface-tertiary text-text-primary px-1 md:px-2 py-2 rounded-md cursor-pointer"
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/chat")}
           >
             ← <span className="hidden md:inline">Back</span>
           </div>
@@ -67,7 +67,7 @@ const SettingsLayout = () => {
             <div className="flex flex-row items-center gap-3">
               <div
                 className="bg-transparent hover:bg-surface-tertiary text-text-primary px-1 md:px-2 py-2 rounded-md cursor-pointer"
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/chat")}
               >
                 ← <span className="hidden md:inline">Back</span>
               </div>

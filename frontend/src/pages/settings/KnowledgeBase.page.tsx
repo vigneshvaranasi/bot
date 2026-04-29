@@ -10,15 +10,10 @@ import { useFileContext } from "../../hooks/useFileContext";
 import { PERMISSIONS } from "../../types/Permission";
 import type { ValidationReport } from "../../types/KnowledgeBase";
 import {
-  fetchIntegrations,
-} from "../../handlers/integrationHandlers";
-import {
-  fetchIncidentLogs,
   uploadIncidentFiles,
   validateUploadSession,
   applyFieldMapping,
   startIngestion,
-  type IncidentLog,
   type UploadResult,
 } from "../../handlers/knowledgeBaseHandlers";
 import type { Integration } from "../../types/Integrations";
@@ -43,8 +38,6 @@ const KnowledgeBasePage = () => {
   // @ts-ignore -- intentionally kept for upcoming sync history table re-enable
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [integrations, setIntegrations] = useState<Integration[]>([]);
-  const [logs, setLogs] = useState<IncidentLog[]>([]);
-  const [syncLoading, setSyncLoading] = useState(true);
 
   // Upload tab state
   const [step, setStep] = useState<UploadStep>("upload");
@@ -85,22 +78,6 @@ const KnowledgeBasePage = () => {
     }
   }, [contextFiles]);
 
-  // ── Sync tab loader ───────────────────────────────────────────
-
-  const loadSyncData = async () => {
-    setSyncLoading(true);
-    const result = await fetchIntegrations();
-    if (result) {
-      setIntegrations(result.filter((i) => i.service_name === "snow" && i.last_synced_at));
-    }
-    const logsResult = await fetchIncidentLogs(50);
-    if (logsResult) setLogs(logsResult);
-    setSyncLoading(false);
-  };
-
-  useEffect(() => {
-    if (!permLoading && hasPermission(PERMISSIONS.KB_VIEW)) loadSyncData();
-  }, [permLoading]);
 
   // ── Upload handlers ───────────────────────────────────────────
 
@@ -379,82 +356,6 @@ const KnowledgeBasePage = () => {
           <div className="overflow-x-auto">
             <VersionListPanel refreshTrigger={versionRefresh} />
           </div>
-        </section>
-      )}
-
-      {/* ── Sync History Card ─────────────────────────────────── */}
-      {canView && (
-        <section className="border border-border-default rounded-lg p-4 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-semibold text-text-primary">Sync History</h3>
-              <p className="text-xs text-text-secondary">
-                Incidents synced from external integrations.
-              </p>
-            </div>
-            <Button onClick={loadSyncData} variant="secondary" size="sm" disabled={syncLoading}>
-              {syncLoading ? "Loading..." : "Refresh"}
-            </Button>
-          </div>
-
-          {syncLoading ? (
-            <SkeletonAudit />
-          ) : (
-            <>
-              {/* Incident Logs */}
-              {logs.length > 0 && (
-                <div className="bg-surface-primary rounded-lg border border-border-default overflow-hidden">
-                  <div className="p-3 border-b border-border-default">
-                    <h4 className="text-xs font-medium text-text-primary">Recent Incidents</h4>
-                    <p className="text-xs text-text-secondary">
-                      Log of incidents added to the knowledge base
-                    </p>
-                  </div>
-                  <div className="max-h-[300px] overflow-y-auto">
-                    <div className="divide-y divide-border-default">
-                      {logs.slice(0, 50).map((log) => (
-                        <div key={log.id} className="p-3 hover:bg-surface-secondary transition-colors">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs font-mono text-text-secondary bg-surface-tertiary px-2 py-0.5 rounded">
-                                  {log.incident_id}
-                                </span>
-                                <span className="text-xs text-text-secondary bg-info-subtle px-2 py-0.5 rounded capitalize">
-                                  {log.source}
-                                </span>
-                              </div>
-                              <p className="text-sm text-text-primary mt-1 truncate" title={log.title}>
-                                {log.title}
-                              </p>
-                            </div>
-                            <div className="text-xs text-text-secondary whitespace-nowrap">
-                              {new Date(log.created_at).toLocaleString()}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Sync History Table */}
-              {/* {integrations.length === 0 ? (
-                <div className="p-6 text-center text-text-secondary text-sm border border-dashed border-border-strong rounded-lg bg-surface-secondary">
-                  No sync history available. Configure an integration in{" "}
-                  <a href="/settings/integrations" className="text-accent-blue hover:underline">
-                    Integrations
-                  </a>{" "}
-                  and click "Sync Now" to populate the knowledge base.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <ConfigurableTable data={integrations} columns={syncColumns} />
-                </div>
-              )} */}
-            </>
-          )}
         </section>
       )}
     </div>
