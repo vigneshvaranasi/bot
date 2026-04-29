@@ -38,7 +38,7 @@ const OAuthCallback = () => {
           .then(async (response) => {
             if (response.data.access_token) {
               await login(response.data.access_token);
-              navigate("/");
+              navigate("/chat");
             }
           })
           .catch((error) => {

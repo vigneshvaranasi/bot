@@ -223,7 +223,7 @@ function Sidebar() {
       triggerRefreshChats();
       // If the chat is currently open, close it after archiving
       if (currentChat?.chatId === chatId) {
-        navigate("/");
+        navigate("/chat");
       }
     } catch (error) {
       console.error("Failed to archive chat:", error);
@@ -297,7 +297,7 @@ function Sidebar() {
           </div>
           <Link
             onClick={() => handleLinkClick()}
-            to={"/"}
+            to={"/chat"}
             data-tour="new-chat"
             className="mx-3 mt-2 flex items-center p-1.5 py-2 gap-2 rounded-md border border-border-default hover:bg-surface-tertiary transition-colors"
           >
@@ -324,7 +324,7 @@ function Sidebar() {
                           ? "bg-surface-primary shadow-sm border border-transparent"
                           : "hover:bg-surface-tertiary border border-transparent"
                       }`}
-                      to={`/${chat.chatId}`}
+                      to={`/chat/${chat.chatId}`}
                       onClick={() => {
                         handleLinkClick();
                       }}
@@ -490,7 +490,7 @@ function Sidebar() {
               <img src={sidebarImg} alt="Close Sidebar" className="w-6 icon-adaptive" />
             </button>
             <Link
-              to={"/"}
+              to={"/chat"}
               className="p-2 rounded-md hover:bg-surface-tertiary transition-colors"
               title="New Chat"
             >

@@ -12,9 +12,11 @@ const Navbar = () => {
         onClick={() => toggleSidebar()}
       />
       <div className='absolute left-1/2 -translate-x-1/2 md:static md:translate-x-0'>
+      <Link to={'/'}>
         <div className='flex items-center gap-2'>
           <span className='text-lg '>Support Bot</span>
         </div>
+      </Link>
       </div>
       <button
         type='button'

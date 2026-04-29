@@ -19,74 +19,77 @@ import FeedbackDashboardPage from "../pages/settings/FeedbackDashboard.page";
 import KnowledgeBasePage from "../pages/settings/KnowledgeBase.page";
 import AdminRoute from "./AdminRoute";
 
-const normalRoutes: RouteObject = {
-  path: "/",
-  element: <Layout />,
-  children: [
-    {
-      path: "/auth",
-      element: <AuthPage />,
-    },
-    {
-      path: "/auth/callback/:provider",
-      element: <OAuthCallback />,
-    },
-    {
-      path: "/home",
-      element: <HomePage />,
-    },
-    {
-      path: "/settings",
-      element: <ProtectedRoute />,
-      children: [
-        {
-          element: <SettingsLayout />,
-          children: [
-            {
-              index: true,
-              element: <Navigate to="/settings/my-account" replace />,
-            },
-            { path: "my-account", element: <MyAccountPage /> },
-            {
-              path: "security",
-              element: <Navigate to="/settings/my-account" replace />,
-            },
-            {
-              element: <AdminRoute />,
-              children: [
-                { path: "ai-ml", element: <AiMlConfigPage /> },
-                { path: "integrations", element: <IntegrationsPage /> },
-                { path: "user-management", element: <UserManagementPage /> },
-                { path: "roles", element: <RoleManagementPage /> },
-                { path: "permission-sets", element: <PermissionSetsPage /> },
-                { path: "feedback", element: <FeedbackDashboardPage /> },
-                {
-                  path: "config-history",
-                  element: <ConfigurationHistoryPage />,
-                },
-                { path: "knowledge-base", element: <KnowledgeBasePage /> },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-    {
-      path: "/",
-      element: <ProtectedRoute />,
-      children: [
-        {
-          element: <ChatPage />,
-          children: [
-            { index: true, element: <ChatView /> },
-            { path: ":chatId", element: <ChatView /> },
-          ],
-        },
-      ],
-    },
-  ],
-};
-
-const router: RouteObject[] = [normalRoutes];
+const router: RouteObject[] = [
+  {
+    path: "/",
+    element: <HomePage />,
+  },
+  {
+    element: <Layout />,
+    children: [
+      {
+        path: "/auth",
+        element: <AuthPage />,
+      },
+      {
+        path: "/auth/callback/:provider",
+        element: <OAuthCallback />,
+      },
+      {
+        path: "/home",
+        element: <Navigate to="/" replace />,
+      },
+      {
+        path: "/settings",
+        element: <ProtectedRoute />,
+        children: [
+          {
+            element: <SettingsLayout />,
+            children: [
+              {
+                index: true,
+                element: <Navigate to="/settings/my-account" replace />,
+              },
+              { path: "my-account", element: <MyAccountPage /> },
+              {
+                path: "security",
+                element: <Navigate to="/settings/my-account" replace />,
+              },
+              {
+                element: <AdminRoute />,
+                children: [
+                  { path: "ai-ml", element: <AiMlConfigPage /> },
+                  { path: "integrations", element: <IntegrationsPage /> },
+                  { path: "user-management", element: <UserManagementPage /> },
+                  { path: "roles", element: <RoleManagementPage /> },
+                  { path: "permission-sets", element: <PermissionSetsPage /> },
+                  { path: "feedback", element: <FeedbackDashboardPage /> },
+                  {
+                    path: "config-history",
+                    element: <ConfigurationHistoryPage />,
+                  },
+                  { path: "knowledge-base", element: <KnowledgeBasePage /> },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        path: "/chat",
+        element: <ProtectedRoute />,
+        children: [
+          {
+            element: <ChatPage />,
+            children: [
+              { index: true, element: <ChatView /> },
+              { path: ":chatId", element: <ChatView /> },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+];
 
 export default router;

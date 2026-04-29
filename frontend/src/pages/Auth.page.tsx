@@ -46,7 +46,7 @@ const AuthPage = () => {
 
   useEffect(() => {
     if (user) {
-      navigate("/");
+      navigate("/chat");
     }
   }, [user, navigate]);
 

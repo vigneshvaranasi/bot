@@ -202,7 +202,7 @@ function ChatPage() {
         if (res?.chat_id) {
           saveChatMetrics(res.chat_id, metrics);
           triggerRefreshChats();
-          navigate(`/${res.chat_id}`);
+          navigate(`/chat/${res.chat_id}`);
         } else {
           triggerRefreshChats();
         }
@@ -247,7 +247,7 @@ function ChatPage() {
         });
 
         if (currChatId === "" && streamedChatId) {
-          navigate(`/${streamedChatId}`, { replace: true });
+          navigate(`/chat/${streamedChatId}`, { replace: true });
           triggerRefreshChats();
         }
 
