@@ -41,9 +41,9 @@ def upgrade() -> None:
                existing_type=sa.TEXT(),
                comment="AI's reason for validation decision",
                existing_nullable=True)
-    op.drop_column('settings', 'feedback_auto_approve_negative')
-    op.drop_column('settings', 'guardrail_usecase_description')
-    op.drop_column('settings', 'feedback_auto_approve_positive')
+    op.execute("ALTER TABLE settings DROP COLUMN IF EXISTS feedback_auto_approve_negative")
+    op.execute("ALTER TABLE settings DROP COLUMN IF EXISTS guardrail_usecase_description")
+    op.execute("ALTER TABLE settings DROP COLUMN IF EXISTS feedback_auto_approve_positive")
     # ### end Alembic commands ###
 
 
